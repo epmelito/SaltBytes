@@ -5,7 +5,6 @@ from forecast_ops.api import fetch_forecast
 from forecast_ops.config import load_config
 from forecast_ops.storage import create_run_id, write_raw_snapshot
 
-
 # load dev settings and capture one live forecast snapshot
 config = load_config("dev")
 location = config["locations"][0]

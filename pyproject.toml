@@ -9,6 +9,7 @@ description = "A configuration driven weather forecast snapshot pipeline"
 readme = "readme.md"
 requires-python = ">=3.11"
 dependencies = [
+    "duckdb>=1.5,<1.6",
     "httpx>=0.28,<0.29",
     "PyYAML>=6.0,<7",
 ]
