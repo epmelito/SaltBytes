@@ -20,4 +20,10 @@ def load_config(environment: str, config_dir: Path | str = "config") -> dict[str
     if not isinstance(config, dict):
         raise ValueError(f"configuration must contain a yaml mapping: {config_path}")
 
+    # prevent loading a mislabeled environment file
+    if config.get("environment") != environment:
+        raise ValueError(
+            f"configuration environment must match requested environment: {environment}"
+        )
+
     return config

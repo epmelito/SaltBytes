@@ -37,3 +37,13 @@ def test_load_config_requires_yaml_mapping(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="configuration must contain a yaml mapping"):
         load_config("dev", config_dir=tmp_path)
+
+def test_load_config_requires_matching_environment(tmp_path: Path) -> None:
+    config_file = tmp_path / "prod.yml"
+    config_file.write_text("environment: dev\n", encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="configuration environment must match requested environment",
+    ):
+        load_config("prod", config_dir=tmp_path)
