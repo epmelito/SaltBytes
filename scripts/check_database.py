@@ -14,7 +14,6 @@ from forecast_ops.database import (
 )
 from forecast_ops.storage import create_run_id, write_raw_snapshot
 
-
 # run one live dev load through raw storage and duckdb persistence
 config = load_config("dev")
 database_path = Path(config["storage"]["database_path"])
