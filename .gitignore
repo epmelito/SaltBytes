@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Local data and databases
+data/
+*.duckdb
+*.duckdb.wal
+
+# Logs
+logs/
+*.log
+
+# VS Code local settings
+.vscode/
+
+# Operating system files
+.DS_Store
+Thumbs.db
