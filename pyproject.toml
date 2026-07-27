@@ -12,5 +12,11 @@ authors = [
     { name = "EJ Melito" }
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1,<10",
+    "ruff>=0.16,<0.17",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
