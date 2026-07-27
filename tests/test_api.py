@@ -132,3 +132,58 @@ def test_fetch_forecast_rejects_non_object_json(
         match="forecast api response must contain a json object",
     ):
         fetch_forecast(location, api_config)
+
+def test_fetch_forecast_propagates_http_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = httpx.Request(
+        "GET",
+        "https://api.open-meteo.com/v1/forecast",
+    )
+    response = httpx.Response(
+        status_code=500,
+        request=request,
+    )
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            raise httpx.HTTPStatusError(
+                "server error",
+                request=request,
+                response=response,
+            )
+
+        def json(self) -> dict[str, Any]:
+            return {}
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+
+    location = {
+        "latitude": 50.0755,
+        "longitude": 14.4378,
+    }
+    api_config = {
+        "base_url": "https://api.open-meteo.com/v1/forecast",
+        "forecast_days": 2,
+        "hourly_fields": ["temperature_2m"],
+    }
+
+    with pytest.raises(httpx.HTTPStatusError):
+        fetch_forecast(location, api_config)
