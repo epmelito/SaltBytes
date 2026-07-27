@@ -12,6 +12,8 @@ dependencies = [
     "duckdb>=1.5,<1.6",
     "httpx>=0.28,<0.29",
     "PyYAML>=6.0,<7",
+    "pytz>=2024.1,<2027",
+    "tzdata>=2025.2,<2027",
 ]
 authors = [
     { name = "EJ Melito" }
