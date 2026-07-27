@@ -5,10 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "forecast-ops"
 version = "0.1.0"
-description = "A configuration driven weather forecast snapshot pipeline."
+description = "A configuration driven weather forecast snapshot pipeline"
 readme = "readme.md"
 requires-python = ">=3.11"
 dependencies = [
+    "httpx>=0.28,<0.29",
     "PyYAML>=6.0,<7",
 ]
 authors = [
