@@ -1,0 +1,27 @@
+environment: prod
+
+locations:
+  - id: prague
+    name: Prague
+    latitude: 50.0755
+    longitude: 14.4378
+
+  - id: ocracoke
+    name: Ocracoke, NC
+    latitude: 35.1262
+    longitude: -75.9196
+
+api:
+  base_url: https://api.open-meteo.com/v1/forecast
+  forecast_days: 7
+  hourly_fields:
+    - temperature_2m
+    - precipitation_probability
+    - wind_speed_10m
+
+storage:
+  raw_data_path: data/prod/raw
+  database_path: data/prod/forecast_ops.duckdb
+
+logging:
+  level: INFO
