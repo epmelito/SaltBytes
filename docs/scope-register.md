@@ -76,14 +76,16 @@ governance records with the completed work package.
 The documentation reconciliation work package and roadmap stage 2 are
 complete.
 
-## Active coastal requirements work package
+## Completed coastal requirements work package
 
-Issue #20 authorizes the roadmap stage 3 coastal location and fishing-condition
-requirements work package.
+Issue #20 authorized the roadmap stage 3 coastal location and fishing-condition
+requirements work package. Pull request #21 merged its requirements, accepted
+decision records, and governance updates into `main`. Issue #20 closed after
+its acceptance criteria were satisfied.
 
-Roadmap stage 3 is in progress. This work package is limited to research,
-requirements, accepted decision records, and related governance updates.
-Product implementation has not started.
+The coastal requirements work package and roadmap stage 3 are complete.
+Product implementation has not started. Roadmap stage 4 is next in sequence but
+remains unauthorized and unstarted.
 
 The requirements focus on stable location identity, spatial source
 relationships, environmental metrics, forecast history, data quality, and
