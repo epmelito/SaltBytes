@@ -53,12 +53,12 @@ lifecycle records with the completed state.
 
 The initial governance work package and roadmap stage 1 are complete.
 
-## Current documentation reconciliation work package
+## Completed documentation reconciliation work package
 
-Issue #15 authorizes roadmap stage 2 on branch
-`docs/reconcile-project-documentation`.
+Issue #15 authorized the roadmap stage 2 documentation reconciliation work
+package.
 
-The work package may modify only:
+The work package modified only:
 
 - `readme.md`
 - `docs/architecture.md`
@@ -68,13 +68,14 @@ The work package may modify only:
 - `docs/roadmap.md`
 - `docs/handoffs/current.md`
 
-It may reconcile verified documentation drift but must not change application
+It reconciled verified documentation drift without changing application
 behavior, repository skills, product direction, deferred decisions, or roadmap
-stages 3 through 9.
+stages 3 through 9. A follow-up lifecycle-state correction aligned the
+governance records with the completed work package.
 
-Roadmap stage 2 is in progress. It is complete only after documentation
-validation passes, the pull request is merged into `main`, and issue #15
-acceptance criteria are met.
+The documentation reconciliation work package and roadmap stage 2 are
+complete. Roadmap stage 3 is next in sequence but remains unauthorized and
+unstarted.
 
 ## Approved future scope
 
@@ -135,8 +136,9 @@ One verified documentation inconsistency remains unresolved:
   fails those checks. Issue #15 does not authorize changes under `skills/`, so
   this correction requires a separate authorized work package.
 
-The other drift recorded for issue #15 is reconciled by the current
-documentation work package.
+The other drift recorded for issue #15 was resolved by the completed
+documentation reconciliation work package and is no longer treated as
+unresolved.
 
 ## Scope changes
 
