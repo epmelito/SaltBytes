@@ -129,16 +129,7 @@ Accepted choices should be recorded through the
 
 ## Known documentation drift
 
-One verified documentation inconsistency remains unresolved:
-
-- The failure-review example recommends inspecting a raw response for a failed
-  quality check, although the current pipeline does not store a payload that
-  fails those checks. Issue #15 does not authorize changes under `skills/`, so
-  this correction requires a separate authorized work package.
-
-The other drift recorded for issue #15 was resolved by the completed
-documentation reconciliation work package and is no longer treated as
-unresolved.
+No verified documentation drift remains unresolved.
 
 ## Scope changes
 
