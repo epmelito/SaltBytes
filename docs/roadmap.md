@@ -24,7 +24,9 @@ Roadmap stage 2 is complete. The documentation reconciliation work package
 aligned the authorized technical documentation with verified repository
 behavior while retaining the out-of-scope failure-review skill drift.
 
-Roadmap stage 3 is next in sequence but remains unauthorized and unstarted.
+Roadmap stage 3 is authorized and in progress under issue #20. The coastal
+location and fishing-condition requirements and three supporting decisions
+have been defined and accepted. Product implementation has not started.
 
 ## Delivery stages
 
@@ -67,6 +69,25 @@ environmental requirements needed for comparable fishing windows.
 
 This stage must resolve only the deferred decisions needed for subsequent data
 work.
+
+Status: Authorized and in progress under issue #20.
+
+The approved requirements are documented in:
+
+- [Coastal location requirements](requirements/coastal-locations.md)
+- [Fishing-condition requirements](requirements/fishing-conditions.md)
+
+The supporting accepted decisions are indexed in the
+[decision records](decisions/README.md).
+
+This stage defines requirements and durable product boundaries only.
+Implementation remains outside stage 3.
+
+Before coastal ingestion work begins, stage 4 must evaluate source fitness and
+resolve each location's display or destination and weather request coordinates,
+marine sampling coordinates, tide or water-level reference,
+observation-station relationship, and warning and forecast-zone mappings. That
+evaluation must document source resolution and spatial representativeness.
 
 Completion evidence requires:
 

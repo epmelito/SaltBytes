@@ -116,3 +116,6 @@ Do not invent evidence, alternatives, or retrospective rationale.
 
 | ID | Decision | Status | Supersedes or replacement |
 | --- | --- | --- | --- |
+| 0001 | [First-release user and fishing-context boundary](0001-first-release-user-and-fishing-context.md) | Accepted | None |
+| 0002 | [Composite geographic model and initial locations](0002-composite-geographic-model-and-initial-locations.md) | Accepted | None |
+| 0003 | [First-release environmental requirement baseline](0003-first-release-environmental-requirement-baseline.md) | Accepted | None |

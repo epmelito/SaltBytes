@@ -74,8 +74,31 @@ stages 3 through 9. A follow-up lifecycle-state correction aligned the
 governance records with the completed work package.
 
 The documentation reconciliation work package and roadmap stage 2 are
-complete. Roadmap stage 3 is next in sequence but remains unauthorized and
-unstarted.
+complete.
+
+## Active coastal requirements work package
+
+Issue #20 authorizes the roadmap stage 3 coastal location and fishing-condition
+requirements work package.
+
+Roadmap stage 3 is in progress. This work package is limited to research,
+requirements, accepted decision records, and related governance updates.
+Product implementation has not started.
+
+The requirements focus on stable location identity, spatial source
+relationships, environmental metrics, forecast history, data quality, and
+support for later deterministic and explainable scoring.
+
+The approved requirements are documented in:
+
+- [Coastal location requirements](requirements/coastal-locations.md)
+- [Fishing-condition requirements](requirements/fishing-conditions.md)
+
+The accepted decisions are:
+
+- [First-release user and fishing-context boundary](decisions/0001-first-release-user-and-fishing-context.md)
+- [Composite geographic model and initial locations](decisions/0002-composite-geographic-model-and-initial-locations.md)
+- [First-release environmental requirement baseline](decisions/0003-first-release-environmental-requirement-baseline.md)
 
 ## Approved future scope
 
@@ -89,6 +112,30 @@ Approved future scope is grouped into:
 The full durable product direction is defined in the
 [project charter](project-charter.md). These categories approve capability
 areas, not their deferred product or architecture details.
+
+Roadmap stage 3 has approved the following first-release requirements:
+
+- general recreational coastal anglers
+- surf and publicly accessible fixed fishing pier contexts
+- comparison of windows only within the same fishing context
+- general environmental conditions rather than species-specific
+  recommendations
+- a composite coastal location model
+- Jennette’s Pier
+- Beach Access Ramp 72, Ocracoke Island, as an ocean-side surf context
+- Fort Macon State Park, ocean side
+- Bogue Inlet Pier as a pier context only
+- Fort Fisher State Recreation Area
+- the required, optional, safety-only, deferred, and excluded environmental
+  classifications in the
+  [fishing-condition requirements](requirements/fishing-conditions.md)
+- separation of safety-only information from fishing-quality interpretation
+- continued evaluation of Open-Meteo as the baseline source without accepting
+  it as the authoritative marine, tide, current, or safety provider
+
+The accepted decisions and their rationale are recorded in the
+[decision index](decisions/README.md). Implementation of these requirements has
+not started.
 
 Delivery order is controlled by the [roadmap](roadmap.md).
 
@@ -107,17 +154,22 @@ The following decisions are intentionally open:
 
 | Topic | Status |
 | --- | --- |
-| Exact coastal locations | Deferred |
-| Marine and tide providers | Deferred |
-| Final source authority rules | Deferred |
-| Score variables and weights | Deferred |
-| Species-specific or general scoring | Deferred |
-| Inshore, surf, pier, offshore, or inlet segmentation | Deferred |
+| Provider selection and source-authority rules | Deferred |
+| Display or destination and weather-request coordinates | Deferred |
+| Marine sampling coordinates | Deferred |
+| Tide and water-level reference relationships | Deferred |
+| Observation-station relationships | Deferred |
+| Warning and forecast-zone mappings | Deferred |
+| Score variables, formulas, thresholds, and weights | Deferred |
+| Shore-accessed inlet use cases | Deferred |
+| Vessel-based nearshore use cases | Deferred |
+| Offshore use cases | Deferred |
+| Species-specific use cases and recommendations | Deferred |
 | Forecast and observation retention periods | Deferred |
 | Publication format | Deferred |
 | Dashboard or API design | Deferred |
 | Scheduling frequency | Deferred |
-| Azure service selection | Deferred |
+| Azure service and deployment architecture | Deferred |
 | Infrastructure as code approach | Deferred |
 | Service levels | Deferred |
 | Cost limits | Deferred |
