@@ -5,7 +5,6 @@ import duckdb
 from forecast_ops.config import load_config
 from forecast_ops.database import initialize_database
 
-
 # inspect the latest forecast changes in the dev database
 config = load_config("dev")
 database_path = Path(config["storage"]["database_path"])
