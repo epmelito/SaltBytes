@@ -2,115 +2,110 @@
 
 ## Handoff metadata
 
-- Current branch: `docs/finalize-coastal-source-relationships`
+- Current branch: `feature/coastal-atmospheric-ingestion`
 - Resulting branch: `main`
-- Issue: #26
-- Work package: stage 4 coastal source-relationship finalization
+- Issue: #30
+- Work package: stage 4 coastal atmospheric ingestion
 - Roadmap state: stage 4 authorized and in progress
 
-This handoff records the edited documentation state for issue #26. It does not
-mark roadmap stage 4, issue #26, or a future pull request complete.
-Issue #26 remains open.
+Issue #30 and its future pull request are not complete. Marine,
+sea-surface-temperature, and tide ingestion remain unstarted.
 
 ## Objective
 
-Finalize the minimum first-release location-to-source, NOAA tide, phase, and
-source-result validity decisions required before coastal ingestion
-implementation.
+Implement the first coastal ingestion slice for the five approved locations
+using the accepted Open-Meteo atmospheric model, spatial relationships, field
+contract, validity rules, provenance, normalized storage, and revision history.
 
-## Documentation completed
+## Implementation completed
 
-- updated the source evaluation with the accepted field contracts, repeated
-  seven-day empirical results, UTC-normalized valid-time rule, NOAA request
-  settings, tide phase, provenance, and independent source-result validity
-  boundary
-- updated the spatial evidence with the final display, weather, wave, SST,
-  returned-grid, and NOAA tide relationships for all five locations
-- retained the evidence type, source date, displacement, coastal regime, and
-  representativeness limitation for each spatial relationship
-- recorded the tested NOAA request units as `metric`
+- configured the five approved coastal locations with display, request, and
+  expected returned weather coordinates
+- configured `ncep_nbm_conus`, seven forecast days, and the five atmospheric
+  fields
+- constructed requests from the weather-request coordinates
+- implemented model-contract, field, coordinate, timezone, and 168-hour UTC
+  quality checks
+- added idempotent DuckDB upgrades and bounded snapshot provenance
+- normalized passing atmospheric results to UTC
+- expanded atmospheric forecast revision history
+- retained nullable legacy `temperature_2m` storage
+- continued after location quality rejection while preserving successful
+  unrelated results
+- retained immediate abort behavior for API, raw-storage, and database failures
+- updated the affected manual database and revision scripts
+- reconciled current technical documentation and governance state
 
-The evidence is documented in:
+No marine, sea-surface-temperature, tide, scoring, scheduling, publication,
+cloud, or agent implementation is included.
 
-- [Coastal source evaluation](../research/coastal-source-evaluation.md)
-- [Coastal spatial relationships](../research/coastal-spatial-relationships.md)
+## Files changed for issue #30
 
-## Accepted decisions
-
-- [ADR 0007](../decisions/0007-final-location-source-relationships.md)
-  accepts the final first-release display, request, and product-specific
-  expected returned-grid relationships.
-- [ADR 0008](../decisions/0008-noaa-tide-relationships-and-phase.md)
-  accepts the five NOAA prediction relationships, `MLLW`, `gmt`, `metric`,
-  direct-use or transfer classifications, and binary rising or falling phase.
-- [ADR 0009](../decisions/0009-coastal-source-result-validity-rules.md)
-  accepts the minimum independent whole-source-result rejection, normalized UTC
-  valid-time, spatial, field, and provenance rules.
-
-ADRs 0004 through 0006 remain unchanged. No fallback coordinates, fallback
-stations, geographic tolerances, runtime geographic inference, project tide
-interpolation, or correction factors are authorized.
-
-## Files changed
-
-- `docs/research/coastal-source-evaluation.md`
-- `docs/research/coastal-spatial-relationships.md`
-- `docs/decisions/0007-final-location-source-relationships.md`
-- `docs/decisions/0008-noaa-tide-relationships-and-phase.md`
-- `docs/decisions/0009-coastal-source-result-validity-rules.md`
-- `docs/decisions/README.md`
+- `config/dev.yml`
+- `config/prod.yml`
+- `config/test.yml`
+- `scripts/check_database.py`
+- `scripts/check_forecast_revisions.py`
+- `src/forecast_ops/api.py`
+- `src/forecast_ops/config.py`
+- `src/forecast_ops/database.py`
+- `src/forecast_ops/pipeline.py`
+- `src/forecast_ops/quality.py`
+- `tests/test_api.py`
+- `tests/test_config.py`
+- `tests/test_database.py`
+- `tests/test_pipeline.py`
+- `tests/test_pipeline_fixtures.py`
+- `tests/test_quality.py`
+- `readme.md`
+- `docs/architecture.md`
+- `docs/data-model.md`
+- `docs/environments.md`
 - `docs/scope-register.md`
 - `docs/roadmap.md`
 - `docs/handoffs/current.md`
 
-Exactly nine documentation files are intended to change. No requirements,
-existing ADRs, source code, configuration, database models, tests, scripts, CI,
-skills, or technical architecture documents are included.
-
-No coastal ingestion implementation has started.
+`AGENTS.md` is separately modified by a pre-existing governance change. It is
+not part of issue #30.
 
 ## Validation
 
-Validation for this documentation-only change completed successfully:
+Completed checkpoint validation:
 
-- `.\.venv\Scripts\python.exe -m pytest`: 49 passed in 3.86s
-- `.\.venv\Scripts\python.exe -m ruff check .`: All checks passed!
-- `git diff --check`: passed with nonblocking LF-to-CRLF normalization
+- configuration and API tests: 38 passed
+- quality tests: 23 passed
+- database tests: 13 passed
+- pipeline tests: 5 passed
+- all targeted Ruff checks passed
+- all checkpoint diff checks passed with only nonblocking LF-to-CRLF
+  normalization warnings
+
+Completed final validation:
+
+- full test suite: 94 passed in 15.33s
+- repository-wide Ruff: `All checks passed!`
+- `git diff --check`: passed with only nonblocking LF-to-CRLF normalization
   warnings
-- changed-path review: exactly nine authorized documentation files changed
-- focused diff review: PASS
-- exact problems: none
-- review conclusion: the diff was ready for this handoff validation update
+- the complete issue #30 diff was reviewed
+- exactly the 23 issue #30 files listed above are changed, with `AGENTS.md`
+  remaining a separate pre-existing governance change
 
-## Unresolved relationships
+## Remaining stage 4 work
 
+- Open-Meteo wave ingestion
+- Open-Meteo sea-surface-temperature ingestion
+- NOAA tide prediction ingestion and phase calculation
 - observation-station relationships
 - accuracy and bias validation
 - source fallback and precedence rules
-- alternative marine-model adoption
-- warning, forecast, and safety-zone relationships
-- marine run-history reconstruction beyond metadata exposed by the accepted
-  products
+- warning and forecast-zone mappings
+- marine run-history reconstruction
 
-## Deferred work
-
-- supplemental provider selection outside accepted source responsibilities
-- observed-water-level ingestion
-- tidal-current products and inlet-current requirements
-- scoring variables, formulas, thresholds, and weights
-- retention
-- scheduling
-- publication
-- API and dashboard design
-- Azure and deployment architecture
-- shore-accessed inlet use cases
-- vessel-based nearshore use cases
-- offshore use cases
-- species-specific use cases and recommendations
+Deferred scoring, retention, scheduling, publication, API, dashboard, Azure,
+inlet, vessel, offshore, and species-specific work remains unchanged.
 
 ## Next checkpoint
 
-Run the final diff check, then stage the nine authorized documentation files
-and prepare the commit.
-
-Do not begin coastal ingestion implementation.
+Complete the final review checkpoint, then stage the issue #30 files and
+prepare the commit. Keep the separate `AGENTS.md` governance change out of the
+issue #30 staging set.

@@ -20,21 +20,24 @@ without replacing the product charter or roadmap.
 
 The current repository provides:
 
-- a local Python weather forecast pipeline
+- a local Python coastal atmospheric forecast pipeline
 - `dev`, `test`, and `prod` local YAML configurations
-- Open-Meteo hourly forecast ingestion
+- the five approved North Carolina coastal locations
+- seven-day Open-Meteo `ncep_nbm_conus` ingestion
+- separate display, weather-request, and expected returned weather coordinates
+- wind speed, direction, gust, precipitation probability, and precipitation
 - immutable raw JSON snapshots for payloads that pass pipeline quality checks
-- normalized hourly weather forecasts in DuckDB
-- pipeline run, snapshot, and quality metadata
+- 168 normalized hourly UTC forecasts for each passing location result
+- independent location quality rejection without partial result storage
+- pipeline run, request, response, snapshot, and quality metadata
 - forecast revision calculations for implemented weather fields
 - structured logging and manual inspection scripts
 - pytest coverage and GitHub Actions validation
 - a bounded, diagnostic forecast failure review skill
 
-The configured locations are currently Prague and Ocracoke, North Carolina.
-Implemented forecast fields are air temperature, precipitation probability,
-and wind speed. These facts describe the current foundation and do not define
-the future coastal location set or fishing-condition requirements.
+The nullable `temperature_2m` database column remains only for compatibility
+with existing local history. Marine, sea-surface-temperature, tide, scoring,
+scheduling, publication, and cloud infrastructure are not implemented.
 
 ## Initial governance work package
 
@@ -84,8 +87,8 @@ decision records, and governance updates into `main`. Issue #20 closed after
 its acceptance criteria were satisfied.
 
 The coastal requirements work package and roadmap stage 3 are complete.
-Product implementation has not started. Roadmap stage 4 is authorized and in
-progress through issue #26.
+Roadmap stage 4 is authorized and in progress. Issue #30 implements its first
+coastal ingestion checkpoint.
 
 The requirements focus on stable location identity, spatial source
 relationships, environmental metrics, forecast history, data quality, and
@@ -102,28 +105,28 @@ The accepted decisions are:
 - [Composite geographic model and initial locations](decisions/0002-composite-geographic-model-and-initial-locations.md)
 - [First-release environmental requirement baseline](decisions/0003-first-release-environmental-requirement-baseline.md)
 
-## Active coastal relationship finalization work package
+## Active coastal atmospheric implementation work package
 
-Issue #24 completed the initial roadmap stage 4 source and spatial evaluation.
-Issue #26 authorizes the bounded research and decisions needed to finalize the
-minimum first-release source relationships before ingestion implementation.
+Issues #24 and #26 established the accepted stage 4 source, spatial, tide, and
+source-result decisions. Issue #30 authorizes the first coastal implementation
+checkpoint: atmospheric ingestion for the five approved locations using
+`ncep_nbm_conus`.
 
-The current work package may:
+The issue #30 implementation includes only:
 
-- finalize the five location-to-source coordinate and returned-grid
-  relationships
-- finalize NOAA prediction-location, datum, and transfer relationships
-- define the minimum first-release tide phase
-- define deterministic source-result validity and provenance rules
-- update the reviewed source and spatial evidence
-- update governance records to reflect those accepted decisions
+- the accepted location and weather-grid relationships
+- the five accepted atmospheric fields
+- seven-day requests and 168-hour UTC normalization
+- deterministic whole-result quality checks
+- immutable passing raw snapshots
+- request and response provenance
+- normalized atmospheric storage and revision history
 
-The work package does not authorize ingestion implementation.
-
-Roadmap stage 4 is in progress. Observation relationships, accuracy and bias
-validation, fallback and precedence rules, alternative marine-model adoption,
-warning and forecast-zone mappings, and marine run-history reconstruction
-remain unresolved or deferred.
+It does not authorize marine, sea-surface-temperature, or tide ingestion.
+Roadmap stage 4 remains in progress. Observation relationships, accuracy and
+bias validation, fallback and precedence rules, alternative marine-model
+adoption, warning and forecast-zone mappings, and marine run-history
+reconstruction remain unresolved or deferred.
 
 The stage 4 evidence is recorded in:
 
@@ -155,7 +158,7 @@ areas, not their deferred product or architecture details.
 Roadmap stage 3 has approved the following first-release requirements:
 
 - general recreational coastal anglers
-- surf and publicly accessible fixed fishing pier contexts
+- surf and fixed publicly accessible fishing pier contexts
 - comparison of windows only within the same fishing context
 - general environmental conditions rather than species-specific
   recommendations
@@ -188,8 +191,8 @@ Roadmap stage 3 has approved the following first-release requirements:
   wave, sea-surface-temperature, and tide results
 
 The accepted decisions and their rationale are recorded in the
-[decision index](decisions/README.md). Implementation of these requirements has
-not started.
+[decision index](decisions/README.md). Issue #30 implements only the atmospheric
+subset described in the current implementation section.
 
 Delivery order is controlled by the [roadmap](roadmap.md).
 

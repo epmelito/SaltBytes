@@ -1,23 +1,91 @@
 environment: prod
 
 locations:
-  - id: prague
-    name: Prague
-    latitude: 50.0755
-    longitude: 14.4378
+  - id: jennettes_pier
+    name: Jennette's Pier
+    fishing_context: pier
+    display_coordinate:
+      latitude: 35.9096355
+      longitude: -75.5966537
+    weather:
+      request_coordinate:
+        latitude: 35.9096355
+        longitude: -75.5966537
+      expected_returned_coordinate:
+        latitude: 35.89557
+        longitude: -75.5936
+      coastal_regime: Atlantic coastal grid
 
-  - id: ocracoke
-    name: Ocracoke, NC
-    latitude: 35.1262
-    longitude: -75.9196
+  - id: ocracoke_ramp_72
+    name: Beach Access Ramp 72, Ocracoke Island
+    fishing_context: surf
+    display_coordinate:
+      latitude: 35.0868922
+      longitude: -75.9844152
+    weather:
+      request_coordinate:
+        latitude: 35.0868922
+        longitude: -75.9844152
+      expected_returned_coordinate:
+        latitude: 35.101955
+        longitude: -75.983315
+      coastal_regime: Ocean-side coastal grid
+
+  - id: fort_macon_ocean
+    name: Fort Macon State Park, ocean side
+    fishing_context: surf
+    display_coordinate:
+      latitude: 34.6949437
+      longitude: -76.697391
+    weather:
+      request_coordinate:
+        latitude: 34.6933
+        longitude: -76.7117
+      expected_returned_coordinate:
+        latitude: 34.68586
+        longitude: -76.717896
+      coastal_regime: Atlantic coastal grid
+
+  - id: bogue_inlet_pier
+    name: Bogue Inlet Pier
+    fishing_context: pier
+    display_coordinate:
+      latitude: 34.6601236
+      longitude: -77.0337424
+    weather:
+      request_coordinate:
+        latitude: 34.6601236
+        longitude: -77.0337424
+      expected_returned_coordinate:
+        latitude: 34.671284
+        longitude: -76.996414
+      coastal_regime: Atlantic coastal grid
+
+  - id: fort_fisher
+    name: Fort Fisher State Recreation Area
+    fishing_context: surf
+    display_coordinate:
+      latitude: 33.9534
+      longitude: -77.929
+    weather:
+      request_coordinate:
+        latitude: 33.9534
+        longitude: -77.929
+      expected_returned_coordinate:
+        latitude: 33.954144
+        longitude: -77.93454
+      coastal_regime: Atlantic coastal grid
 
 api:
   base_url: https://api.open-meteo.com/v1/forecast
+  model: ncep_nbm_conus
   forecast_days: 7
   hourly_fields:
-    - temperature_2m
-    - precipitation_probability
     - wind_speed_10m
+    - wind_direction_10m
+    - wind_gusts_10m
+    - precipitation_probability
+    - precipitation
 
 storage:
   raw_data_path: data/prod/raw

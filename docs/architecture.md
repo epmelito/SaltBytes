@@ -1,65 +1,86 @@
 # Architecture
 
 ## Purpose
-This document describes the current local weather forecast foundation.
-ForecastOps captures forecast snapshots and preserves how those forecasts
-change over time.
 
-The current implementation runs locally and uses the same application code
-across dev, test, and prod. The
-[project charter](project-charter.md) defines the approved future North
-Carolina coastal fishing conditions platform, which is not yet implemented.
+This document describes the current local atmospheric forecast implementation.
+The [project charter](project-charter.md) defines the broader approved North
+Carolina coastal fishing conditions platform.
 
-## High level flow
-1. Read the selected environment configuration.
-2. Request forecast data from the source API.
-3. Run and persist payload quality checks.
-4. Stop processing the affected payload when a quality check fails.
-5. Write a passing payload as an immutable raw JSON snapshot.
-6. Store snapshot metadata and normalized hourly forecast records in DuckDB.
-7. Record the final pipeline status.
-8. Expose changes between consecutive snapshots through a SQL view.
+## High-level flow
+
+1. Load a local environment configuration.
+2. Initialize DuckDB and start a pipeline run.
+3. Request an Open-Meteo `ncep_nbm_conus` forecast for each location's weather
+   request coordinate.
+4. Validate and persist the complete location result.
+5. Skip raw and normalized storage when that result fails quality checks.
+6. Continue processing unrelated locations after a quality rejection.
+7. Write a passing response unchanged to immutable raw storage.
+8. Store snapshot provenance and 168 normalized UTC hourly rows.
+9. Complete the run after every location or abort on an operational failure.
+10. Compare consecutive forecasts through the revision view.
+
+API, raw-storage, and database failures abort immediately. Quality rejection is
+location-specific, but any rejected location makes the final run status
+`failed`. Successfully stored unrelated locations are not rolled back.
+
+## Configuration
+
+All three environments configure the five approved locations and distinguish:
+
+- display coordinate
+- weather request coordinate
+- expected returned NBM coordinate
+- fishing context
+- static coastal regime
+
+The atmospheric API contract is:
+
+- `models=ncep_nbm_conus`
+- `forecast_days=7`
+- `timezone=auto`
+- the five accepted hourly fields
+
+Configuration validation rejects other selectors, horizons, fields, incomplete
+spatial relationships, invalid coordinates, unsupported fishing contexts, and
+empty coastal regimes.
+
+## Ingestion and raw storage
+
+One Open-Meteo response is treated as one complete location result. Quality
+checks run before storage. Passing responses are preserved unmodified as
+immutable JSON. Failed responses produce quality evidence but no raw snapshot
+or normalized rows.
+
+The pipeline retains the configured model and request coordinate as request
+provenance. Returned coordinates, response timezone, and UTC offset remain
+attributable to the captured response.
+
+## Normalization
+
+The response timezone is used to convert local hourly labels to UTC. Passing
+results contain exactly 168 unique, strictly ascending hourly UTC instants.
+DuckDB stores the five accepted atmospheric values for each instant.
+
+## Revision history
+
+`forecast_revision_changes` partitions rows by stable location ID and
+normalized valid time, then orders snapshots by capture time and snapshot ID.
+It compares consecutive wind speed, wind direction, wind gust, precipitation
+probability, and precipitation forecasts.
+
+Wind direction exposes current and previous values only. No circular or signed
+directional difference is defined.
 
 ## Environments
 
-| Environment | Input | Output | Purpose |
-|---|---|---|---|
-| dev | live API with limited scope | local dev paths | development and debugging |
-| test | live API from configuration; fixtures in automated tests | local test paths; temporary paths in tests | local test configuration and repeatable tests |
-| prod | live API with full configured scope | local prod paths | production style execution |
+`dev`, `test`, and `prod` run the same application and seven-day atmospheric
+contract using separate local storage paths. Automated tests replace live
+forecast fetching with deterministic responses and temporary storage.
 
-The project promotes the same code between environments. It does not maintain separate dev, test, and prod branches.
+These names do not represent deployed cloud environments.
 
-The YAML configurations do not select input implementations or quality
-thresholds. Automated tests replace forecast fetching with fixtures and use
-temporary storage in the test harness.
+## Current boundary
 
-## Main components
-
-### Configuration
-Defines the environment name, locations, API endpoint, requested hourly fields,
-forecast horizon, storage paths, and logging level.
-
-### Ingestion
-Calls the API, runs payload quality checks, and writes a passing payload to
-immutable local raw storage.
-
-### Loading
-Creates pipeline and forecast records in DuckDB.
-
-### SQL transformations
-The `forecast_revision_changes` view compares consecutive snapshots for the
-same location and forecast hour.
-
-### Data quality
-Checks that the hourly mapping exists, the hourly timestamp list is not empty,
-and each configured hourly field has the same number of values as the timestamp
-list.
-
-### Operational metadata
-Records the run identifier, environment, start time, end time, status, row counts, and failure details.
-
-## Environment promotion
-Code moves through this workflow:
-
-feature branch > local dev run > pull request > automated test run > merge to main > manual production style run
+Marine, sea-surface-temperature, tide, scoring, scheduling, publication, and
+cloud infrastructure are outside the current implementation.

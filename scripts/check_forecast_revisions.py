@@ -17,9 +17,12 @@ with duckdb.connect(str(database_path), read_only=True) as connection:
         select
             location_id,
             forecast_time,
-            temperature_2m_change,
+            wind_speed_10m_change,
+            wind_direction_10m,
+            previous_wind_direction_10m,
+            wind_gusts_10m_change,
             precipitation_probability_change,
-            wind_speed_10m_change
+            precipitation_change
         from forecast_revision_changes
         order by
             captured_at desc,

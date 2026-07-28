@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -6,33 +7,65 @@ import pytest
 
 from forecast_ops.pipeline import run_pipeline
 
+HOURLY_FIELDS = [
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+    "precipitation_probability",
+    "precipitation",
+]
 
-def test_run_pipeline_loads_all_locations(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = {
+
+def pipeline_config(tmp_path: Path) -> dict[str, Any]:
+    return {
         "environment": "test",
         "locations": [
             {
-                "id": "prague",
-                "latitude": 50.0755,
-                "longitude": 14.4378,
+                "id": "jennettes_pier",
+                "name": "Jennette's Pier",
+                "fishing_context": "pier",
+                "display_coordinate": {
+                    "latitude": 35.9096355,
+                    "longitude": -75.5966537,
+                },
+                "weather": {
+                    "request_coordinate": {
+                        "latitude": 35.9096355,
+                        "longitude": -75.5966537,
+                    },
+                    "expected_returned_coordinate": {
+                        "latitude": 35.89557,
+                        "longitude": -75.5936,
+                    },
+                    "coastal_regime": "Atlantic coastal grid",
+                },
             },
             {
-                "id": "ocracoke",
-                "latitude": 35.1262,
-                "longitude": -75.9196,
+                "id": "fort_fisher",
+                "name": "Fort Fisher State Recreation Area",
+                "fishing_context": "surf",
+                "display_coordinate": {
+                    "latitude": 33.9534,
+                    "longitude": -77.929,
+                },
+                "weather": {
+                    "request_coordinate": {
+                        "latitude": 33.9534,
+                        "longitude": -77.929,
+                    },
+                    "expected_returned_coordinate": {
+                        "latitude": 33.954144,
+                        "longitude": -77.93454,
+                    },
+                    "coastal_regime": "Atlantic coastal grid",
+                },
             },
         ],
         "api": {
             "base_url": "https://example.test/forecast",
-            "forecast_days": 2,
-            "hourly_fields": [
-                "temperature_2m",
-                "precipitation_probability",
-                "wind_speed_10m",
-            ],
+            "model": "ncep_nbm_conus",
+            "forecast_days": 7,
+            "hourly_fields": HOURLY_FIELDS,
         },
         "storage": {
             "raw_data_path": str(tmp_path / "raw"),
@@ -40,109 +73,122 @@ def test_run_pipeline_loads_all_locations(
         },
     }
 
+
+def atmospheric_payload(
+    location: dict[str, Any],
+) -> dict[str, Any]:
+    start = datetime(2026, 7, 28)
+    times = [
+        (start + timedelta(hours=index)).isoformat(timespec="minutes")
+        for index in range(168)
+    ]
+    returned_coordinate = location["weather"][
+        "expected_returned_coordinate"
+    ]
+
+    return {
+        "latitude": returned_coordinate["latitude"],
+        "longitude": returned_coordinate["longitude"],
+        "timezone": "America/New_York",
+        "utc_offset_seconds": -14400,
+        "hourly": {
+            "time": times,
+            "wind_speed_10m": [10.0] * 168,
+            "wind_direction_10m": [180.0] * 168,
+            "wind_gusts_10m": [15.0] * 168,
+            "precipitation_probability": [20.0] * 168,
+            "precipitation": [0.0] * 168,
+        },
+    }
+
+
+def test_quality_failure_retains_valid_unrelated_location(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    fetched_locations: list[str] = []
+
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
     ) -> dict[str, Any]:
-        return {
-            "timezone": "UTC",
-            "hourly": {
-                "time": [
-                    "2026-07-28T12:00",
-                    "2026-07-28T13:00",
-                ],
-                "temperature_2m": [18.2, 19.1],
-                "precipitation_probability": [10, 20],
-                "wind_speed_10m": [8.4, 9.1],
-            },
-        }
+        fetched_locations.append(location["id"])
+        payload = atmospheric_payload(location)
+
+        if location["id"] == "jennettes_pier":
+            payload["latitude"] = 0
+
+        return payload
 
     monkeypatch.setattr(
         "forecast_ops.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
 
-    result = run_pipeline(config)
-
-    assert result["status"] == "success"
-    assert result["snapshots_written"] == 2
-    assert result["rows_loaded"] == 4
+    with pytest.raises(
+        ValueError,
+        match="forecast quality checks failed for jennettes_pier",
+    ):
+        run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
         run = connection.execute(
             """
-            select
-                environment,
-                status,
-                rows_loaded,
-                error_message
+            select status, rows_loaded, error_message
             from pipeline_runs
-            where run_id = ?
-            """,
-            [result["run_id"]],
-        ).fetchone()
-
-        snapshot_count = connection.execute(
             """
-            select count(*)
+        ).fetchone()
+        snapshots = connection.execute(
+            """
+            select location_id
             from forecast_snapshots
-            where run_id = ?
-            """,
-            [result["run_id"]],
-        ).fetchone()
-
-        hourly_count = connection.execute(
             """
-            select count(*)
+        ).fetchall()
+        hourly_locations = connection.execute(
+            """
+            select location_id, count(*)
             from forecast_hourly
+            group by location_id
             """
-        ).fetchone()
-
-        quality_count = connection.execute(
+        ).fetchall()
+        quality_results = connection.execute(
             """
-            select count(*)
+            select check_name, status
             from quality_results
-            where run_id = ?
-            """,
-            [result["run_id"]],
-        ).fetchone()
+            """
+        ).fetchall()
 
-    assert run == ("test", "success", 4, None)
-    assert snapshot_count == (2,)
-    assert hourly_count == (4,)
-    assert quality_count == (10,)
+    assert fetched_locations == ["jennettes_pier", "fort_fisher"]
+    assert run is not None
+    assert run[0] == "failed"
+    assert run[1] == 168
+    assert "returned_latitude_matches_expected" in run[2]
+    assert snapshots == [("fort_fisher",)]
+    assert hourly_locations == [("fort_fisher", 168)]
+    assert {
+        check_name.split(":", maxsplit=1)[0]
+        for check_name, _ in quality_results
+    } == {"jennettes_pier", "fort_fisher"}
+    assert any(status == "fail" for _, status in quality_results)
+    assert any(status == "pass" for _, status in quality_results)
+    assert len(list((tmp_path / "raw").rglob("*.json"))) == 1
 
 
-def test_run_pipeline_records_failure(
+def test_api_failure_is_recorded_and_aborts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = {
-        "environment": "test",
-        "locations": [
-            {
-                "id": "prague",
-                "latitude": 50.0755,
-                "longitude": 14.4378,
-            }
-        ],
-        "api": {
-            "base_url": "https://example.test/forecast",
-            "forecast_days": 2,
-            "hourly_fields": ["temperature_2m"],
-        },
-        "storage": {
-            "raw_data_path": str(tmp_path / "raw"),
-            "database_path": str(tmp_path / "forecast_ops.duckdb"),
-        },
-    }
+    config = pipeline_config(tmp_path)
+    fetched_locations: list[str] = []
 
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
     ) -> dict[str, Any]:
+        fetched_locations.append(location["id"])
         raise RuntimeError("forecast api unavailable")
 
     monkeypatch.setattr(
@@ -161,75 +207,42 @@ def test_run_pipeline_records_failure(
     with duckdb.connect(str(database_path), read_only=True) as connection:
         run = connection.execute(
             """
-            select
-                status,
-                rows_loaded,
-                error_message
+            select status, rows_loaded, error_message
             from pipeline_runs
             """
         ).fetchone()
 
-    assert run == (
-        "failed",
-        0,
-        "forecast api unavailable",
-    )
+    assert fetched_locations == ["jennettes_pier"]
+    assert run == ("failed", 0, "forecast api unavailable")
 
 
-def test_run_pipeline_fails_when_quality_checks_fail(
+def test_raw_storage_failure_aborts_immediately(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = {
-        "environment": "test",
-        "locations": [
-            {
-                "id": "prague",
-                "latitude": 50.0755,
-                "longitude": 14.4378,
-            }
-        ],
-        "api": {
-            "base_url": "https://example.test/forecast",
-            "forecast_days": 2,
-            "hourly_fields": [
-                "temperature_2m",
-                "precipitation_probability",
-                "wind_speed_10m",
-            ],
-        },
-        "storage": {
-            "raw_data_path": str(tmp_path / "raw"),
-            "database_path": str(tmp_path / "forecast_ops.duckdb"),
-        },
-    }
+    config = pipeline_config(tmp_path)
+    fetched_locations: list[str] = []
 
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
     ) -> dict[str, Any]:
-        return {
-            "timezone": "UTC",
-            "hourly": {
-                "time": [
-                    "2026-07-28T12:00",
-                    "2026-07-28T13:00",
-                ],
-                "temperature_2m": [18.2],
-                "precipitation_probability": [10, 20],
-                "wind_speed_10m": [8.4, 9.1],
-            },
-        }
+        fetched_locations.append(location["id"])
+        return atmospheric_payload(location)
+
+    def fail_raw_storage(**kwargs: Any) -> dict[str, Any]:
+        raise OSError("raw storage unavailable")
 
     monkeypatch.setattr(
         "forecast_ops.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.write_raw_snapshot",
+        fail_raw_storage,
+    )
 
-    with pytest.raises(
-        ValueError,
-        match="forecast quality checks failed for prague",
-    ):
+    with pytest.raises(OSError, match="raw storage unavailable"):
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
@@ -237,32 +250,53 @@ def test_run_pipeline_fails_when_quality_checks_fail(
     with duckdb.connect(str(database_path), read_only=True) as connection:
         run = connection.execute(
             """
-            select
-                status,
-                rows_loaded,
-                error_message
+            select status, rows_loaded, error_message
             from pipeline_runs
             """
         ).fetchone()
 
-        failed_quality_count = connection.execute(
+    assert fetched_locations == ["jennettes_pier"]
+    assert run == ("failed", 0, "raw storage unavailable")
+
+
+def test_database_failure_aborts_immediately(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    fetched_locations: list[str] = []
+
+    def fake_fetch_forecast(
+        location: dict[str, Any],
+        api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_locations.append(location["id"])
+        return atmospheric_payload(location)
+
+    def fail_snapshot_insert(**kwargs: Any) -> None:
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_forecast",
+        fake_fetch_forecast,
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.insert_forecast_snapshot",
+        fail_snapshot_insert,
+    )
+
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
             """
-            select count(*)
-            from quality_results
-            where status = 'fail'
+            select status, rows_loaded, error_message
+            from pipeline_runs
             """
         ).fetchone()
 
-        snapshot_count = connection.execute(
-            """
-            select count(*)
-            from forecast_snapshots
-            """
-        ).fetchone()
-
-    assert run is not None
-    assert run[0] == "failed"
-    assert run[1] == 0
-    assert "temperature_2m_count_matches_time" in run[2]
-    assert failed_quality_count == (1,)
-    assert snapshot_count == (0,)
+    assert fetched_locations == ["jennettes_pier"]
+    assert run == ("failed", 0, "database unavailable")

@@ -8,9 +8,12 @@ def build_forecast_params(
     location: dict[str, Any],
     api_config: dict[str, Any],
 ) -> dict[str, Any]:
+    request_coordinate = location["weather"]["request_coordinate"]
+
     return {
-        "latitude": location["latitude"],
-        "longitude": location["longitude"],
+        "latitude": request_coordinate["latitude"],
+        "longitude": request_coordinate["longitude"],
+        "models": api_config["model"],
         "forecast_days": api_config["forecast_days"],
         "hourly": ",".join(api_config["hourly_fields"]),
         "timezone": "auto",

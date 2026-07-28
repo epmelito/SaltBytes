@@ -5,10 +5,14 @@ import yaml
 
 VALID_ENVIRONMENTS = {"dev", "test", "prod"}
 VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+VALID_FISHING_CONTEXTS = {"surf", "pier"}
+REQUIRED_MODEL = "ncep_nbm_conus"
 REQUIRED_HOURLY_FIELDS = {
-    "temperature_2m",
-    "precipitation_probability",
     "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+    "precipitation_probability",
+    "precipitation",
 }
 
 
@@ -72,17 +76,60 @@ def _validate_location(
         location_config.get("name"),
         f"locations[{index}].name",
     )
-    _require_number_in_range(
-        location_config.get("latitude"),
-        f"locations[{index}].latitude",
-        -90,
-        90,
+
+    fishing_context = _require_string(
+        location_config.get("fishing_context"),
+        f"locations[{index}].fishing_context",
     )
-    _require_number_in_range(
-        location_config.get("longitude"),
-        f"locations[{index}].longitude",
-        -180,
-        180,
+
+    if fishing_context not in VALID_FISHING_CONTEXTS:
+        raise ValueError(
+            f"unsupported fishing context: {fishing_context}"
+        )
+
+    display_coordinate = _require_mapping(
+        location_config.get("display_coordinate"),
+        f"locations[{index}].display_coordinate",
+    )
+    weather_config = _require_mapping(
+        location_config.get("weather"),
+        f"locations[{index}].weather",
+    )
+    request_coordinate = _require_mapping(
+        weather_config.get("request_coordinate"),
+        f"locations[{index}].weather.request_coordinate",
+    )
+    expected_returned_coordinate = _require_mapping(
+        weather_config.get("expected_returned_coordinate"),
+        f"locations[{index}].weather.expected_returned_coordinate",
+    )
+
+    coordinates = (
+        ("display_coordinate", display_coordinate),
+        ("weather.request_coordinate", request_coordinate),
+        (
+            "weather.expected_returned_coordinate",
+            expected_returned_coordinate,
+        ),
+    )
+
+    for coordinate_name, coordinate in coordinates:
+        _require_number_in_range(
+            coordinate.get("latitude"),
+            f"locations[{index}].{coordinate_name}.latitude",
+            -90,
+            90,
+        )
+        _require_number_in_range(
+            coordinate.get("longitude"),
+            f"locations[{index}].{coordinate_name}.longitude",
+            -180,
+            180,
+        )
+
+    _require_string(
+        weather_config.get("coastal_regime"),
+        f"locations[{index}].weather.coastal_regime",
     )
 
 
@@ -128,15 +175,16 @@ def validate_config(
     if not base_url.startswith("https://"):
         raise ValueError("api.base_url must use https")
 
-    forecast_days = api_config.get("forecast_days")
+    model = _require_string(
+        api_config.get("model"),
+        "api.model",
+    )
 
-    if (
-        isinstance(forecast_days, bool)
-        or not isinstance(forecast_days, int)
-        or forecast_days < 1
-        or forecast_days > 16
-    ):
-        raise ValueError("api.forecast_days must be between 1 and 16")
+    if model != REQUIRED_MODEL:
+        raise ValueError(f"unsupported api model: {model}")
+
+    if api_config.get("forecast_days") != 7:
+        raise ValueError("api.forecast_days must be 7")
 
     hourly_fields = api_config.get("hourly_fields")
 
@@ -146,12 +194,16 @@ def validate_config(
     ):
         raise ValueError("api.hourly_fields must be a nonempty list of strings")
 
-    missing_hourly_fields = REQUIRED_HOURLY_FIELDS - set(hourly_fields)
+    configured_hourly_fields = set(hourly_fields)
 
-    if missing_hourly_fields:
-        missing_fields = ", ".join(sorted(missing_hourly_fields))
+    if (
+        len(hourly_fields) != len(REQUIRED_HOURLY_FIELDS)
+        or configured_hourly_fields != REQUIRED_HOURLY_FIELDS
+    ):
+        expected_fields = ", ".join(sorted(REQUIRED_HOURLY_FIELDS))
         raise ValueError(
-            f"api.hourly_fields is missing required fields: {missing_fields}"
+            "api.hourly_fields must contain exactly: "
+            f"{expected_fields}"
         )
 
     storage_config = _require_mapping(

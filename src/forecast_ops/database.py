@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -22,6 +22,13 @@ create table if not exists forecast_snapshots (
     location_id varchar not null,
     captured_at timestamptz not null,
     raw_file_path varchar not null,
+    model_selector varchar,
+    request_latitude double,
+    request_longitude double,
+    returned_latitude double,
+    returned_longitude double,
+    response_timezone varchar,
+    response_utc_offset_seconds integer,
     foreign key (run_id) references pipeline_runs(run_id)
 );
 
@@ -32,6 +39,9 @@ create table if not exists forecast_hourly (
     temperature_2m double,
     precipitation_probability double,
     wind_speed_10m double,
+    wind_direction_10m double,
+    wind_gusts_10m double,
+    precipitation double,
     primary key (snapshot_id, location_id, forecast_time),
     foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
 );
@@ -45,7 +55,35 @@ create table if not exists quality_results (
     checked_at timestamptz not null,
     foreign key (run_id) references pipeline_runs(run_id)
 );
+"""
 
+_MIGRATION_SQL = """
+drop view if exists forecast_revision_changes;
+
+alter table forecast_snapshots
+    add column if not exists model_selector varchar;
+alter table forecast_snapshots
+    add column if not exists request_latitude double;
+alter table forecast_snapshots
+    add column if not exists request_longitude double;
+alter table forecast_snapshots
+    add column if not exists returned_latitude double;
+alter table forecast_snapshots
+    add column if not exists returned_longitude double;
+alter table forecast_snapshots
+    add column if not exists response_timezone varchar;
+alter table forecast_snapshots
+    add column if not exists response_utc_offset_seconds integer;
+
+alter table forecast_hourly
+    add column if not exists wind_direction_10m double;
+alter table forecast_hourly
+    add column if not exists wind_gusts_10m double;
+alter table forecast_hourly
+    add column if not exists precipitation double;
+"""
+
+_REVISION_VIEW_SQL = """
 create or replace view forecast_revision_changes as
 with ordered_forecasts as (
     select
@@ -53,9 +91,11 @@ with ordered_forecasts as (
         hourly.forecast_time,
         snapshots.captured_at,
         hourly.snapshot_id,
-        hourly.temperature_2m,
-        hourly.precipitation_probability,
         hourly.wind_speed_10m,
+        hourly.wind_direction_10m,
+        hourly.wind_gusts_10m,
+        hourly.precipitation_probability,
+        hourly.precipitation,
         lag(hourly.snapshot_id) over (
             partition by
                 hourly.location_id,
@@ -64,14 +104,30 @@ with ordered_forecasts as (
                 snapshots.captured_at,
                 hourly.snapshot_id
         ) as previous_snapshot_id,
-        lag(hourly.temperature_2m) over (
+        lag(hourly.wind_speed_10m) over (
             partition by
                 hourly.location_id,
                 hourly.forecast_time
             order by
                 snapshots.captured_at,
                 hourly.snapshot_id
-        ) as previous_temperature_2m,
+        ) as previous_wind_speed_10m,
+        lag(hourly.wind_direction_10m) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_wind_direction_10m,
+        lag(hourly.wind_gusts_10m) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_wind_gusts_10m,
         lag(hourly.precipitation_probability) over (
             partition by
                 hourly.location_id,
@@ -80,14 +136,14 @@ with ordered_forecasts as (
                 snapshots.captured_at,
                 hourly.snapshot_id
         ) as previous_precipitation_probability,
-        lag(hourly.wind_speed_10m) over (
+        lag(hourly.precipitation) over (
             partition by
                 hourly.location_id,
                 hourly.forecast_time
             order by
                 snapshots.captured_at,
                 hourly.snapshot_id
-        ) as previous_wind_speed_10m
+        ) as previous_precipitation
     from forecast_hourly as hourly
     inner join forecast_snapshots as snapshots
         on hourly.snapshot_id = snapshots.snapshot_id
@@ -98,17 +154,24 @@ select
     captured_at,
     snapshot_id,
     previous_snapshot_id,
-    temperature_2m,
-    previous_temperature_2m,
-    temperature_2m - previous_temperature_2m as temperature_2m_change,
+    wind_speed_10m,
+    previous_wind_speed_10m,
+    wind_speed_10m - previous_wind_speed_10m as wind_speed_10m_change,
+    wind_direction_10m,
+    previous_wind_direction_10m,
+    wind_gusts_10m,
+    previous_wind_gusts_10m,
+    wind_gusts_10m
+        - previous_wind_gusts_10m
+        as wind_gusts_10m_change,
     precipitation_probability,
     previous_precipitation_probability,
     precipitation_probability
         - previous_precipitation_probability
         as precipitation_probability_change,
-    wind_speed_10m,
-    previous_wind_speed_10m,
-    wind_speed_10m - previous_wind_speed_10m as wind_speed_10m_change
+    precipitation,
+    previous_precipitation,
+    precipitation - previous_precipitation as precipitation_change
 from ordered_forecasts
 where previous_snapshot_id is not null;
 """
@@ -120,7 +183,17 @@ def initialize_database(database_path: Path | str) -> None:
     database_path.parent.mkdir(parents=True, exist_ok=True)
 
     with duckdb.connect(str(database_path)) as connection:
-        connection.execute(_SCHEMA_SQL)
+        connection.execute("begin transaction")
+
+        try:
+            connection.execute(_SCHEMA_SQL)
+            connection.execute(_MIGRATION_SQL)
+            connection.execute(_REVISION_VIEW_SQL)
+        except Exception:
+            connection.execute("rollback")
+            raise
+        else:
+            connection.execute("commit")
 
 
 # insert a new pipeline run
@@ -159,9 +232,16 @@ def insert_forecast_snapshot(
                 run_id,
                 location_id,
                 captured_at,
-                raw_file_path
+                raw_file_path,
+                model_selector,
+                request_latitude,
+                request_longitude,
+                returned_latitude,
+                returned_longitude,
+                response_timezone,
+                response_utc_offset_seconds
             )
-            values (?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 metadata["snapshot_id"],
@@ -169,6 +249,13 @@ def insert_forecast_snapshot(
                 metadata["location_id"],
                 metadata["captured_at"],
                 metadata["raw_file_path"],
+                metadata["model_selector"],
+                metadata["request_latitude"],
+                metadata["request_longitude"],
+                metadata["returned_latitude"],
+                metadata["returned_longitude"],
+                metadata["response_timezone"],
+                metadata["response_utc_offset_seconds"],
             ],
         )
 
@@ -235,9 +322,11 @@ def insert_forecast_hourly(
         raise ValueError(f"invalid forecast timezone: {timezone_name}") from error
 
     metric_names = (
-        "temperature_2m",
-        "precipitation_probability",
         "wind_speed_10m",
+        "wind_direction_10m",
+        "wind_gusts_10m",
+        "precipitation_probability",
+        "precipitation",
     )
 
     for metric_name in metric_names:
@@ -251,19 +340,26 @@ def insert_forecast_hourly(
                 f"hourly {metric_name} length must match hourly time length"
             )
 
-    normalized_times = [
-        datetime.fromisoformat(forecast_time).replace(tzinfo=forecast_timezone)
-        for forecast_time in forecast_times
-    ]
+    normalized_times = []
+
+    for forecast_time in forecast_times:
+        parsed_time = datetime.fromisoformat(forecast_time)
+
+        if parsed_time.tzinfo is None:
+            parsed_time = parsed_time.replace(tzinfo=forecast_timezone)
+
+        normalized_times.append(parsed_time.astimezone(timezone.utc))
 
     rows = [
         (
             snapshot_id,
             location_id,
             forecast_time,
-            hourly["temperature_2m"][index],
-            hourly["precipitation_probability"][index],
             hourly["wind_speed_10m"][index],
+            hourly["wind_direction_10m"][index],
+            hourly["wind_gusts_10m"][index],
+            hourly["precipitation_probability"][index],
+            hourly["precipitation"][index],
         )
         for index, forecast_time in enumerate(normalized_times)
     ]
@@ -275,11 +371,13 @@ def insert_forecast_hourly(
                 snapshot_id,
                 location_id,
                 forecast_time,
-                temperature_2m,
+                wind_speed_10m,
+                wind_direction_10m,
+                wind_gusts_10m,
                 precipitation_probability,
-                wind_speed_10m
+                precipitation
             )
-            values (?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             rows,
         )
