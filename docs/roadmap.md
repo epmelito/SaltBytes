@@ -28,8 +28,11 @@ Roadmap stage 3 is complete. Issue #20 defined the coastal location and
 fishing-condition requirements and accepted three supporting decisions. Pull
 request #21 merged the completed stage 3 documentation into `main`.
 
-Roadmap stage 4 is next in sequence but remains unauthorized and unstarted.
-Product implementation has not started.
+Roadmap stage 4 is authorized and in progress through issue #24. The current
+work is limited to source evaluation, spatial relationships, and the durable
+decisions required before ingestion implementation.
+
+Coastal ingestion implementation has not started.
 
 ## Delivery stages
 
@@ -106,7 +109,22 @@ Completion evidence: Satisfied.
 Add reusable ingestion for approved coastal sources while retaining source data
 and preserving observable pipeline behavior.
 
-Status: Next in sequence; unauthorized and unstarted.
+Status: In progress.
+
+The current checkpoint evaluates Open-Meteo atmospheric and marine models,
+source-specific spatial relationships, and NOAA CO-OPS tide-product
+responsibility. The reviewed evidence is recorded in:
+
+- [Coastal source evaluation](research/coastal-source-evaluation.md)
+- [Coastal spatial relationships](research/coastal-spatial-relationships.md)
+
+The accepted decisions are indexed in the
+[decision records](decisions/README.md).
+
+Final coordinates, returned-grid relationships, NOAA prediction-location,
+station and datum mappings, tide-transfer rules, observation relationships,
+accuracy validation, fallback rules, and marine run-history reconstruction
+remain unresolved. Coastal ingestion implementation has not started.
 
 Completion evidence requires:
 

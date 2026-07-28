@@ -119,3 +119,6 @@ Do not invent evidence, alternatives, or retrospective rationale.
 | 0001 | [First-release user and fishing-context boundary](0001-first-release-user-and-fishing-context.md) | Accepted | None |
 | 0002 | [Composite geographic model and initial locations](0002-composite-geographic-model-and-initial-locations.md) | Accepted | None |
 | 0003 | [First-release environmental requirement baseline](0003-first-release-environmental-requirement-baseline.md) | Accepted | None |
+| 0004 | [Spatial coordinate and returned-grid relationship policy](0004-spatial-coordinate-and-returned-grid-policy.md) | Accepted | None |
+| 0005 | [First-release Open-Meteo atmospheric and marine model strategy](0005-open-meteo-model-strategy.md) | Accepted | None |
+| 0006 | [Authoritative tide-product responsibility](0006-authoritative-tide-product-responsibility.md) | Accepted | None |
