@@ -45,6 +45,72 @@ create table if not exists quality_results (
     checked_at timestamptz not null,
     foreign key (run_id) references pipeline_runs(run_id)
 );
+
+create or replace view forecast_revision_changes as
+with ordered_forecasts as (
+    select
+        hourly.location_id,
+        hourly.forecast_time,
+        snapshots.captured_at,
+        hourly.snapshot_id,
+        hourly.temperature_2m,
+        hourly.precipitation_probability,
+        hourly.wind_speed_10m,
+        lag(hourly.snapshot_id) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_snapshot_id,
+        lag(hourly.temperature_2m) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_temperature_2m,
+        lag(hourly.precipitation_probability) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_precipitation_probability,
+        lag(hourly.wind_speed_10m) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_wind_speed_10m
+    from forecast_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on hourly.snapshot_id = snapshots.snapshot_id
+)
+select
+    location_id,
+    forecast_time,
+    captured_at,
+    snapshot_id,
+    previous_snapshot_id,
+    temperature_2m,
+    previous_temperature_2m,
+    temperature_2m - previous_temperature_2m as temperature_2m_change,
+    precipitation_probability,
+    previous_precipitation_probability,
+    precipitation_probability
+        - previous_precipitation_probability
+        as precipitation_probability_change,
+    wind_speed_10m,
+    previous_wind_speed_10m,
+    wind_speed_10m - previous_wind_speed_10m as wind_speed_10m_change
+from ordered_forecasts
+where previous_snapshot_id is not null;
 """
 
 
