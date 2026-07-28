@@ -51,8 +51,30 @@ Pull request #13 introduced all six governance files after content review and a
 successful required `test and lint` check. A follow-up correction aligned the
 lifecycle records with the completed state.
 
-The initial governance work package and roadmap stage 1 are complete. Roadmap
-stage 2 is next, but it remains unauthorized and unstarted.
+The initial governance work package and roadmap stage 1 are complete.
+
+## Current documentation reconciliation work package
+
+Issue #15 authorizes roadmap stage 2 on branch
+`docs/reconcile-project-documentation`.
+
+The work package may modify only:
+
+- `readme.md`
+- `docs/architecture.md`
+- `docs/data-model.md`
+- `docs/environments.md`
+- `docs/scope-register.md`
+- `docs/roadmap.md`
+- `docs/handoffs/current.md`
+
+It may reconcile verified documentation drift but must not change application
+behavior, repository skills, product direction, deferred decisions, or roadmap
+stages 3 through 9.
+
+Roadmap stage 2 is in progress. It is complete only after documentation
+validation passes, the pull request is merged into `main`, and issue #15
+acceptance criteria are met.
 
 ## Approved future scope
 
@@ -106,34 +128,15 @@ Accepted choices should be recorded through the
 
 ## Known documentation drift
 
-Existing documentation contains the following inconsistencies with verified
-repository behavior:
+One verified documentation inconsistency remains unresolved:
 
-- The architecture flow places raw storage before later quality checks, while
-  the pipeline runs payload quality checks before writing its raw snapshot.
 - The failure-review example recommends inspecting a raw response for a failed
   quality check, although the current pipeline does not store a payload that
-  fails those checks.
-- Architecture documentation describes duplicate-key, expected-location,
-  timestamp, and minimum-row checks that are not implemented.
-- Architecture documentation describes current forecast views and pipeline
-  summaries that are not implemented; the revision view is implemented.
-- Environment documentation says configuration changes input source and
-  validation behavior, but current YAML does not select fixtures or quality
-  thresholds. Fixture tests replace forecast fetching in test code.
-- The README describes a source timezone in snapshot metadata, but the
-  `forecast_snapshots` table does not contain that column.
-- The README describes quality results per location, but the table has no
-  `location_id` column. The pipeline prefixes the check name with the location.
-- The README presents the forecast failure review skill as planned, but the
-  skill and its tests already exist.
-- README manual-validation examples imply environment arguments that the
-  hardcoded development scripts do not parse.
-- The README repository tree does not include the tracked repository skill.
+  fails those checks. Issue #15 does not authorize changes under `skills/`, so
+  this correction requires a separate authorized work package.
 
-This register records the drift only. The drift remains unresolved.
-Documentation reconciliation is roadmap stage 2 and requires a separate
-authorized work package. It has not started.
+The other drift recorded for issue #15 is reconciled by the current
+documentation work package.
 
 ## Scope changes
 
