@@ -10,6 +10,7 @@ from forecast_ops.database import (
     insert_forecast_hourly,
     insert_forecast_snapshot,
     insert_pipeline_run,
+    insert_quality_result,
 )
 
 EXPECTED_TABLES = {
@@ -17,6 +18,10 @@ EXPECTED_TABLES = {
     "forecast_snapshots",
     "pipeline_runs",
     "quality_results",
+}
+
+EXPECTED_VIEWS = {
+    "forecast_revision_changes",
 }
 
 
@@ -35,11 +40,25 @@ def test_initialize_database_creates_database_and_tables(tmp_path: Path) -> None
                 select table_name
                 from information_schema.tables
                 where table_schema = 'main'
+                    and table_type = 'BASE TABLE'
+                """
+            ).fetchall()
+        }
+
+        views = {
+            row[0]
+            for row in connection.execute(
+                """
+                select table_name
+                from information_schema.views
+                where table_schema = 'main'
+                    and table_catalog = current_database()
                 """
             ).fetchall()
         }
 
     assert tables == EXPECTED_TABLES
+    assert views == EXPECTED_VIEWS
 
 
 def test_initialize_database_can_run_more_than_once(tmp_path: Path) -> None:
@@ -54,6 +73,7 @@ def test_initialize_database_can_run_more_than_once(tmp_path: Path) -> None:
             select count(*)
             from information_schema.tables
             where table_schema = 'main'
+                and table_type = 'BASE TABLE'
             """
         ).fetchone()
 
@@ -394,3 +414,154 @@ def test_insert_forecast_hourly_requires_timezone(tmp_path: Path) -> None:
             location_id="prague",
             payload=payload,
         )
+
+
+def test_insert_quality_result(tmp_path: Path) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+
+    insert_pipeline_run(
+        database_path=database_path,
+        run_id="run123",
+        environment="test",
+        started_at=datetime(2026, 7, 28, 10, 0, tzinfo=timezone.utc),
+    )
+
+    checked_at = datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc)
+
+    insert_quality_result(
+        database_path=database_path,
+        run_id="run123",
+        check_name="hourly_time_not_empty",
+        status="pass",
+        observed_value="48",
+        expected_value="> 0",
+        checked_at=checked_at,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        result = connection.execute(
+            """
+            select
+                check_name,
+                status,
+                observed_value,
+                expected_value
+            from quality_results
+            where run_id = 'run123'
+            """
+        ).fetchone()
+
+    assert result == (
+        "hourly_time_not_empty",
+        "pass",
+        "48",
+        "> 0",
+    )
+
+
+def test_forecast_revision_view_calculates_changes(tmp_path: Path) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+
+    insert_pipeline_run(
+        database_path=database_path,
+        run_id="run001",
+        environment="test",
+        started_at=datetime(2026, 7, 28, 8, 0, tzinfo=timezone.utc),
+    )
+    insert_pipeline_run(
+        database_path=database_path,
+        run_id="run002",
+        environment="test",
+        started_at=datetime(2026, 7, 28, 10, 0, tzinfo=timezone.utc),
+    )
+
+    insert_forecast_snapshot(
+        database_path=database_path,
+        metadata={
+            "snapshot_id": "snapshot001",
+            "run_id": "run001",
+            "location_id": "prague",
+            "captured_at": datetime(
+                2026,
+                7,
+                28,
+                8,
+                5,
+                tzinfo=timezone.utc,
+            ),
+            "raw_file_path": "data/test/raw/snapshot001.json",
+        },
+    )
+    insert_forecast_snapshot(
+        database_path=database_path,
+        metadata={
+            "snapshot_id": "snapshot002",
+            "run_id": "run002",
+            "location_id": "prague",
+            "captured_at": datetime(
+                2026,
+                7,
+                28,
+                10,
+                5,
+                tzinfo=timezone.utc,
+            ),
+            "raw_file_path": "data/test/raw/snapshot002.json",
+        },
+    )
+
+    first_payload = {
+        "timezone": "UTC",
+        "hourly": {
+            "time": ["2026-07-29T12:00"],
+            "temperature_2m": [18.0],
+            "precipitation_probability": [20],
+            "wind_speed_10m": [10.0],
+        },
+    }
+    second_payload = {
+        "timezone": "UTC",
+        "hourly": {
+            "time": ["2026-07-29T12:00"],
+            "temperature_2m": [19.5],
+            "precipitation_probability": [35],
+            "wind_speed_10m": [8.5],
+        },
+    }
+
+    insert_forecast_hourly(
+        database_path=database_path,
+        snapshot_id="snapshot001",
+        location_id="prague",
+        payload=first_payload,
+    )
+    insert_forecast_hourly(
+        database_path=database_path,
+        snapshot_id="snapshot002",
+        location_id="prague",
+        payload=second_payload,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        revision = connection.execute(
+            """
+            select
+                snapshot_id,
+                previous_snapshot_id,
+                temperature_2m_change,
+                precipitation_probability_change,
+                wind_speed_10m_change
+            from forecast_revision_changes
+            where location_id = 'prague'
+            """
+        ).fetchone()
+
+    assert revision == (
+        "snapshot002",
+        "snapshot001",
+        1.5,
+        15.0,
+        -1.5,
+    )
