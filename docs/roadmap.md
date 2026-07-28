@@ -28,9 +28,9 @@ Roadmap stage 3 is complete. Issue #20 defined the coastal location and
 fishing-condition requirements and accepted three supporting decisions. Pull
 request #21 merged the completed stage 3 documentation into `main`.
 
-Roadmap stage 4 is authorized and in progress through issue #24. The current
-work is limited to source evaluation, spatial relationships, and the durable
-decisions required before ingestion implementation.
+Roadmap stage 4 is authorized and in progress through issue #26. The current
+checkpoint finalizes the minimum first-release source relationships and
+validity rules required before ingestion implementation.
 
 Coastal ingestion implementation has not started.
 
@@ -111,9 +111,10 @@ and preserving observable pipeline behavior.
 
 Status: In progress.
 
-The current checkpoint evaluates Open-Meteo atmospheric and marine models,
-source-specific spatial relationships, and NOAA CO-OPS tide-product
-responsibility. The reviewed evidence is recorded in:
+The current checkpoint records the final first-release display, request, and
+product-specific returned-grid relationships, NOAA CO-OPS prediction
+relationships, the minimum tide phase, and deterministic source-result
+validity rules. The reviewed evidence is recorded in:
 
 - [Coastal source evaluation](research/coastal-source-evaluation.md)
 - [Coastal spatial relationships](research/coastal-spatial-relationships.md)
@@ -121,10 +122,11 @@ responsibility. The reviewed evidence is recorded in:
 The accepted decisions are indexed in the
 [decision records](decisions/README.md).
 
-Final coordinates, returned-grid relationships, NOAA prediction-location,
-station and datum mappings, tide-transfer rules, observation relationships,
-accuracy validation, fallback rules, and marine run-history reconstruction
-remain unresolved. Coastal ingestion implementation has not started.
+Observation relationships, accuracy validation, fallback and precedence rules,
+warning and forecast-zone mappings, alternative marine-model adoption, and
+marine run-history reconstruction remain unresolved or deferred. Coastal
+ingestion implementation has not started, and stage 4 completion evidence
+remains unsatisfied.
 
 Completion evidence requires:
 

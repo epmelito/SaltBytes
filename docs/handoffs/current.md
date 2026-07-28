@@ -2,33 +2,33 @@
 
 ## Handoff metadata
 
-- Current branch: `docs/evaluate-coastal-data-sources`
+- Current branch: `docs/finalize-coastal-source-relationships`
 - Resulting branch: `main`
-- Issue: #24
-- Work package: stage 4 coastal source and spatial-relationship evaluation
+- Issue: #26
+- Work package: stage 4 coastal source-relationship finalization
 - Roadmap state: stage 4 authorized and in progress
 
-This handoff records the edited documentation state for issue #24. It does not
-mark roadmap stage 4, issue #24, or a future pull request complete.
+This handoff records the edited documentation state for issue #26. It does not
+mark roadmap stage 4, issue #26, or a future pull request complete.
+Issue #26 remains open.
 
 ## Objective
 
-Document the reviewed Open-Meteo source evaluation, preserve candidate spatial
-and tide relationships, and record the accepted decisions required before
-coastal ingestion implementation.
+Finalize the minimum first-release location-to-source, NOAA tide, phase, and
+source-result validity decisions required before coastal ingestion
+implementation.
 
-## Research completed
+## Documentation completed
 
-- evaluated Open-Meteo weather and marine field coverage, model resolution,
-  forecast horizons, null behavior, and provenance limitations
-- evaluated authoritative location anchors and candidate weather and marine
-  request relationships for the five accepted locations
-- compared requested coordinates with returned model-grid coordinates
-- classified candidate returned cells by coastal regime and limitation
-- evaluated NOAA CO-OPS tide-prediction relationships without selecting final
-  locations, stations, datums, transfer rules, or a phase calculation
-- recorded all external source URLs, available source dates, and the access
-  date 2026-07-28
+- updated the source evaluation with the accepted field contracts, repeated
+  seven-day empirical results, UTC-normalized valid-time rule, NOAA request
+  settings, tide phase, provenance, and independent source-result validity
+  boundary
+- updated the spatial evidence with the final display, weather, wave, SST,
+  returned-grid, and NOAA tide relationships for all five locations
+- retained the evidence type, source date, displacement, coastal regime, and
+  representativeness limitation for each spatial relationship
+- recorded the tested NOAA request units as `metric`
 
 The evidence is documented in:
 
@@ -37,34 +37,37 @@ The evidence is documented in:
 
 ## Accepted decisions
 
-- [ADR 0004](../decisions/0004-spatial-coordinate-and-returned-grid-policy.md)
-  preserves distinct display, request, and source-specific returned-grid
-  relationships and their evidence and limitations.
-- [ADR 0005](../decisions/0005-open-meteo-model-strategy.md) selects
-  `ncep_nbm_conus` for first-release atmospheric fields,
-  `meteofrance_wave` for wave height, direction, and period, and
-  `meteofrance_currents` only for `sea_surface_temperature`.
-- [ADR 0006](../decisions/0006-authoritative-tide-product-responsibility.md)
-  establishes NOAA CO-OPS tide predictions as the authoritative source family
-  for satisfying the locally referenced tide or water-level requirement.
+- [ADR 0007](../decisions/0007-final-location-source-relationships.md)
+  accepts the final first-release display, request, and product-specific
+  expected returned-grid relationships.
+- [ADR 0008](../decisions/0008-noaa-tide-relationships-and-phase.md)
+  accepts the five NOAA prediction relationships, `MLLW`, `gmt`, `metric`,
+  direct-use or transfer classifications, and binary rising or falling phase.
+- [ADR 0009](../decisions/0009-coastal-source-result-validity-rules.md)
+  accepts the minimum independent whole-source-result rejection, normalized UTC
+  valid-time, spatial, field, and provenance rules.
 
-Open-Meteo `models=auto` is not accepted for the first-release atmospheric or
-marine strategy. Open-Meteo `sea_level_height_msl` does not satisfy the
-authoritative tide requirement.
+ADRs 0004 through 0006 remain unchanged. No fallback coordinates, fallback
+stations, geographic tolerances, runtime geographic inference, project tide
+interpolation, or correction factors are authorized.
 
 ## Files changed
 
 - `docs/research/coastal-source-evaluation.md`
 - `docs/research/coastal-spatial-relationships.md`
-- `docs/decisions/0004-spatial-coordinate-and-returned-grid-policy.md`
-- `docs/decisions/0005-open-meteo-model-strategy.md`
-- `docs/decisions/0006-authoritative-tide-product-responsibility.md`
+- `docs/decisions/0007-final-location-source-relationships.md`
+- `docs/decisions/0008-noaa-tide-relationships-and-phase.md`
+- `docs/decisions/0009-coastal-source-result-validity-rules.md`
 - `docs/decisions/README.md`
 - `docs/scope-register.md`
 - `docs/roadmap.md`
 - `docs/handoffs/current.md`
 
-No ingestion implementation is included.
+Exactly nine documentation files are intended to change. No requirements,
+existing ADRs, source code, configuration, database models, tests, scripts, CI,
+skills, or technical architecture documents are included.
+
+No coastal ingestion implementation has started.
 
 ## Validation
 
@@ -74,36 +77,25 @@ Validation for this documentation-only change completed successfully:
 - `.\.venv\Scripts\python.exe -m ruff check .`: All checks passed!
 - `git diff --check`: passed with nonblocking LF-to-CRLF normalization
   warnings
-- changed-path review: exactly the nine authorized documentation files are
-  changed
-- boundary review: no source code, configuration, tests, scripts, CI, skills,
-  requirements, or existing ADRs changed
-
-The full nine-file documentation diff was reviewed. Three minor documentation
-corrections were identified.
+- changed-path review: exactly nine authorized documentation files changed
+- focused diff review: PASS
+- exact problems: none
+- review conclusion: the diff was ready for this handoff validation update
 
 ## Unresolved relationships
 
-- final display or destination coordinates
-- final weather request coordinates
-- final marine request coordinates
-- final returned weather and marine grid relationships
-- exact NOAA prediction-location, station, and datum mappings
-- tide interpolation or station-to-location transfer rules
-- tide or water-level phase calculation
 - observation-station relationships
 - accuracy and bias validation
 - source fallback and precedence rules
-- marine run-history reconstruction
-
-Temporary empirical probes remain research evidence and are not approved
-implementation relationships.
+- alternative marine-model adoption
+- warning, forecast, and safety-zone relationships
+- marine run-history reconstruction beyond metadata exposed by the accepted
+  products
 
 ## Deferred work
 
-- supplemental provider selection
-- warning and forecast-zone mappings
-- ECMWF WAM and other alternative marine models
+- supplemental provider selection outside accepted source responsibilities
+- observed-water-level ingestion
 - tidal-current products and inlet-current requirements
 - scoring variables, formulas, thresholds, and weights
 - retention
@@ -118,6 +110,7 @@ implementation relationships.
 
 ## Next checkpoint
 
-Apply the three review corrections, rerun `git diff --check`, confirm the final
-diff is ready, then stage the nine authorized files and prepare the commit. Do
-not begin coastal ingestion implementation.
+Run the final diff check, then stage the nine authorized documentation files
+and prepare the commit.
+
+Do not begin coastal ingestion implementation.
