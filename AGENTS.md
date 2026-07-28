@@ -42,7 +42,8 @@ and current boundaries.
 
 ## Required workflow
 
-Follow this sequence for every work package:
+Follow this sequence for substantive work packages. For small, low-risk changes,
+apply the same principles proportionally and avoid unnecessary process.
 
 1. **Inspect.** Read the issue, current handoff, scope register, and relevant
    source, tests, configuration, and documentation before changing files.
@@ -62,9 +63,9 @@ Follow this sequence for every work package:
    - compare the diff with the issue and scope register
    - confirm no unrelated files or unsupported decisions were introduced
    - confirm documentation reflects the resulting repository state
-6. **Hand off.** Update the current handoff with the verified branch, work
-   status, files changed, validation results, deferred checks, open issues, and
-   next checkpoint.
+6. **Hand off.** For substantive, multi-step, or interrupted work, update the
+   current handoff with the verified branch, work status, files changed,
+   validation results, deferred checks, open issues, and next checkpoint.
 
 Do not resolve deferred product or architecture decisions as an implementation
 convenience. Use the decision process when a durable choice is required.
@@ -85,8 +86,9 @@ convenience. Use the decision process when a durable choice is required.
 - Treat live API calls and local production-style runs as operations that may
   create runtime data.
 - Follow narrower limits in the active task or handoff.
-- Use one issue, one branch, and one focused implementation thread for each work
-  package.
+- Use one issue and one focused branch for each substantive work package. Keep
+  small follow-up corrections in the same branch when they directly support the
+  authorized objective.
 
 ## Repository conventions
 
@@ -138,8 +140,12 @@ For documentation-only changes:
 - inspect the complete diff
 - check changed paths against the authorized scope
 - verify headings, relative links, formatting, and whitespace
-- run the repository standard checks before merge unless the issue documents
-  why a check is inapplicable
+- run repository code checks when the documentation affects implemented
+  behavior, commands, configuration contracts, or implementation-dependent
+  governance
+
+For isolated wording or formatting changes, focused documentation validation
+may be sufficient.
 
 For code, configuration, test, script, or CI changes:
 
@@ -174,8 +180,13 @@ complete until all required validation passes.
 
 ## Handoffs
 
-Before ending a substantive work package, update
+Before ending a substantive, multi-step, or interrupted work package, update
 [docs/handoffs/current.md](docs/handoffs/current.md) with the verified branch,
 objective, current status, files changed, validation performed, deferred
-validation, known issues, deferred decisions, and next checkpoint. A handoff
-reports state but does not approve scope, accept work, or resolve decisions.
+validation, known issues, deferred decisions, and next checkpoint.
+
+A small, low-risk change that is completed in one session does not require a
+handoff update unless the issue or active work package explicitly requires one.
+
+A handoff reports state but does not approve scope, accept work, or resolve
+decisions.
