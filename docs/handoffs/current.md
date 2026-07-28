@@ -2,62 +2,46 @@
 
 ## Handoff metadata
 
-- Branch: `docs/ai-workflow-governance`
-- Work package: initial repository AI workflow and governance
-- Roadmap stage: 1, establish repository AI workflow and governance
+- Completed work branch: `docs/finalize-governance-state`
+- Resulting branch: `main`
+- Work package: governance lifecycle-state correction
+- Roadmap stage: stage 1 complete; stage 2 next but unauthorized
 
-The branch name was verified from Git before drafting this handoff.
+This handoff records the repository state resulting from the governance
+lifecycle-state correction.
 
 ## Objective
 
-Create the six approved governance files without modifying existing
-documentation, source code, tests, configuration, scripts, CI, or repository
-skills.
+Align the governance lifecycle records with the completed initial governance
+work package without changing product direction, deferred decisions, known
+documentation drift, or roadmap stages 2 through 9.
 
-## Drafting completed
+## Result
 
-- all six governance files were created
-- the charter and scope register were reviewed and revised
-- the roadmap and decision process were reviewed and revised
-- `AGENTS.md` and this current handoff are undergoing final review
+- pull request #13 introduced all six governance files
+- governance content review was completed
+- the required `test and lint` check for pull request #13 completed successfully
+- the follow-up correction aligned the lifecycle records
+- roadmap stage 1 is complete
+- the initial governance work package is complete
+- roadmap stage 2 is next but remains unauthorized and unstarted
 
-The governance package is a draft. It is not yet validated, accepted, merged,
-or complete.
+## Files changed by the correction
 
-## Files created
-
-- `AGENTS.md`
-- `docs/project-charter.md`
 - `docs/roadmap.md`
 - `docs/scope-register.md`
-- `docs/decisions/README.md`
 - `docs/handoffs/current.md`
+
+No technical documentation was changed, and documentation reconciliation did
+not begin.
 
 ## Validation
 
-An earlier command was run:
+The required `test and lint` GitHub Actions check for pull request #13 completed
+successfully.
 
-```powershell
-git status --short
-```
-
-That command ran before later revisions and does not validate the current
-drafts. No complete diff review has occurred.
-
-The following remain pending:
-
-- tests
-- Ruff
-- relative-link checks
-- formatting and whitespace checks
-- complete unstaged diff review
-- staging
-- staged patch review
-- commit
-- push
-- pull request
-- merge
-- linked issue closure
+Validation for this documentation-only lifecycle correction is pending and must
+pass before merge.
 
 ## Known documentation drift
 
@@ -73,30 +57,16 @@ service-level, cost, and success-metric choices listed in the
 
 No decision records exist.
 
-## Immediate remaining sequence
+## Next checkpoint
 
-1. Approve all six governance file contents.
-2. Inspect the complete unstaged diff.
-3. Run the required validation.
-4. Stage the files and inspect the staged patch.
-5. Commit and push the branch.
-6. Open a pull request linked to the issue.
-7. Merge after review.
-8. Close the issue after its acceptance criteria are met.
+Roadmap stage 2 is next in sequence, but no stage 2 work package is authorized
+or started. Documentation reconciliation requires a separate issue, branch,
+bounded plan, and scope authorization.
 
-Documentation reconciliation becomes the next work package only after this
-governance package is validated, merged into `main`, and its linked issue is
-closed.
+Until then, the known documentation drift remains unresolved.
 
-That separate work package must not begin product implementation or resolve
-deferred decisions.
+## Lifecycle closure
 
-## Review cautions
-
-- Confirm that each governance file stays within its distinct responsibility.
-- Confirm that the known-drift list is factual and complete enough for the next
-  work package.
-- Confirm that the stage completion language does not imply unapproved
-  architecture, providers, metrics, or product behavior.
-- Confirm that the complete diff contains only the six authorized governance
-  files.
+The governance lifecycle-state correction does not authorize documentation
+reconciliation, product implementation, or resolution of any deferred
+decision.
