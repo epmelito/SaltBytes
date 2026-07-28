@@ -51,6 +51,8 @@ detailed implementation commitment.
 
 Future work should favor:
 
+- the simplest evidence-based design that fully satisfies confirmed
+  requirements without weakening integrity, validation, or reliable operation
 - reusable ingestion and orchestration patterns
 - environment-aware configuration
 - immutable raw data
