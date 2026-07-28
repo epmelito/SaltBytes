@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from forecast_ops.database import (
 from forecast_ops.quality import run_payload_quality_checks
 from forecast_ops.storage import create_run_id, write_raw_snapshot
 
+logger = logging.getLogger(__name__)
 
 # run the configured forecast pipeline for every location
 def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
@@ -30,6 +32,13 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     rows_loaded = 0
     snapshots_written = 0
 
+    logger.info(
+        "pipeline started run_id=%s environment=%s locations=%s",
+        run_id,
+        environment,
+        len(locations),
+    )
+
     initialize_database(database_path)
 
     insert_pipeline_run(
@@ -41,6 +50,12 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
 
     try:
         for location in locations:
+            logger.info(
+                "forecast processing started run_id=%s location=%s",
+                run_id,
+                location["id"],
+            )
+
             payload = fetch_forecast(
                 location=location,
                 api_config=api_config,
@@ -78,6 +93,13 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     f"{failed_check_names}"
                 )
 
+            logger.info(
+                "quality checks passed run_id=%s location=%s checks=%s",
+                run_id,
+                location["id"],
+                len(quality_results),
+            )
+
             metadata = write_raw_snapshot(
                 payload=payload,
                 location_id=location["id"],
@@ -90,16 +112,30 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 metadata=metadata,
             )
 
-            rows_loaded += insert_forecast_hourly(
+            location_rows_loaded = insert_forecast_hourly(
                 database_path=database_path,
                 snapshot_id=metadata["snapshot_id"],
                 location_id=location["id"],
                 payload=payload,
             )
 
+            rows_loaded += location_rows_loaded
             snapshots_written += 1
 
+            logger.info(
+                "forecast processing completed run_id=%s location=%s rows=%s",
+                run_id,
+                location["id"],
+                location_rows_loaded,
+            )
+
     except Exception as error:
+        logger.exception(
+            "pipeline failed run_id=%s environment=%s",
+            run_id,
+            environment,
+        )
+
         complete_pipeline_run(
             database_path=database_path,
             run_id=run_id,
@@ -118,6 +154,14 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         completed_at=completed_at,
         status="success",
         rows_loaded=rows_loaded,
+    )
+
+    logger.info(
+        "pipeline completed run_id=%s environment=%s snapshots=%s rows=%s",
+        run_id,
+        environment,
+        snapshots_written,
+        rows_loaded,
     )
 
     return {

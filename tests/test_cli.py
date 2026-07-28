@@ -58,6 +58,10 @@ def test_main_runs_selected_environment(
         "forecast_ops.cli.run_pipeline",
         lambda loaded_config: result,
     )
+    monkeypatch.setattr(
+        "forecast_ops.cli.configure_logging",
+        lambda loaded_config: None,
+    )
 
     main()
 
