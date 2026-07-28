@@ -16,8 +16,12 @@ ForecastOps is a tested local weather forecast snapshot pipeline. It is the
 technical foundation for the approved North Carolina coastal fishing
 conditions data platform, but it does not yet implement that product.
 
-The current active stage is repository AI workflow and governance.
-Identifying a current stage does not authorize a work package.
+Roadmap stage 1 is complete. Pull request #13 introduced the six governance
+files after review and a successful required `test and lint` check. The
+lifecycle records reflect the completed stage.
+
+Roadmap stage 2 is next in sequence, but it remains unauthorized and unstarted.
+Identifying the next stage does not authorize a work package.
 
 ## Delivery stages
 
@@ -27,13 +31,15 @@ Create the initial governance package, define distinct sources of truth,
 establish scope and decision controls, and provide a repeatable handoff
 practice.
 
-Completion evidence requires:
+Status: Complete.
+
+Completion evidence:
 
 - all six governance files exist
-- their responsibilities and cross-links are consistent
-- repository validation passes
-- the pull request is merged into `main`
-- the linked issue is closed after its acceptance criteria are met
+- their responsibilities and cross-links were reviewed
+- the required `test and lint` pull request check completed successfully
+- pull request #13 introduced the governance files into `main`
+- the lifecycle records reflect the completed stage
 
 ### 2. Reconcile existing documentation
 

@@ -36,9 +36,9 @@ Implemented forecast fields are air temperature, precipitation probability,
 and wind speed. These facts describe the current foundation and do not define
 the future coastal location set or fishing-condition requirements.
 
-## Current governance work package
+## Initial governance work package
 
-The current governance work package may create only:
+The initial governance work package created:
 
 - `AGENTS.md`
 - `docs/project-charter.md`
@@ -47,16 +47,12 @@ The current governance work package may create only:
 - `docs/decisions/README.md`
 - `docs/handoffs/current.md`
 
-It must not modify existing documentation, source code, tests, configuration,
-scripts, CI, or repository skills. Existing documentation drift is recorded
-below for a separate work package.
+Pull request #13 introduced all six governance files after content review and a
+successful required `test and lint` check. A follow-up correction aligned the
+lifecycle records with the completed state.
 
-The governance work package remains active until:
-
-- the files are reviewed
-- validation passes
-- the pull request is merged into `main`
-- the linked GitHub issue is closed
+The initial governance work package and roadmap stage 1 are complete. Roadmap
+stage 2 is next, but it remains unauthorized and unstarted.
 
 ## Approved future scope
 
@@ -135,8 +131,9 @@ repository behavior:
   hardcoded development scripts do not parse.
 - The README repository tree does not include the tracked repository skill.
 
-This register records the drift only. Reconciliation belongs to the next
-approved work package.
+This register records the drift only. The drift remains unresolved.
+Documentation reconciliation is roadmap stage 2 and requires a separate
+authorized work package. It has not started.
 
 ## Scope changes
 
