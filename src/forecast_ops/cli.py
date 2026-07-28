@@ -1,6 +1,7 @@
 import argparse
 
 from forecast_ops.config import load_config
+from forecast_ops.logging import configure_logging
 from forecast_ops.pipeline import run_pipeline
 
 
@@ -23,6 +24,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     config = load_config(args.environment)
+
+    configure_logging(config)
+
     result = run_pipeline(config)
 
     print(f"run id: {result['run_id']}")
