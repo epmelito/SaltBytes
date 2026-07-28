@@ -1,0 +1,23 @@
+{
+  "latitude": 50.08,
+  "longitude": 14.44,
+  "timezone": "Europe/Prague",
+  "hourly": {
+    "time": [
+      "2026-07-28T12:00",
+      "2026-07-28T13:00"
+    ],
+    "temperature_2m": [
+      18.2,
+      19.1
+    ],
+    "precipitation_probability": [
+      10,
+      20
+    ],
+    "wind_speed_10m": [
+      8.4,
+      9.1
+    ]
+  }
+}
