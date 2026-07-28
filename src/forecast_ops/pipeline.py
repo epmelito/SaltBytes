@@ -9,7 +9,9 @@ from forecast_ops.database import (
     insert_forecast_hourly,
     insert_forecast_snapshot,
     insert_pipeline_run,
+    insert_quality_result,
 )
+from forecast_ops.quality import run_payload_quality_checks
 from forecast_ops.storage import create_run_id, write_raw_snapshot
 
 
@@ -43,6 +45,38 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 location=location,
                 api_config=api_config,
             )
+
+            quality_results = run_payload_quality_checks(
+                payload=payload,
+                expected_hourly_fields=api_config["hourly_fields"],
+            )
+
+            for quality_result in quality_results:
+                insert_quality_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    check_name=f"{location['id']}:{quality_result['check_name']}",
+                    status=str(quality_result["status"]),
+                    observed_value=str(quality_result["observed_value"]),
+                    expected_value=str(quality_result["expected_value"]),
+                    checked_at=quality_result["checked_at"],
+                )
+
+            failed_checks = [
+                quality_result
+                for quality_result in quality_results
+                if quality_result["status"] == "fail"
+            ]
+
+            if failed_checks:
+                failed_check_names = ", ".join(
+                    str(quality_result["check_name"])
+                    for quality_result in failed_checks
+                )
+                raise ValueError(
+                    f"forecast quality checks failed for {location['id']}: "
+                    f"{failed_check_names}"
+                )
 
             metadata = write_raw_snapshot(
                 payload=payload,

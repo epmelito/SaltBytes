@@ -107,6 +107,40 @@ def insert_forecast_snapshot(
         )
 
 
+# insert one data quality result
+def insert_quality_result(
+    database_path: Path | str,
+    run_id: str,
+    check_name: str,
+    status: str,
+    observed_value: str,
+    expected_value: str,
+    checked_at: datetime,
+) -> None:
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(
+            """
+            insert into quality_results (
+                run_id,
+                check_name,
+                status,
+                observed_value,
+                expected_value,
+                checked_at
+            )
+            values (?, ?, ?, ?, ?, ?)
+            """,
+            [
+                run_id,
+                check_name,
+                status,
+                observed_value,
+                expected_value,
+                checked_at,
+            ],
+        )
+
+
 # insert normalized hourly forecast rows for one snapshot
 def insert_forecast_hourly(
     database_path: Path | str,

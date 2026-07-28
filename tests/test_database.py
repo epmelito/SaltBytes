@@ -10,6 +10,7 @@ from forecast_ops.database import (
     insert_forecast_hourly,
     insert_forecast_snapshot,
     insert_pipeline_run,
+    insert_quality_result,
 )
 
 EXPECTED_TABLES = {
@@ -394,3 +395,47 @@ def test_insert_forecast_hourly_requires_timezone(tmp_path: Path) -> None:
             location_id="prague",
             payload=payload,
         )
+
+
+def test_insert_quality_result(tmp_path: Path) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+
+    insert_pipeline_run(
+        database_path=database_path,
+        run_id="run123",
+        environment="test",
+        started_at=datetime(2026, 7, 28, 10, 0, tzinfo=timezone.utc),
+    )
+
+    checked_at = datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc)
+
+    insert_quality_result(
+        database_path=database_path,
+        run_id="run123",
+        check_name="hourly_time_not_empty",
+        status="pass",
+        observed_value="48",
+        expected_value="> 0",
+        checked_at=checked_at,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        result = connection.execute(
+            """
+            select
+                check_name,
+                status,
+                observed_value,
+                expected_value
+            from quality_results
+            where run_id = 'run123'
+            """
+        ).fetchone()
+
+    assert result == (
+        "hourly_time_not_empty",
+        "pass",
+        "48",
+        "> 0",
+    )
