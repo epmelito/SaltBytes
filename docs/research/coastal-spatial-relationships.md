@@ -2,11 +2,13 @@
 
 ## Purpose
 
-This document records the roadmap stage 4 spatial evidence and candidate
-relationships for the five accepted composite coastal locations.
+This document records the evidence supporting the accepted first-release
+coastal location-to-source relationships. It distinguishes authoritative
+geometry, project inference, empirical probes, and approved relationships.
 
-It does not approve final coordinates, returned grid cells, NOAA stations,
-datums, transfer rules, or ingestion relationships.
+The approved relationships are future configuration and implementation inputs.
+They do not constitute ingestion implementation or evidence of forecast
+accuracy.
 
 ## Relationship model
 
@@ -18,12 +20,11 @@ ForecastOps preserves these distinct relationships:
 - returned weather grid coordinate for each model or product
 - returned marine grid coordinate for each model or product
 
-Returned marine cells are model-specific or product-specific relationships.
-Wave and sea-surface-temperature products may use different returned cells.
+Returned cells are model- or product-specific relationships. Wave and
+sea-surface-temperature products retain separate relationships even when they
+return the same numeric coordinate.
 
-## Required relationship metadata
-
-Each relationship will retain:
+Each relationship retains:
 
 - coordinate evidence type
 - evidence source and source date
@@ -34,178 +35,129 @@ Each relationship will retain:
 - spatial-representativeness limitations
 - relationship status
 
-Relationship status must distinguish candidate, accepted, rejected for the
-current context, and superseded relationships.
-
 ## Evidence classifications
 
 | Evidence type | Meaning |
 | --- | --- |
 | Directly published coordinate | A source publishes the coordinate for the named feature |
 | Derived from authoritative geometry | The coordinate is extracted or calculated from official geometry |
-| Project inference | The project derives a candidate from reviewed spatial evidence |
+| Project inference | The project derives a point from reviewed spatial evidence |
 | Temporary empirical probe | A coordinate used only to test API grid behavior |
 
-Temporary empirical probes may remain in research evidence. They must not
-become approved implementation relationships without separate review.
-
-## Coastal-regime classifications
-
-Candidate and returned coordinates are classified as:
-
-- Atlantic-facing
-- sound-side
-- inlet-side
-- estuarine
-- inland
-- excessively offshore
-- unresolved
-
-The classification is a spatial interpretation. It is not an accuracy or
-source-fitness result.
+Temporary empirical probes may remain in research evidence. They are not
+approved implementation relationships unless separately reviewed and accepted.
 
 ## Authoritative spatial sources
 
-All sources were accessed on 2026-07-28.
+Sources used for issue #26 were accessed on 2026-07-29.
 
 | Source | URL | Publication or update date | Use and limitation |
 | --- | --- | --- | --- |
-| NC Division of Coastal Management Beach and Waterfront Access GIS | https://services2.arcgis.com/kCu40SDxsCGcuUWO/arcgis/rest/services/DCM_Beach_and_Waterfront_Access/FeatureServer | Service date not published; feature survey dates retained below | Destination and ocean-access points, not environmental sampling points |
-| NOAA ENC Direct to GIS | https://www.fisheries.noaa.gov/inport/item/39973 | Updated 2026-03-04; maintained weekly | Chart-derived coastal geometry for research, not navigation |
-| NOAA Continually Updated Shoreline Product | https://services.arcgis.com/rD2ylXRs80UroD90/ArcGIS/rest/services/NOAA_Coastal_Shoreline/FeatureServer | Not published | Mean-high-water proxy; omits many piers |
-| NPS Public Roads GIS | https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Roads/MapServer | Not published | Ramp 72 route and beach endpoint |
-| NPS Ramp 72 | https://www.nps.gov/places/000/beach-access-ramp-72.htm | Updated 2021-11-07 | Confirms destination identity and southern Ocracoke beach relationship |
-| FHWA/NPS Cape Hatteras route inventory | https://fhfl15gisweb.flhd.fhwa.dot.gov/Nps/Reports/Rip/Cycle6/CAHA_C6_RouteID.pdf | Cycle 6; date not published in accessible text | Identifies South Point Road as Ramp 72 and confirms that it leads to the beach |
-| Jennette's Pier, NC Aquariums | https://www.ncaquariums.com/visit-jennettes-pier | Not published | Confirms a 1,000-foot pier extending over the Atlantic |
-| Fort Macon State Park | https://www.ncparks.gov/state-parks/fort-macon-state-park | Not published | Park GPS and separate ocean and inlet contexts |
+| NC Division of Coastal Management Beach and Waterfront Access GIS | https://services2.arcgis.com/kCu40SDxsCGcuUWO/arcgis/rest/services/DCM_Beach_and_Waterfront_Access/FeatureServer | Service date not published; feature survey dates retained below | Destination and ocean-access coordinates, not environmental sampling points |
+| NOAA ENC Direct to GIS | https://www.fisheries.noaa.gov/inport/item/39973 | Updated 2026-03-04; maintained weekly | Chart-derived pier geometry for research, not navigation |
+| NOAA Continually Updated Shoreline Product | https://services.arcgis.com/rD2ylXRs80UroD90/ArcGIS/rest/services/NOAA_Coastal_Shoreline/FeatureServer | Not published | Mean-high-water proxy that omits many piers |
+| NPS Public Roads GIS | https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Roads/MapServer | Ramp 72 feature edited 2025-10-09 | Ramp 72 route and beach endpoint |
+| NPS Ramp 72 | https://www.nps.gov/places/000/beach-access-ramp-72.htm | Updated 2021-11-07 | Destination identity and southern Ocracoke beach relationship |
+| FHWA and NPS Cape Hatteras route inventory | https://fhfl15gisweb.flhd.fhwa.dot.gov/Nps/Reports/Rip/Cycle6/CAHA_C6_RouteID.pdf | Cycle 6; date not published in accessible text | Identifies South Point Road as Ramp 72 and confirms that it leads to the beach |
+| Jennette's Pier, NC Aquariums | https://www.ncaquariums.com/visit-jennettes-pier | Not published | Confirms an Atlantic-facing pier |
+| Fort Macon State Park | https://www.ncparks.gov/state-parks/fort-macon-state-park | Not published | Park identity and separate ocean and inlet contexts |
 | Fort Macon official map | https://www.ncparks.gov/maps/fort-macon-state-park-map/open | 2024-03 | Atlantic, inlet, sound, and bathhouse orientation |
-| Fort Fisher State Recreation Area | https://www.ncparks.gov/state-parks/fort-fisher-state-recreation-area | Not published | Park GPS and ocean surf context |
+| Fort Fisher State Recreation Area | https://www.ncparks.gov/state-parks/fort-fisher-state-recreation-area | Not published | Published park coordinate and ocean surf context |
 | Fort Fisher official map | https://www.ncparks.gov/maps/fort-fisher-state-recreation-area-map/open | 2025-03 | Atlantic and Cape Fear orientation |
-| Bogue Inlet Pier | https://www.bogueinletpier.com/directions/ | Page copyright 2026 | Destination identity only |
+| Bogue Inlet Pier | https://www.bogueinletpier.com/directions/ | Page copyright 2026 | Current destination identity only |
 | NOAA CO-OPS Data API | https://api.tidesandcurrents.noaa.gov/api/prod/ | Not published | Tide-prediction and datum behavior |
-| NOAA CO-OPS Metadata API | https://api.tidesandcurrents.noaa.gov/mdapi/prod/ | Not published | Station coordinates and prediction relationships |
+| NOAA CO-OPS Metadata API | https://api.tidesandcurrents.noaa.gov/mdapi/prod/ | Not published | Station coordinates, reference relationships, offsets, and multipliers |
 
-## Location evidence
+## Accepted location-to-source relationships
 
-| Location | Display or destination evidence | Shoreline or pier evidence | Intended context | Evidence limitation |
-| --- | --- | --- | --- | --- |
-| Jennette's Pier | NCDCM `35.9096355, -75.5966537`, surveyed 2018-03-06 | NOAA CO-OPS point `35.9100000, -75.5917000`; facility reports a 1,000-foot Atlantic pier | Pier, Atlantic-facing | NOAA point is not explicitly labeled as the pier head |
-| Ramp 72 | NPS road endpoint `35.0868922, -75.9844152` | NPS route begins near `35.1064948, -75.9697201` and ends at the beach | Surf, ocean side only | Local shoreline direction still needs a dated shoreline intersection |
-| Fort Macon, ocean side | Park GPS `34.6979000, -76.6783000`; NCDCM park point `34.6979227, -76.6781161` | NCDCM Bathhouse Access `34.6949437, -76.6973910`, surveyed 2021-03-10 | Surf, Atlantic-facing | General park GPS is closer to the inlet-side portion |
-| Bogue Inlet Pier | Facility identity and NOAA ENC geometry | ENC foot `34.6601236, -77.0337424`; head `34.6579882, -77.0331663` | Pier, Atlantic-facing | ENC feature source date is 2001-07-07 and needs current confirmation |
-| Fort Fisher | Park GPS `33.9534000, -77.9290000` | Official map places the accepted beach east of the anchor | Surf, Atlantic-facing | The park covers a long beach and no single fishing point is published |
+The accepted coordinate and returned-grid relationships are:
 
-## Weather-coordinate candidates
+| Location | Relationship | Request or display coordinate | Expected returned coordinate | Displacement | Evidence type | Coastal regime and limitation |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| Jennette's Pier | Display or destination | `35.9096355, -75.5966537` | Not applicable | Not applicable | Direct NCDCM coordinate, surveyed 2018-03-06 | Atlantic-facing pier; not a universal sampling point |
+| Jennette's Pier | `ncep_nbm_conus` weather | `35.9096355, -75.5966537` | `35.8955700, -75.5936000` | 1.588 km | Direct destination coordinate and repeated empirical result | Atlantic coastal grid; accuracy untested |
+| Jennette's Pier | `meteofrance_wave` | `35.9100000, -75.5400000` | `35.8750000, -75.5416600` | 3.895 km | Project inference from authoritative pier geometry and repeated empirical result | Atlantic-facing grid east and south of the pier |
+| Jennette's Pier | `meteofrance_currents` SST | `35.9100000, -75.5400000` | `35.8750000, -75.5416600` | 3.895 km | Same supported request point; separate product relationship | Atlantic-facing grid; accuracy untested |
+| Beach Access Ramp 72, Ocracoke Island | Display or destination | `35.0868922, -75.9844152` | Not applicable | Not applicable | Derived from authoritative NPS road endpoint | Ocean-side surf only |
+| Beach Access Ramp 72, Ocracoke Island | `ncep_nbm_conus` weather | `35.0868922, -75.9844152` | `35.1019550, -75.9833150` | 1.678 km | Authoritative destination geometry and repeated empirical result | Ocean-side coastal grid; accuracy untested |
+| Beach Access Ramp 72, Ocracoke Island | `meteofrance_wave` | `35.0868922, -75.9844152` | `35.1250000, -75.9583300` | 4.857 km | Authoritative destination geometry and repeated empirical result | Ocean-side Atlantic grid north of the destination |
+| Beach Access Ramp 72, Ocracoke Island | `meteofrance_currents` SST | `35.0868922, -75.9844152` | `35.1250000, -75.9583300` | 4.857 km | Same supported request point; separate product relationship | Ocean-side Atlantic grid; accuracy untested |
+| Fort Macon State Park, ocean side | Display or destination | `34.6949437, -76.6973910` | Not applicable | Not applicable | Direct NCDCM Bathhouse Access coordinate, surveyed 2021-03-10 | Ocean-side surf; general park coordinates are closer to the inlet |
+| Fort Macon State Park, ocean side | `ncep_nbm_conus` weather | `34.6933000, -76.7117000` | `34.6858600, -76.7178960` | 1.003 km | Direct NOAA Atlantic Beach coordinate and repeated empirical result | Atlantic grid; avoids the display point's cross-inlet return |
+| Fort Macon State Park, ocean side | `meteofrance_wave` | `34.6500000, -76.6970000` | `34.6250000, -76.7083300` | 2.967 km | Project-inferred seaward point and repeated empirical result | Atlantic-facing grid south of the destination |
+| Fort Macon State Park, ocean side | `meteofrance_currents` SST | `34.6500000, -76.6970000` | `34.6250000, -76.7083300` | 2.967 km | Same supported request point; separate product relationship | Atlantic-facing grid; accuracy untested |
+| Bogue Inlet Pier | Display or destination | `34.6601236, -77.0337424` | Not applicable | Not applicable | Derived from NOAA ENC pier-foot geometry; feature dated 2001-07-07 and facility identity confirmed in 2026 | Atlantic-facing pier only |
+| Bogue Inlet Pier | `ncep_nbm_conus` weather | `34.6601236, -77.0337424` | `34.6712840, -76.9964140` | 3.632 km | Authoritative pier geometry and repeated empirical result | Atlantic coastal grid; accuracy untested |
+| Bogue Inlet Pier | `meteofrance_wave` | `34.6579882, -77.0331663` | `34.6250000, -77.0416600` | 3.750 km | Derived from NOAA ENC pier-head geometry and repeated empirical result | Atlantic-facing grid south of the pier |
+| Bogue Inlet Pier | `meteofrance_currents` SST | `34.6579882, -77.0331663` | `34.6250000, -77.0416600` | 3.750 km | Same supported request point; separate product relationship | Atlantic-facing grid; accuracy untested |
+| Fort Fisher State Recreation Area | Display or destination | `33.9534000, -77.9290000` | Not applicable | Not applicable | Direct coordinate published by North Carolina State Parks | Ocean-side surf; the park covers a long beach |
+| Fort Fisher State Recreation Area | `ncep_nbm_conus` weather | `33.9534000, -77.9290000` | `33.9541440, -77.9345400` | 0.518 km | Direct destination coordinate and repeated empirical result | Atlantic coastal grid; accuracy untested |
+| Fort Fisher State Recreation Area | `meteofrance_wave` | `33.9300000, -77.9000000` | `33.8750000, -77.8749900` | 6.537 km | Project-inferred Atlantic-facing point and repeated empirical result | Atlantic-facing grid near the southern park extent |
+| Fort Fisher State Recreation Area | `meteofrance_currents` SST | `33.9300000, -77.9000000` | `33.9583360, -77.8749900` | 3.905 km | Same supported request point; separate product relationship | Atlantic-facing grid distinct from the wave grid |
 
-Open-Meteo weather probes used the default land-cell preference. Ranks are
-research priorities, not approved coordinates.
+The Open-Meteo relationships were returned identically by two temporary
+requests on 2026-07-28. Repeated technical behavior supports the configured
+relationship but does not establish accuracy, long-term stability, or
+production fitness.
 
-| Location | Rank | Requested coordinate | Evidence type | Returned NBM or evaluated weather cell | Displacement | Limitation |
-| --- | ---: | --- | --- | --- | ---: | --- |
-| Jennette's Pier | 1 | `35.9096355, -75.5966537` | Directly published NCDCM coordinate | `35.8847100, -75.6122360` in the best-match probe | 3.11 km | Final NBM returned cell must be reconfirmed |
-| Jennette's Pier | 2 | `35.9100000, -75.5917000` | Directly published NOAA coordinate | `35.8847100, -75.6122360` | 3.37 km | Pier precision did not change the evaluated cell |
-| Ramp 72 | 1 | `35.0868922, -75.9844152` | Derived from NPS road geometry | `35.0978160, -75.9805900` | 1.26 km | Final NBM relationship remains unresolved |
-| Ramp 72 | 2 | `35.0945080, -75.9815370` | NPS-authored image metadata along the route | `35.0978160, -75.9805900` | 0.38 km | Represents the route rather than its beach endpoint |
-| Fort Macon | 1 | `34.6949437, -76.6973910` | Directly published NCDCM bathhouse point | `34.7101200, -76.6981800` | 1.69 km | Returned cell is north of the ocean beach |
-| Fort Macon | 2 | `34.6979000, -76.6783000` | Directly published park GPS | `34.7040860, -76.6662700` | 1.30 km | Closer to the inlet-side portion |
-| Bogue Inlet Pier | 1 | `34.6601236, -77.0337424` | Derived from NOAA ENC pier foot | `34.6649630, -77.0464900` | 1.28 km | Final NBM relationship remains unresolved |
-| Bogue Inlet Pier | 2 | `34.6579882, -77.0331663` | Derived from NOAA ENC pier head | `34.6649630, -77.0464900` | 1.44 km | Same evaluated cell as the pier foot |
-| Fort Fisher | 1 | `33.9534000, -77.9290000` | Directly published park GPS | `33.9460400, -77.9392500` | 1.25 km | Returned cell is west of the Atlantic shoreline |
-| Fort Fisher | 2 | `33.9534000, -77.9150000` | Temporary empirical probe | `33.9460400, -77.9392500` | 2.38 km | Same land-selected cell and not an approved relationship |
+## Relationship validation boundary
 
-The listed weather returns came from the evaluation probes. The accepted NBM
-strategy must be probed and reviewed for each final request coordinate before
-any relationship becomes approved.
+Each source request must use its configured approved request coordinate. The
+numeric latitude and longitude returned by the source must equal the configured
+expected returned coordinate for that model or product after parsing.
 
-## Marine-coordinate candidates
+The comparison does not use raw JSON text or decimal formatting. No geographic
+tolerance is authorized. A different returned coordinate rejects only the
+affected source result and requires review. ForecastOps does not infer a
+replacement relationship at runtime.
 
-Open-Meteo marine probes used the default sea-cell preference. The requested
-coordinates and returned cells remain candidates.
+Each relationship must have a configured static coastal-regime classification.
+Temporary empirical probes remain research evidence and are not approved
+implementation relationships.
 
-### Jennette's Pier
+## Rejected alternatives
 
-| Rank | Request | Product | Returned cell | Displacement | Inferred regime and limitation |
-| ---: | --- | --- | --- | ---: | --- |
-| 1 | `35.9100000, -75.5400000` | `meteofrance_wave` | `35.8750000, -75.5416600` | 3.89 km | Atlantic-facing; several kilometres east and south of the pier |
-| 1 | same | `meteofrance_currents` SST | `35.8750000, -75.5416600` | 3.89 km | Same candidate cell in the probe; relationship remains product-specific |
-| Rejected for current context | `35.9100000, -75.5917000` | Evaluated best match | `35.8750000, -75.6249900` | 4.91 km | West of the pier and not defensibly Atlantic-facing |
+- A Jennette's Pier destination-coordinate marine request returned a cell west
+  of the pier that was not defensibly Atlantic-facing.
+- The Fort Macon display-coordinate weather request returned a cross-inlet grid
+  relationship.
+- The Fort Macon display-coordinate marine request returned a northern
+  inlet-side, sound-side, or land-adjacent relationship.
+- The Fort Fisher display-coordinate marine request returned Cape Fear or
+  estuarine-side relationships.
+- Less-authoritative inferred Ramp 72 and Bogue Inlet Pier alternatives were
+  rejected because authoritative destination or pier geometry produced
+  equivalent or better-supported relationships.
 
-### Ramp 72
+## Accepted tide relationships
 
-| Rank | Request | Product | Returned cell | Displacement | Inferred regime and limitation |
-| ---: | --- | --- | --- | ---: | --- |
-| 1 | `35.0868922, -75.9844152` | Evaluated best match | `35.1250000, -75.9583300` | 4.86 km | Plausibly Atlantic-side north of the endpoint |
-| 2 | `35.0800000, -75.9700000` | Evaluated best match | `35.0416640, -75.9583300` | 4.39 km | Atlantic-facing south-point candidate with possible inlet influence |
-| 3 | `35.0600000, -75.9500000` | `meteofrance_wave` and `meteofrance_currents` | `35.0416640, -75.9583300` | 2.18 km | Temporary probe; shoreline relationship remains unresolved |
+| Location | NOAA prediction location | Identifier | Distance | Relationship | Limitation |
+| --- | --- | --- | ---: | --- | --- |
+| Jennette's Pier | Jennettes Pier, Nags Head (ocean) | `8652226` | 0.448 km | Direct use | Prediction is not an observed water level |
+| Beach Access Ramp 72, Ocracoke Island | Ocracoke Inlet | `TEC2793` | 3.697 km | Explicit transfer to the southern ocean-side surf location | No inlet-current interpretation |
+| Fort Macon State Park, ocean side | Atlantic Beach | `8656590` | 1.321 km | Explicit transfer to the nearby Atlantic-facing beach | Not a prediction at the park destination |
+| Bogue Inlet Pier | Bogue Inlet | `TEC2837` | 6.164 km | Explicit transfer for phase at the pier | Pier context only; no inlet-current interpretation |
+| Fort Fisher State Recreation Area | Wilmington Beach | `8658559` | 9.308 km | Explicit transfer from the nearest reviewed ocean-facing relationship | Material distance north of the destination |
 
-The final Météo-France request and returned cells must be reviewed against the
-accepted ocean-side surf context. No inlet-current requirement is introduced.
+All five relationships use NOAA CO-OPS product `predictions`, interval `hilo`,
+datum `MLLW`, time zone `gmt`, and units `metric`. The direct-use and transfer
+relationships do not authorize project interpolation, correction factors,
+fallback stations, observed-water-level ingestion, or tidal-current products.
 
-### Fort Macon, ocean side
+## Relationships still unresolved or deferred
 
-| Rank | Request | Product | Returned cell | Displacement | Inferred regime and limitation |
-| ---: | --- | --- | --- | ---: | --- |
-| 1 | `34.6500000, -76.6970000` | `meteofrance_wave` | `34.6250000, -76.7083300` | 2.97 km | Atlantic-facing south of the bathhouse |
-| 1 | same | `meteofrance_currents` SST | `34.6250000, -76.7083300` | 2.97 km | Same candidate cell in the probe; relationship remains product-specific |
-| Rejected for current context | `34.6949437, -76.6973910` | Evaluated best match | `34.7083360, -76.7083300` | 1.79 km | Plausibly land, sound, or inlet-side |
+The approved relationships do not resolve:
 
-### Bogue Inlet Pier
+- observation-station relationships
+- accuracy or bias validation
+- source fallback and precedence rules
+- alternative marine-model adoption
+- marine run-history reconstruction beyond metadata exposed by the selected
+  products
+- warning, forecast, and safety-zone relationships
 
-| Rank | Request | Product | Returned cell | Displacement | Inferred regime and limitation |
-| ---: | --- | --- | --- | ---: | --- |
-| 1 | `34.6579882, -77.0331663` | `meteofrance_wave` | `34.6250000, -77.0416600` | 3.75 km | Atlantic-facing south of the pier |
-| 1 | same | `meteofrance_currents` SST | `34.6250000, -77.0416600` | 3.75 km | Same candidate cell in the probe; relationship remains product-specific |
-| 2 | `34.6400000, -77.0330000` | Both accepted selectors | `34.6250000, -77.0416600` | 1.85 km | Temporary seaward probe, not an approved implementation relationship |
-
-Bogue Inlet Pier remains a pier context only. These relationships do not
-authorize inlet-current fields or inlet scoring.
-
-### Fort Fisher
-
-| Rank | Request | Product | Returned cell | Displacement | Inferred regime and limitation |
-| ---: | --- | --- | --- | ---: | --- |
-| 1 | `33.9300000, -77.9000000` | `meteofrance_wave` | `33.8750000, -77.8749900` | 6.54 km | Atlantic-facing but near the southern park extent |
-| 1 | same | `meteofrance_currents` SST | `33.9583360, -77.8749900` | 3.91 km | Atlantic-facing and distinct from the wave cell |
-| Rejected for current context | `33.9534000, -77.9290000` | Evaluated best match | `33.8750000, -77.9583300` | 9.13 km | Plausibly Cape Fear or estuarine rather than Atlantic-facing |
-
-Fort Fisher demonstrates why wave and SST relationships cannot share one
-universal returned marine coordinate.
-
-## Tide-relationship candidates
-
-These are candidates for later station and datum review. NOAA CO-OPS tide
-predictions are the accepted source family, but no mapping is accepted here.
-
-| Location | Candidate | Distance | Product relationship | Coastal relationship | Limitation |
-| --- | --- | ---: | --- | --- | --- |
-| Jennette's Pier | `8652226`, Jennette's Pier | 0.45 km | Subordinate prediction referenced to `8651370` Duck | Ocean-facing pier | Final station and datum mapping remains unresolved |
-| Ramp 72 | `TEC2793`, Ocracoke Inlet | 2.90 km | Subordinate prediction referenced to `8654400` Cape Hatteras Fishing Pier | Inlet and south point | Closest named prediction but not purely ocean-side surf |
-| Ramp 72 | `8654769`, Ocracoke, Pamlico Sound | 4.17 km | Harmonic prediction and observed-water relationship | Sound-side | Wrong side of the island for the accepted surf context |
-| Fort Macon | `8656590`, Atlantic Beach Triple S Pier | 1.32 km | Harmonic or reference prediction | Ocean-facing pier | Physical station is historical; current prediction use requires review |
-| Fort Macon | `8656571`, Fort Macon | 1.48 km | Subordinate prediction referenced to `8654400` | Beaufort Inlet side | Less representative of the accepted ocean-side context |
-| Bogue Inlet Pier | `TEC2837`, Bogue Inlet | 6.18 km | Subordinate prediction referenced to `8654400` | Inlet-side west of the pier | Must not introduce inlet-current scope |
-| Bogue Inlet Pier | `8656613`, Swansboro | 8.39 km | Harmonic or reference prediction | Estuarine and inland | Less representative of Atlantic pier conditions |
-| Fort Fisher | `8658559`, Wilmington Beach | 9.31 km | Subordinate prediction referenced to `8654400` | Ocean-facing former pier | Correct regime but materially north of the park |
-| Fort Fisher | `8658715`, Federal Point | 1.37 km | Subordinate prediction referenced to `8658120` Wilmington | Cape Fear River side | Close but not Atlantic-facing |
-| Fort Fisher | `8658741`, Zekes Island | 2.13 km | Harmonic or reference prediction | Estuarine and Cape Fear side | Close but wrong coastal regime |
-
-Tide predictions, observed water levels, tidal-current predictions, and
-generic modeled mean-sea-level output remain distinct products.
-
-## Unresolved relationships
-
-- Final display or destination coordinates remain unresolved.
-- Final weather request coordinates remain unresolved.
-- Final marine request coordinates remain unresolved.
-- Final returned weather and marine grid relationships remain unresolved.
-- Exact NOAA prediction-location, station, and datum mappings remain unresolved
-  for each accepted location.
-- Tide interpolation or station-to-location transfer rules remain unresolved.
-- The tide or water-level phase calculation remains unresolved.
-- Observation-station relationships remain unresolved.
-- Accuracy and bias validation remain unresolved.
-- Source fallback and precedence rules remain unresolved.
-- Marine run-history reconstruction remains unresolved.
+These topics require separately authorized work. They do not block documenting
+the approved first-release request and expected returned-grid relationships.
 
 ## Related governance
 
@@ -214,7 +166,9 @@ generic modeled mean-sea-level output remain distinct products.
 - [Roadmap stage 4](../roadmap.md#4-extend-coastal-data-source-ingestion)
 - [Coastal location requirements](../requirements/coastal-locations.md)
 - [Fishing-condition requirements](../requirements/fishing-conditions.md)
-- [Composite geographic model and initial locations](../decisions/0002-composite-geographic-model-and-initial-locations.md)
-- [Spatial coordinate and returned-grid policy](../decisions/0004-spatial-coordinate-and-returned-grid-policy.md)
-- [Open-Meteo model strategy](../decisions/0005-open-meteo-model-strategy.md)
-- [Authoritative tide-product responsibility](../decisions/0006-authoritative-tide-product-responsibility.md)
+- [ADR 0004](../decisions/0004-spatial-coordinate-and-returned-grid-policy.md)
+- [ADR 0005](../decisions/0005-open-meteo-model-strategy.md)
+- [ADR 0006](../decisions/0006-authoritative-tide-product-responsibility.md)
+- [ADR 0007](../decisions/0007-final-location-source-relationships.md)
+- [ADR 0008](../decisions/0008-noaa-tide-relationships-and-phase.md)
+- [ADR 0009](../decisions/0009-coastal-source-result-validity-rules.md)

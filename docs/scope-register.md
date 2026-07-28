@@ -85,7 +85,7 @@ its acceptance criteria were satisfied.
 
 The coastal requirements work package and roadmap stage 3 are complete.
 Product implementation has not started. Roadmap stage 4 is authorized and in
-progress through issue #24.
+progress through issue #26.
 
 The requirements focus on stable location identity, spatial source
 relationships, environmental metrics, forecast history, data quality, and
@@ -102,24 +102,28 @@ The accepted decisions are:
 - [Composite geographic model and initial locations](decisions/0002-composite-geographic-model-and-initial-locations.md)
 - [First-release environmental requirement baseline](decisions/0003-first-release-environmental-requirement-baseline.md)
 
-## Active coastal source evaluation work package
+## Active coastal relationship finalization work package
 
-Issue #24 authorizes the roadmap stage 4 research and decision work needed to
-evaluate coastal data sources and spatial relationships.
+Issue #24 completed the initial roadmap stage 4 source and spatial evaluation.
+Issue #26 authorizes the bounded research and decisions needed to finalize the
+minimum first-release source relationships before ingestion implementation.
 
 The current work package may:
 
-- document the reviewed Open-Meteo source evaluation
-- document candidate spatial and tide relationships
-- accept bounded source, model, spatial-policy, and tide-product decisions
+- finalize the five location-to-source coordinate and returned-grid
+  relationships
+- finalize NOAA prediction-location, datum, and transfer relationships
+- define the minimum first-release tide phase
+- define deterministic source-result validity and provenance rules
+- update the reviewed source and spatial evidence
 - update governance records to reflect those accepted decisions
 
 The work package does not authorize ingestion implementation.
 
-Roadmap stage 4 is in progress. Final coordinates, returned-grid
-relationships, NOAA prediction-location, station and datum mappings,
-tide-transfer rules, observation relationships, accuracy validation, fallback
-rules, and marine run-history reconstruction remain unresolved.
+Roadmap stage 4 is in progress. Observation relationships, accuracy and bias
+validation, fallback and precedence rules, alternative marine-model adoption,
+warning and forecast-zone mappings, and marine run-history reconstruction
+remain unresolved or deferred.
 
 The stage 4 evidence is recorded in:
 
@@ -131,6 +135,9 @@ The accepted stage 4 decisions are:
 - [Spatial coordinate and returned-grid relationship policy](decisions/0004-spatial-coordinate-and-returned-grid-policy.md)
 - [First-release Open-Meteo atmospheric and marine model strategy](decisions/0005-open-meteo-model-strategy.md)
 - [Authoritative tide-product responsibility](decisions/0006-authoritative-tide-product-responsibility.md)
+- [Final first-release location-to-source relationships](decisions/0007-final-location-source-relationships.md)
+- [First-release NOAA tide relationships and phase](decisions/0008-noaa-tide-relationships-and-phase.md)
+- [Minimum coastal source-result validity rules](decisions/0009-coastal-source-result-validity-rules.md)
 
 ## Approved future scope
 
@@ -172,6 +179,13 @@ Roadmap stage 3 has approved the following first-release requirements:
   locally referenced tide or water-level requirement
 - separation of tide predictions, observed water levels, tidal-current
   predictions, and generic modeled mean-sea-level context
+- the final first-release display, request, and product-specific expected
+  returned-grid relationships for the five approved locations
+- NOAA CO-OPS prediction-location relationships using `MLLW`, `gmt`, and
+  `metric`, including one direct-use and four explicit transfer relationships
+- a binary rising or falling tide phase based on bounding high and low events
+- independent whole-source-result validity and provenance rules for weather,
+  wave, sea-surface-temperature, and tide results
 
 The accepted decisions and their rationale are recorded in the
 [decision index](decisions/README.md). Implementation of these requirements has
@@ -195,9 +209,6 @@ The following decisions are intentionally open:
 | Topic | Status |
 | --- | --- |
 | Supplemental provider selection and source-authority rules outside the accepted atmospheric, wave, sea-surface-temperature, and tide responsibilities | Deferred |
-| Final display or destination and weather-request coordinates | Deferred |
-| Final marine request coordinates and returned-grid relationships | Deferred |
-| Exact NOAA prediction-location, station, datum, phase, and transfer relationships | Deferred |
 | Observation-station relationships | Deferred |
 | Warning and forecast-zone mappings | Deferred |
 | Accuracy and bias validation | Deferred |

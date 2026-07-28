@@ -122,3 +122,6 @@ Do not invent evidence, alternatives, or retrospective rationale.
 | 0004 | [Spatial coordinate and returned-grid relationship policy](0004-spatial-coordinate-and-returned-grid-policy.md) | Accepted | None |
 | 0005 | [First-release Open-Meteo atmospheric and marine model strategy](0005-open-meteo-model-strategy.md) | Accepted | None |
 | 0006 | [Authoritative tide-product responsibility](0006-authoritative-tide-product-responsibility.md) | Accepted | None |
+| 0007 | [Final first-release location-to-source relationships](0007-final-location-source-relationships.md) | Accepted | None |
+| 0008 | [First-release NOAA tide relationships and phase](0008-noaa-tide-relationships-and-phase.md) | Accepted | None |
+| 0009 | [Minimum coastal source-result validity rules](0009-coastal-source-result-validity-rules.md) | Accepted | None |
