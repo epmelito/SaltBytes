@@ -1,43 +1,66 @@
+from copy import deepcopy
 from pathlib import Path
+from typing import Any
 
 import pytest
+import yaml
 
 from forecast_ops.config import load_config
 
 
+def valid_config(environment: str = "dev") -> dict[str, Any]:
+    return {
+        "environment": environment,
+        "locations": [
+            {
+                "id": "jennettes_pier",
+                "name": "Jennette's Pier",
+                "fishing_context": "pier",
+                "display_coordinate": {
+                    "latitude": 35.9096355,
+                    "longitude": -75.5966537,
+                },
+                "weather": {
+                    "request_coordinate": {
+                        "latitude": 35.9096355,
+                        "longitude": -75.5966537,
+                    },
+                    "expected_returned_coordinate": {
+                        "latitude": 35.89557,
+                        "longitude": -75.5936,
+                    },
+                    "coastal_regime": "Atlantic coastal grid",
+                },
+            }
+        ],
+        "api": {
+            "base_url": "https://api.open-meteo.com/v1/forecast",
+            "model": "ncep_nbm_conus",
+            "forecast_days": 7,
+            "hourly_fields": [
+                "wind_speed_10m",
+                "wind_direction_10m",
+                "wind_gusts_10m",
+                "precipitation_probability",
+                "precipitation",
+            ],
+        },
+        "storage": {
+            "raw_data_path": f"data/{environment}/raw",
+            "database_path": f"data/{environment}/forecast_ops.duckdb",
+        },
+        "logging": {"level": "DEBUG"},
+    }
+
+
 def write_config(
     config_dir: Path,
+    config: Any,
     environment: str = "dev",
-    overrides: str = "",
 ) -> None:
     config_file = config_dir / f"{environment}.yml"
     config_file.write_text(
-        f"""
-environment: {environment}
-
-locations:
-  - id: prague
-    name: Prague
-    latitude: 50.0755
-    longitude: 14.4378
-
-api:
-  base_url: https://api.open-meteo.com/v1/forecast
-  forecast_days: 2
-  hourly_fields:
-    - temperature_2m
-    - precipitation_probability
-    - wind_speed_10m
-
-storage:
-  raw_data_path: data/dev/raw
-  database_path: data/dev/forecast_ops.duckdb
-
-logging:
-  level: DEBUG
-
-{overrides}
-""".strip(),
+        yaml.safe_dump(config, sort_keys=False),
         encoding="utf-8",
     )
 
@@ -45,13 +68,94 @@ logging:
 def test_load_config_reads_valid_configuration(
     tmp_path: Path,
 ) -> None:
-    write_config(tmp_path)
+    write_config(tmp_path, valid_config())
 
     config = load_config("dev", config_dir=tmp_path)
 
     assert config["environment"] == "dev"
-    assert config["locations"][0]["id"] == "prague"
-    assert config["api"]["forecast_days"] == 2
+    assert config["locations"][0]["id"] == "jennettes_pier"
+    assert config["api"]["model"] == "ncep_nbm_conus"
+    assert config["api"]["forecast_days"] == 7
+
+
+@pytest.mark.parametrize("environment", ["dev", "test", "prod"])
+def test_repository_config_contains_approved_coastal_contract(
+    environment: str,
+) -> None:
+    config = load_config(environment)
+
+    assert [location["id"] for location in config["locations"]] == [
+        "jennettes_pier",
+        "ocracoke_ramp_72",
+        "fort_macon_ocean",
+        "bogue_inlet_pier",
+        "fort_fisher",
+    ]
+    assert config["api"] == {
+        "base_url": "https://api.open-meteo.com/v1/forecast",
+        "model": "ncep_nbm_conus",
+        "forecast_days": 7,
+        "hourly_fields": [
+            "wind_speed_10m",
+            "wind_direction_10m",
+            "wind_gusts_10m",
+            "precipitation_probability",
+            "precipitation",
+        ],
+    }
+
+
+def test_repository_config_matches_approved_spatial_relationships() -> None:
+    config = load_config("dev")
+
+    relationships = {
+        location["id"]: {
+            "context": location["fishing_context"],
+            "display": location["display_coordinate"],
+            "request": location["weather"]["request_coordinate"],
+            "returned": location["weather"]["expected_returned_coordinate"],
+            "regime": location["weather"]["coastal_regime"],
+        }
+        for location in config["locations"]
+    }
+
+    assert relationships == {
+        "jennettes_pier": {
+            "context": "pier",
+            "display": {"latitude": 35.9096355, "longitude": -75.5966537},
+            "request": {"latitude": 35.9096355, "longitude": -75.5966537},
+            "returned": {"latitude": 35.89557, "longitude": -75.5936},
+            "regime": "Atlantic coastal grid",
+        },
+        "ocracoke_ramp_72": {
+            "context": "surf",
+            "display": {"latitude": 35.0868922, "longitude": -75.9844152},
+            "request": {"latitude": 35.0868922, "longitude": -75.9844152},
+            "returned": {"latitude": 35.101955, "longitude": -75.983315},
+            "regime": "Ocean-side coastal grid",
+        },
+        "fort_macon_ocean": {
+            "context": "surf",
+            "display": {"latitude": 34.6949437, "longitude": -76.697391},
+            "request": {"latitude": 34.6933, "longitude": -76.7117},
+            "returned": {"latitude": 34.68586, "longitude": -76.717896},
+            "regime": "Atlantic coastal grid",
+        },
+        "bogue_inlet_pier": {
+            "context": "pier",
+            "display": {"latitude": 34.6601236, "longitude": -77.0337424},
+            "request": {"latitude": 34.6601236, "longitude": -77.0337424},
+            "returned": {"latitude": 34.671284, "longitude": -76.996414},
+            "regime": "Atlantic coastal grid",
+        },
+        "fort_fisher": {
+            "context": "surf",
+            "display": {"latitude": 33.9534, "longitude": -77.929},
+            "request": {"latitude": 33.9534, "longitude": -77.929},
+            "returned": {"latitude": 33.954144, "longitude": -77.93454},
+            "regime": "Atlantic coastal grid",
+        },
+    }
 
 
 def test_load_config_raises_when_file_is_missing(
@@ -67,11 +171,7 @@ def test_load_config_raises_when_file_is_missing(
 def test_load_config_requires_yaml_mapping(
     tmp_path: Path,
 ) -> None:
-    config_file = tmp_path / "dev.yml"
-    config_file.write_text(
-        "- item_one\n- item_two\n",
-        encoding="utf-8",
-    )
+    write_config(tmp_path, ["item_one", "item_two"])
 
     with pytest.raises(
         ValueError,
@@ -83,34 +183,8 @@ def test_load_config_requires_yaml_mapping(
 def test_load_config_requires_matching_environment(
     tmp_path: Path,
 ) -> None:
-    config_file = tmp_path / "dev.yml"
-    config_file.write_text(
-        """
-environment: prod
-
-locations:
-  - id: prague
-    name: Prague
-    latitude: 50.0755
-    longitude: 14.4378
-
-api:
-  base_url: https://api.open-meteo.com/v1/forecast
-  forecast_days: 2
-  hourly_fields:
-    - temperature_2m
-    - precipitation_probability
-    - wind_speed_10m
-
-storage:
-  raw_data_path: data/prod/raw
-  database_path: data/prod/forecast_ops.duckdb
-
-logging:
-  level: INFO
-""".strip(),
-        encoding="utf-8",
-    )
+    config = valid_config(environment="prod")
+    write_config(tmp_path, config)
 
     with pytest.raises(
         ValueError,
@@ -122,26 +196,9 @@ logging:
 def test_load_config_requires_locations(
     tmp_path: Path,
 ) -> None:
-    config_file = tmp_path / "dev.yml"
-    config_file.write_text(
-        """
-environment: dev
-locations: []
-api:
-  base_url: https://api.open-meteo.com/v1/forecast
-  forecast_days: 2
-  hourly_fields:
-    - temperature_2m
-    - precipitation_probability
-    - wind_speed_10m
-storage:
-  raw_data_path: data/dev/raw
-  database_path: data/dev/forecast_ops.duckdb
-logging:
-  level: DEBUG
-""".strip(),
-        encoding="utf-8",
-    )
+    config = valid_config()
+    config["locations"] = []
+    write_config(tmp_path, config)
 
     with pytest.raises(
         ValueError,
@@ -153,116 +210,118 @@ logging:
 def test_load_config_rejects_duplicate_location_ids(
     tmp_path: Path,
 ) -> None:
-    config_file = tmp_path / "dev.yml"
-    config_file.write_text(
-        """
-environment: dev
-locations:
-  - id: prague
-    name: Prague
-    latitude: 50.0755
-    longitude: 14.4378
-  - id: prague
-    name: Prague duplicate
-    latitude: 50.1
-    longitude: 14.5
-api:
-  base_url: https://api.open-meteo.com/v1/forecast
-  forecast_days: 2
-  hourly_fields:
-    - temperature_2m
-    - precipitation_probability
-    - wind_speed_10m
-storage:
-  raw_data_path: data/dev/raw
-  database_path: data/dev/forecast_ops.duckdb
-logging:
-  level: DEBUG
-""".strip(),
-        encoding="utf-8",
-    )
+    config = valid_config()
+    duplicate_location = deepcopy(config["locations"][0])
+    config["locations"].append(duplicate_location)
+    write_config(tmp_path, config)
 
     with pytest.raises(
         ValueError,
-        match="location id must be unique: prague",
+        match="location id must be unique: jennettes_pier",
     ):
         load_config("dev", config_dir=tmp_path)
 
 
 @pytest.mark.parametrize(
-    ("field_name", "field_value"),
+    ("coordinate_name", "field_name", "field_value"),
     [
-        ("latitude", 91),
-        ("longitude", -181),
+        ("display_coordinate", "latitude", 91),
+        ("display_coordinate", "longitude", -181),
+        ("request_coordinate", "latitude", "invalid"),
+        ("expected_returned_coordinate", "longitude", None),
     ],
 )
 def test_load_config_rejects_invalid_coordinates(
     tmp_path: Path,
+    coordinate_name: str,
     field_name: str,
-    field_value: int,
+    field_value: Any,
 ) -> None:
-    latitude = field_value if field_name == "latitude" else 50.0755
-    longitude = field_value if field_name == "longitude" else 14.4378
+    config = valid_config()
 
-    config_file = tmp_path / "dev.yml"
-    config_file.write_text(
-        f"""
-environment: dev
-locations:
-  - id: prague
-    name: Prague
-    latitude: {latitude}
-    longitude: {longitude}
-api:
-  base_url: https://api.open-meteo.com/v1/forecast
-  forecast_days: 2
-  hourly_fields:
-    - temperature_2m
-    - precipitation_probability
-    - wind_speed_10m
-storage:
-  raw_data_path: data/dev/raw
-  database_path: data/dev/forecast_ops.duckdb
-logging:
-  level: DEBUG
-""".strip(),
-        encoding="utf-8",
-    )
+    if coordinate_name == "display_coordinate":
+        coordinate = config["locations"][0]["display_coordinate"]
+    else:
+        coordinate = config["locations"][0]["weather"][coordinate_name]
 
-    with pytest.raises(
-        ValueError,
-        match=rf"locations\[0\].{field_name} must be between",
-    ):
+    coordinate[field_name] = field_value
+    write_config(tmp_path, config)
+
+    with pytest.raises(ValueError, match=field_name):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("field_path", "expected_message"),
+    [
+        (
+            ("display_coordinate",),
+            r"locations\[0\].display_coordinate must be a mapping",
+        ),
+        (
+            ("weather",),
+            r"locations\[0\].weather must be a mapping",
+        ),
+        (
+            ("weather", "request_coordinate"),
+            r"locations\[0\].weather.request_coordinate must be a mapping",
+        ),
+        (
+            ("weather", "expected_returned_coordinate"),
+            r"locations\[0\].weather.expected_returned_coordinate must be a mapping",
+        ),
+    ],
+)
+def test_load_config_requires_complete_spatial_relationships(
+    tmp_path: Path,
+    field_path: tuple[str, ...],
+    expected_message: str,
+) -> None:
+    config = valid_config()
+    target = config["locations"][0]
+
+    for key in field_path[:-1]:
+        target = target[key]
+
+    del target[field_path[-1]]
+    write_config(tmp_path, config)
+
+    with pytest.raises(ValueError, match=expected_message):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("fishing_context", ["boat", "", None])
+def test_load_config_rejects_invalid_fishing_context(
+    tmp_path: Path,
+    fishing_context: Any,
+) -> None:
+    config = valid_config()
+    config["locations"][0]["fishing_context"] = fishing_context
+    write_config(tmp_path, config)
+
+    with pytest.raises(ValueError, match="fishing_context|fishing context"):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("coastal_regime", ["", "   ", None])
+def test_load_config_rejects_empty_coastal_regime(
+    tmp_path: Path,
+    coastal_regime: Any,
+) -> None:
+    config = valid_config()
+    config["locations"][0]["weather"]["coastal_regime"] = coastal_regime
+    write_config(tmp_path, config)
+
+    with pytest.raises(ValueError, match="coastal_regime"):
         load_config("dev", config_dir=tmp_path)
 
 
 def test_load_config_requires_https_api_url(
     tmp_path: Path,
 ) -> None:
-    config_file = tmp_path / "dev.yml"
-    config_file.write_text(
-        """
-environment: dev
-locations:
-  - id: prague
-    name: Prague
-    latitude: 50.0755
-    longitude: 14.4378
-api:
-  base_url: http://api.open-meteo.com/v1/forecast
-  forecast_days: 2
-  hourly_fields:
-    - temperature_2m
-    - precipitation_probability
-    - wind_speed_10m
-storage:
-  raw_data_path: data/dev/raw
-  database_path: data/dev/forecast_ops.duckdb
-logging:
-  level: DEBUG
-""".strip(),
-        encoding="utf-8",
-    )
+    config = valid_config()
+    config["api"]["base_url"] = "http://api.open-meteo.com/v1/forecast"
+    write_config(tmp_path, config)
 
     with pytest.raises(
         ValueError,
@@ -271,35 +330,56 @@ logging:
         load_config("dev", config_dir=tmp_path)
 
 
-def test_load_config_requires_all_hourly_fields(
+def test_load_config_rejects_unapproved_model(
     tmp_path: Path,
 ) -> None:
-    config_file = tmp_path / "dev.yml"
-    config_file.write_text(
-        """
-environment: dev
-locations:
-  - id: prague
-    name: Prague
-    latitude: 50.0755
-    longitude: 14.4378
-api:
-  base_url: https://api.open-meteo.com/v1/forecast
-  forecast_days: 2
-  hourly_fields:
-    - temperature_2m
-storage:
-  raw_data_path: data/dev/raw
-  database_path: data/dev/forecast_ops.duckdb
-logging:
-  level: DEBUG
-""".strip(),
-        encoding="utf-8",
-    )
+    config = valid_config()
+    config["api"]["model"] = "auto"
+    write_config(tmp_path, config)
 
     with pytest.raises(
         ValueError,
-        match="api.hourly_fields is missing required fields",
+        match="unsupported api model: auto",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("forecast_days", [2, 8, True, None])
+def test_load_config_requires_seven_forecast_days(
+    tmp_path: Path,
+    forecast_days: Any,
+) -> None:
+    config = valid_config()
+    config["api"]["forecast_days"] = forecast_days
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="api.forecast_days must be 7",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("change", ["missing", "extra", "duplicate"])
+def test_load_config_requires_exact_hourly_fields(
+    tmp_path: Path,
+    change: str,
+) -> None:
+    config = valid_config()
+    hourly_fields = config["api"]["hourly_fields"]
+
+    if change == "missing":
+        hourly_fields.remove("precipitation")
+    elif change == "extra":
+        hourly_fields.append("temperature_2m")
+    else:
+        hourly_fields[-1] = "wind_speed_10m"
+
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="api.hourly_fields must contain exactly",
     ):
         load_config("dev", config_dir=tmp_path)
 
@@ -307,30 +387,9 @@ logging:
 def test_load_config_rejects_invalid_logging_level(
     tmp_path: Path,
 ) -> None:
-    config_file = tmp_path / "dev.yml"
-    config_file.write_text(
-        """
-environment: dev
-locations:
-  - id: prague
-    name: Prague
-    latitude: 50.0755
-    longitude: 14.4378
-api:
-  base_url: https://api.open-meteo.com/v1/forecast
-  forecast_days: 2
-  hourly_fields:
-    - temperature_2m
-    - precipitation_probability
-    - wind_speed_10m
-storage:
-  raw_data_path: data/dev/raw
-  database_path: data/dev/forecast_ops.duckdb
-logging:
-  level: VERBOSE
-""".strip(),
-        encoding="utf-8",
-    )
+    config = valid_config()
+    config["logging"]["level"] = "VERBOSE"
+    write_config(tmp_path, config)
 
     with pytest.raises(
         ValueError,

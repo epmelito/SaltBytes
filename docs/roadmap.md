@@ -22,17 +22,17 @@ lifecycle records reflect the completed stage.
 
 Roadmap stage 2 is complete. The documentation reconciliation work package
 aligned the authorized technical documentation with verified repository
-behavior while retaining the out-of-scope failure-review skill drift.
+behavior.
 
 Roadmap stage 3 is complete. Issue #20 defined the coastal location and
 fishing-condition requirements and accepted three supporting decisions. Pull
 request #21 merged the completed stage 3 documentation into `main`.
 
-Roadmap stage 4 is authorized and in progress through issue #26. The current
-checkpoint finalizes the minimum first-release source relationships and
-validity rules required before ingestion implementation.
+Roadmap stage 4 is authorized and in progress. Issues #24 and #26 established
+the first-release source relationships and validity rules. Issue #30 implements
+the first coastal ingestion checkpoint for the accepted atmospheric source.
 
-Coastal ingestion implementation has not started.
+Marine, sea-surface-temperature, and tide ingestion remain unstarted.
 
 ## Delivery stages
 
@@ -60,7 +60,7 @@ approved product direction.
 
 Status: Complete.
 
-Completion evidence requires:
+Completion evidence: Satisfied.
 
 - each recorded drift item is reviewed against repository evidence
 - affected documentation is corrected, or the drift item is explicitly retained
@@ -122,11 +122,23 @@ validity rules. The reviewed evidence is recorded in:
 The accepted decisions are indexed in the
 [decision records](decisions/README.md).
 
+Issue #30 implements the atmospheric checkpoint for the five approved
+locations:
+
+- seven-day Open-Meteo `ncep_nbm_conus` requests
+- five accepted atmospheric fields
+- configured request and expected returned weather-grid relationships
+- deterministic source-result validation
+- immutable passing raw snapshots
+- request and response provenance
+- 168 normalized hourly UTC rows per passing location
+- atmospheric forecast revision history
+
 Observation relationships, accuracy validation, fallback and precedence rules,
 warning and forecast-zone mappings, alternative marine-model adoption, and
-marine run-history reconstruction remain unresolved or deferred. Coastal
-ingestion implementation has not started, and stage 4 completion evidence
-remains unsatisfied.
+marine run-history reconstruction remain unresolved or deferred. Marine,
+sea-surface-temperature, and tide ingestion remain unstarted. Stage 4
+completion evidence remains unsatisfied.
 
 Completion evidence requires:
 

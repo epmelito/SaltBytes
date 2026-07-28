@@ -31,6 +31,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc)
     rows_loaded = 0
     snapshots_written = 0
+    location_failures: list[str] = []
 
     logger.info(
         "pipeline started run_id=%s environment=%s locations=%s",
@@ -50,6 +51,8 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
 
     try:
         for location in locations:
+            request_coordinate = location["weather"]["request_coordinate"]
+
             logger.info(
                 "forecast processing started run_id=%s location=%s",
                 run_id,
@@ -64,6 +67,10 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
             quality_results = run_payload_quality_checks(
                 payload=payload,
                 expected_hourly_fields=api_config["hourly_fields"],
+                model_selector=api_config["model"],
+                expected_returned_coordinate=location["weather"][
+                    "expected_returned_coordinate"
+                ],
             )
 
             for quality_result in quality_results:
@@ -88,10 +95,19 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     str(quality_result["check_name"])
                     for quality_result in failed_checks
                 )
-                raise ValueError(
+                location_failure = (
                     f"forecast quality checks failed for {location['id']}: "
                     f"{failed_check_names}"
                 )
+                location_failures.append(location_failure)
+                logger.error(
+                    "forecast quality checks failed run_id=%s location=%s "
+                    "checks=%s",
+                    run_id,
+                    location["id"],
+                    failed_check_names,
+                )
+                continue
 
             logger.info(
                 "quality checks passed run_id=%s location=%s checks=%s",
@@ -105,6 +121,19 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 location_id=location["id"],
                 raw_data_path=raw_data_path,
                 run_id=run_id,
+            )
+            metadata.update(
+                {
+                    "model_selector": api_config["model"],
+                    "request_latitude": request_coordinate["latitude"],
+                    "request_longitude": request_coordinate["longitude"],
+                    "returned_latitude": payload["latitude"],
+                    "returned_longitude": payload["longitude"],
+                    "response_timezone": payload["timezone"],
+                    "response_utc_offset_seconds": payload[
+                        "utc_offset_seconds"
+                    ],
+                }
             )
 
             insert_forecast_snapshot(
@@ -128,6 +157,9 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 location["id"],
                 location_rows_loaded,
             )
+
+        if location_failures:
+            raise ValueError("; ".join(location_failures))
 
     except Exception as error:
         logger.exception(

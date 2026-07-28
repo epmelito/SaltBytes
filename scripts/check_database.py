@@ -31,12 +31,24 @@ insert_pipeline_run(
 )
 
 payload = fetch_forecast(location, config["api"])
+request_coordinate = location["weather"]["request_coordinate"]
 
 metadata = write_raw_snapshot(
     payload=payload,
     location_id=location["id"],
     raw_data_path=config["storage"]["raw_data_path"],
     run_id=run_id,
+)
+metadata.update(
+    {
+        "model_selector": config["api"]["model"],
+        "request_latitude": request_coordinate["latitude"],
+        "request_longitude": request_coordinate["longitude"],
+        "returned_latitude": payload["latitude"],
+        "returned_longitude": payload["longitude"],
+        "response_timezone": payload["timezone"],
+        "response_utc_offset_seconds": payload["utc_offset_seconds"],
+    }
 )
 
 insert_forecast_snapshot(

@@ -1,239 +1,132 @@
 # ForecastOps
 
 ForecastOps is evolving into a North Carolina coastal fishing conditions data
-platform. The current repository implements the local weather forecast
-foundation: a configuration-driven pipeline that captures hourly forecasts and
-tracks how they change between runs.
+platform. The current repository implements a local atmospheric forecast slice
+for five approved coastal fishing locations.
 
-The current implementation demonstrates practical data engineering patterns
-such as API ingestion, environment configuration, immutable raw storage, SQL
-modeling, data quality validation, operational metadata, structured logging,
-and automated testing. The [project charter](docs/project-charter.md) defines
-the approved future product direction, while the
-[roadmap](docs/roadmap.md) and [scope register](docs/scope-register.md)
-separate future stages from current capability.
+The implementation demonstrates configuration-driven API ingestion, spatial
+source relationships, immutable raw storage, normalized DuckDB models,
+forecast revision history, deterministic data quality checks, run metadata,
+structured logging, and automated testing. The
+[project charter](docs/project-charter.md) defines the durable product
+direction. The [roadmap](docs/roadmap.md) and
+[scope register](docs/scope-register.md) distinguish current implementation
+from approved future and deferred work.
 
-## What the project demonstrates
+## Current atmospheric scope
 
-- ingestion from the Open-Meteo forecast API
-- one reusable pipeline across dev, test, and prod
-- environment-specific configuration and storage paths
-- immutable raw JSON snapshots
-- normalized forecast data in DuckDB
-- SQL-based forecast revision analysis
-- data quality checks before data is published
-- pipeline run metadata and failure tracking
-- structured operational logging
-- automated validation with GitHub Actions
+Every environment configures:
 
-## Architecture
+- Jennette's Pier
+- Beach Access Ramp 72, Ocracoke Island
+- Fort Macon State Park, ocean side
+- Bogue Inlet Pier
+- Fort Fisher State Recreation Area
 
-```text
-Open-Meteo API
-      |
-      v
-Configuration validation
-      |
-      v
-Forecast ingestion
-      |
-      v
-Payload quality checks
-      |
-      +----------------------+
-      |                      |
-      v                      v
-Raw JSON snapshots      Quality results
-      |                      |
-      +----------+-----------+
-                 |
-                 v
-          DuckDB tables
-                 |
-                 v
-      Forecast revision view
-```
+Each location retains a display coordinate, an Open-Meteo weather request
+coordinate, an expected returned NBM grid coordinate, its fishing context, and
+a static coastal-regime classification.
+
+The Open-Meteo Weather API request uses:
+
+- model selector `ncep_nbm_conus`
+- seven forecast days
+- `timezone=auto`
+- `wind_speed_10m`
+- `wind_direction_10m`
+- `wind_gusts_10m`
+- `precipitation_probability`
+- `precipitation`
+
+Marine, sea-surface-temperature, and tide ingestion are not implemented.
 
 ## Data flow
 
-ForecastOps:
+1. Load and validate the selected local environment configuration.
+2. Initialize DuckDB and record the running pipeline execution.
+3. Request one atmospheric result for each configured location.
+4. Validate and persist the result's quality checks.
+5. Reject an invalid location result without writing raw or normalized data.
+6. Continue after a quality rejection so unrelated locations can succeed.
+7. Write a passing response unchanged as an immutable raw JSON snapshot.
+8. Store request and response provenance with the snapshot metadata.
+9. Normalize 168 hourly valid times to UTC and store the five atmospheric
+   fields in DuckDB.
+10. Record the final run status and actual number of rows loaded.
+11. Expose changes between consecutive forecasts through a SQL view.
 
-1. loads and validates the selected environment configuration
-2. initializes DuckDB and records the running pipeline execution
-3. requests hourly forecast data from Open-Meteo for each configured location
-4. runs and persists payload quality checks
-5. stops the run if a quality check fails
-6. writes an immutable raw JSON snapshot for a passing payload
-7. stores snapshot metadata and normalized hourly values in DuckDB
-8. records the final pipeline status
-9. exposes forecast changes between consecutive snapshots through a SQL view
-
-A failed quality check prevents the affected payload from reaching raw snapshot
-storage or the normalized forecast tables.
-
-## Environments
-
-The same application code runs in all environments. Configuration controls
-locations, API request settings, storage paths, and logging level.
-
-| Environment | Forecast input | Forecast scope | Primary purpose |
-| --- | --- | --- | --- |
-| dev | Live API | 2 days | Local development and manual validation |
-| test | Live API from configuration; fixtures in automated tests | 2 days | Local test configuration and deterministic tests |
-| prod | Live API | 7 days | Full local production-style execution |
-
-Automated tests replace forecast fetching with fixed fixtures or controlled
-responses and use temporary storage. The configuration files do not select a
-fixture input mode.
-
-The prod environment demonstrates environment promotion and production-style
-isolation. It is not a deployed cloud production service.
+API, raw-storage, and database failures abort the run immediately. If one or
+more locations fail quality validation, the run is failed after all locations
+have been evaluated. Passing unrelated location data remains stored.
 
 ## Repository structure
 
 ```text
 forecast-ops/
-├── .github/
-│   └── workflows/
-├── config/
-│   ├── dev.yml
-│   ├── prod.yml
-│   └── test.yml
-├── docs/
-│   ├── decisions/
-│   ├── handoffs/
-│   ├── architecture.md
-│   ├── data-model.md
-│   ├── environments.md
-│   ├── project-charter.md
-│   ├── roadmap.md
-│   └── scope-register.md
-├── scripts/
-├── skills/
-│   └── forecast-failure-review/
-│       ├── examples/
-│       └── SKILL.md
-├── src/
-│   └── forecast_ops/
-├── tests/
-│   └── fixtures/
-├── AGENTS.md
-├── pyproject.toml
-└── readme.md
+|-- .github/workflows/
+|-- config/
+|-- docs/
+|   |-- decisions/
+|   |-- handoffs/
+|   |-- requirements/
+|   `-- research/
+|-- scripts/
+|-- skills/forecast-failure-review/
+|-- src/forecast_ops/
+|-- tests/
+|-- AGENTS.md
+|-- pyproject.toml
+`-- readme.md
 ```
 
 ## Data model
 
-ForecastOps stores operational and forecast data in DuckDB.
+ForecastOps uses four DuckDB tables:
 
-### `pipeline_runs`
+- `pipeline_runs` records execution status, row counts, and failure details.
+- `forecast_snapshots` relates passing raw responses to their run, location,
+  request provenance, returned coordinates, and response timezone metadata.
+- `forecast_hourly` stores normalized UTC forecast rows for the five
+  atmospheric fields. Its nullable `temperature_2m` column is retained only
+  for compatibility with existing local history.
+- `quality_results` stores location-prefixed validation results.
 
-Records the outcome of each pipeline execution, including:
+The `forecast_revision_changes` view compares consecutive snapshots for the
+same stable location and normalized forecast time. It provides current,
+previous, and difference values for scalar atmospheric fields. Wind direction
+retains current and previous values without defining a directional delta.
 
-- run ID
-- environment
-- start and completion timestamps
-- status
-- rows loaded
-- error message
-
-### `forecast_snapshots`
-
-Stores metadata for each quality-passing API payload, including:
-
-- snapshot ID
-- run ID
-- location ID
-- capture timestamp
-- raw file path
-
-### `forecast_hourly`
-
-Stores normalized hourly forecast values:
-
-- forecast timestamp
-- temperature
-- precipitation probability
-- wind speed
-- location ID
-- snapshot ID
-
-### `quality_results`
-
-Stores quality-check results for each run. During pipeline execution, location
-context is encoded by prefixing `check_name` with the location ID.
-
-### `forecast_revision_changes`
-
-A SQL view compares consecutive snapshots for the same location and forecast
-hour. It uses `lag` to calculate changes in:
-
-- temperature
-- precipitation probability
-- wind speed
-
-The view identifies when and how a forecast changed between pipeline runs.
+See [Data model](docs/data-model.md) for the column-level contract.
 
 ## Data quality
 
-The pipeline validates each payload before storing a raw snapshot or forecast
-records.
+Before raw or normalized storage, the pipeline checks:
 
-Current checks confirm that:
+- configured model selector
+- returned coordinate equality against the configured expected grid
+- recognized response timezone
+- parseable valid times and UTC normalization
+- exactly 168 unique, strictly ascending UTC instants
+- exactly one hour between consecutive UTC instants
+- presence, length, null status, and numeric values for every required field
 
-- the hourly mapping exists
-- the timestamp list is not empty
-- each configured hourly field contains the same number of values as the
-  timestamp list
+Coordinate comparison uses parsed numeric equality. No tolerance, fallback
+coordinate, or replacement model is implemented.
 
-Quality results are persisted in DuckDB for operational review. A failed check
-records the run as failed and prevents the invalid payload from reaching raw
-snapshot storage or the normalized forecast tables.
+## Environments
 
-## Configuration validation
+The same application code and atmospheric contract run in `dev`, `test`, and
+`prod`. These are local configurations, not deployed cloud environments.
+Configuration varies only in storage paths and logging level.
 
-ForecastOps validates configuration before pipeline execution.
+Automated tests replace live forecast fetching with deterministic responses and
+use temporary storage. The YAML configurations do not select a fixture mode.
 
-Validation includes:
-
-- supported environment names
-- required configuration sections
-- HTTPS API endpoints
-- supported forecast ranges
-- required hourly fields
-- valid logging levels
-- nonempty location lists
-- unique location IDs
-- valid latitude and longitude ranges
-- required storage paths
-
-This allows configuration errors to fail early with a clear message.
-
-## Logging and run metadata
-
-Pipeline logs include:
-
-- run ID
-- environment
-- location
-- quality check count
-- rows loaded
-- snapshot count
-- success or failure status
-
-Application logging follows the selected environment configuration. Low-level
-HTTP client messages are suppressed so output remains focused on pipeline
-operations.
-
-Run metadata is also stored in DuckDB, which makes execution history available
-after terminal logs are gone.
+See [Environments](docs/environments.md) for details.
 
 ## Installation
 
 The project requires Python 3.11 or later.
-
-Create and activate a virtual environment, then install the project with its
-development dependencies:
 
 ```powershell
 python -m venv .venv
@@ -250,40 +143,40 @@ Run the development environment:
 forecast-ops --environment dev
 ```
 
-Run the production configuration:
+Run the production-style local configuration:
 
 ```powershell
 forecast-ops --environment prod
 ```
 
-A successful execution prints the run ID, environment, status, snapshot count,
-and loaded row count.
+A successful run writes five snapshots and 840 normalized rows when every
+configured result passes.
 
 ## Manual validation
 
-The current manual validation scripts are hardcoded to `dev`; they do not
-accept an environment argument.
+The manual scripts are hardcoded to `dev`; they do not accept an environment
+argument.
 
-Check access to the live API without writing runtime data:
+Check the live API without writing runtime data:
 
 ```powershell
 python scripts/check_api_connection.py
 ```
 
-Make a live API request and write a raw development snapshot:
+Make a live request and write a raw development snapshot:
 
 ```powershell
 python scripts/check_raw_snapshot.py
 ```
 
-Make a live API request, write a raw development snapshot, and write
-development DuckDB records:
+Make a live request, write a raw snapshot, and insert development DuckDB
+records:
 
 ```powershell
 python scripts/check_database.py
 ```
 
-Initialize the development database if needed, then read recent revision rows:
+Read recent development revision rows:
 
 ```powershell
 python scripts/check_forecast_revisions.py
@@ -291,51 +184,30 @@ python scripts/check_forecast_revisions.py
 
 ## Automated validation
 
-Run the tests:
-
 ```powershell
 python -m pytest
-```
-
-Run static checks:
-
-```powershell
 python -m ruff check .
 ```
 
 GitHub Actions runs both commands for pull requests and pushes to `main`.
 
-The test suite includes:
-
-- configuration loading and validation
-- API request behavior
-- immutable raw snapshot storage
-- DuckDB schema and inserts
-- payload quality checks
-- pipeline success and failure paths
-- fixture-based pipeline execution
-- CLI behavior
-- logging configuration
-- forecast revision calculations
-
 ## Current implementation boundary
 
-The current repository is a local weather pipeline. It does not yet implement:
+The repository does not currently implement:
 
-- cloud infrastructure
-- scheduled execution
-- container deployment
-- Airflow or another external orchestrator
-- dbt
-- dashboards
-- automated language model calls
+- marine, sea-surface-temperature, or tide ingestion
+- fishing-condition scoring or window ranking
+- scheduled or cloud execution
+- publication, API, or dashboard features
+- Azure infrastructure
+- automated model or agent product behavior
 
-These are current implementation boundaries, not replacements for the product
-boundaries and future direction in the project charter.
+These implementation boundaries do not replace the product boundaries and
+approved future direction in the project charter.
 
 ## Forecast failure review
 
-The repository includes a bounded, diagnostic forecast failure review skill. It
-uses available pipeline metadata, quality results, logs, and configuration
-evidence to produce a concise review. It does not modify data, rerun pipelines,
-change configuration, or make deployment decisions.
+The repository includes a bounded diagnostic forecast-failure review skill. It
+uses pipeline metadata, quality results, logs, and configuration evidence. It
+does not modify data, rerun pipelines, change configuration, or make deployment
+decisions.
