@@ -102,6 +102,34 @@ convenience. Use the decision process when a durable choice is required.
 - Use short-lived branches and pull requests rather than separate long-lived
   environment branches.
 
+## Implementation simplicity
+
+Apply these rules across Python, SQL, configuration, data models,
+orchestration, tests, validation, and architecture:
+
+- Start with the simplest implementation that fully satisfies confirmed
+  requirements. Keep it robust for verified source behavior, real edge cases,
+  failure modes, and platform constraints.
+- Do not add abstractions, helper layers, fallbacks, tie breakers, defensive
+  branches, generalized frameworks, or extra metadata for hypothetical risks.
+  Every material part must have an evidence-based purpose.
+- Before adding complexity, explain the verified problem it solves, why the
+  simpler solution is insufficient, and what happens if the complexity is
+  omitted.
+- Simplicity must not compromise validation, data integrity, idempotency,
+  failure handling, or protection against incorrect data, duplication, data
+  loss, or unstable behavior.
+- Prefer familiar, readable patterns when they are equally correct.
+
+Use an MVP-first documentation and design boundary:
+
+- Document and design only what is needed to unblock the next implementation
+  step.
+- Reserve decision records for durable, meaningful decisions.
+- Defer speculative edge cases and exhaustive contracts.
+- Let implementation, tests, and verified source behavior justify added detail.
+- Strengthen governance iteratively when evidence shows it is needed.
+
 ## Validation
 
 For documentation-only changes:
