@@ -49,4 +49,7 @@ ValueError: forecast quality checks failed for prague: hourly_temperature_2m_cou
 The API payload contained an incomplete `temperature_2m` value list for the requested timestamps. This is a data quality failure rather than a database or storage failure.
 
 ## Recommended next check
-Inspect the raw API response for the Prague request and confirm which forecast timestamp is missing a corresponding `temperature_2m` value.
+Review the failed quality result for `sample-run-001` to identify the mismatched
+field counts. Confirm the failed run in `pipeline_runs`. Do not look for a raw
+snapshot: the payload was not stored because quality checks run before snapshot
+writing.

@@ -2,75 +2,46 @@
 
 ## Handoff metadata
 
-- Completed work branch: `docs/complete-documentation-reconciliation`
-- Resulting branch: `main`
-- Issue: #15
-- Work package: reconcile project documentation with current implementation
-- Roadmap stage: 2, complete
+- Branch: `docs/fix-failure-review-guidance`
+- Issue: #18
+- Work package: correct failure-review raw-response guidance
+- Roadmap state: stage 2 complete; stage 3 next but unauthorized and unstarted
 
-This handoff records the completed stage 2 documentation reconciliation and its
-lifecycle-state correction.
+This handoff records a bounded correction to the forecast failure review skill
+and the resulting documentation-drift state.
 
 ## Objective
 
-Reconcile recorded documentation drift with verified repository behavior and
-the approved product direction without changing application behavior or
-resolving deferred decisions.
+Align the failed-quality-check example with the pipeline's persisted evidence
+without changing pipeline behavior, raw-storage behavior, or skill permissions.
 
 ## Work completed
 
-- corrected pipeline order, quality checks, SQL transformation, and environment
-  descriptions
-- corrected README data-model, manual-script, repository-tree, and skill status
-  descriptions
-- aligned the README and architecture overview with the current foundation and
-  approved future direction
-- corrected snapshot and quality-result data-model assumptions
-- retained the failure-review example drift as unresolved because issue #15
-  did not authorize skill changes
-- aligned the roadmap, scope register, and handoff with the completed stage 2
-  lifecycle state
+- replaced guidance to inspect a nonexistent raw snapshot with guidance based on
+  persisted quality results and pipeline run metadata
+- removed the resolved documentation drift entry from the scope register
+- preserved the skill's diagnostic-only permissions and workflow
 
 ## Files changed
 
-The documentation reconciliation changed:
-
-- `readme.md`
-- `docs/architecture.md`
-- `docs/data-model.md`
-- `docs/environments.md`
-- `docs/roadmap.md`
-- `docs/scope-register.md`
-- `docs/handoffs/current.md`
-
-The lifecycle-state correction changed only:
-
-- `docs/roadmap.md`
+- `skills/forecast-failure-review/examples/failed-quality-check.md`
 - `docs/scope-register.md`
 - `docs/handoffs/current.md`
 
 ## Validation
 
-The documentation reconciliation validation completed successfully:
+Validation completed successfully:
 
+- `.\.venv\Scripts\python.exe -m pytest tests/test_pipeline.py tests/test_failure_review.py`:
+  7 tests passed
 - `.\.venv\Scripts\python.exe -m pytest`: 49 tests passed
 - `.\.venv\Scripts\python.exe -m ruff check .`: all checks passed
 - `git diff --check`: passed with LF-to-CRLF normalization warnings
-- changed-path review: exactly the seven files authorized by issue #15
+- changed-path review: exactly the three files authorized by issue #18
 
-The lifecycle-state correction validation completed successfully:
+## Documentation drift
 
-- `.\.venv\Scripts\python.exe -m pytest`: 49 tests passed
-- `.\.venv\Scripts\python.exe -m ruff check .`: all checks passed
-- `git diff --check`: passed with LF-to-CRLF normalization warnings
-- changed-path review: exactly the three authorized lifecycle files
-
-## Known documentation drift
-
-The failure-review example still recommends inspecting a raw response after a
-quality-check failure, but the pipeline stores no snapshot for that failure.
-Issue #15 did not authorize changes under `skills/`, so the item remains in
-the [scope register](../scope-register.md) for a separate work package.
+No verified documentation drift remains unresolved.
 
 ## Open decisions
 
@@ -80,10 +51,7 @@ service-level, cost, and success-metric choices listed in the
 
 No decision records exist.
 
-## Result
+## Next checkpoint
 
-The corrective pull request finalizes the lifecycle records for the completed
-documentation reconciliation work package. It uses `Closes #15` so issue #15
-closes through the merge after its acceptance criteria are confirmed.
-
-Roadmap stage 3 is next in sequence but remains unauthorized and unstarted.
+Review the validated diff and deliver the correction through the issue #18 pull
+request. Roadmap stage 3 remains unauthorized and unstarted.
