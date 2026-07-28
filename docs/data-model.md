@@ -21,7 +21,7 @@ Stores one record for each pipeline execution.
 | `error_message` | Failure details when the run does not complete |
 
 ## forecast_snapshots
-Stores metadata for each API response captured by the pipeline.
+Stores metadata for each quality-passing API payload captured by the pipeline.
 
 | Column | Purpose |
 |---|---|
@@ -49,6 +49,9 @@ Expected business key:
 ## quality_results
 Stores the outcome of each data quality check.
 
+The table does not have a separate location column. During pipeline execution,
+the location ID is prefixed to `check_name`.
+
 | Column | Purpose |
 |---|---|
 | `run_id` | Pipeline run being checked |
@@ -64,7 +67,9 @@ Stores the outcome of each data quality check.
 - One pipeline run can produce multiple data quality results.
 
 ## Current assumptions
-- Each API request produces one snapshot per configured location.
+- Each payload that passes pipeline quality checks produces one snapshot for
+  its configured location.
 - Hourly forecast timestamps are unique within a snapshot and location.
-- Raw responses are preserved outside DuckDB and referenced by path.
+- Passing payload snapshots are preserved outside DuckDB and referenced by
+  path.
 - The first release does not model daily forecasts or historical observations.

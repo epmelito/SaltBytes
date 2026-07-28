@@ -20,8 +20,9 @@ Roadmap stage 1 is complete. Pull request #13 introduced the six governance
 files after review and a successful required `test and lint` check. The
 lifecycle records reflect the completed stage.
 
-Roadmap stage 2 is next in sequence, but it remains unauthorized and unstarted.
-Identifying the next stage does not authorize a work package.
+Roadmap stage 2 is in progress through the work package authorized by issue
+#15. It must not be marked complete before documentation validation passes, the
+pull request is merged into `main`, and the issue acceptance criteria are met.
 
 ## Delivery stages
 
@@ -46,6 +47,8 @@ Completion evidence:
 Review the known drift in the [scope register](scope-register.md) and update
 existing technical documentation to match verified repository behavior and
 approved product direction.
+
+Status: In progress.
 
 Completion evidence requires:
 

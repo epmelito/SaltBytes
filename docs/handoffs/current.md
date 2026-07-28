@@ -2,52 +2,59 @@
 
 ## Handoff metadata
 
-- Completed work branch: `docs/finalize-governance-state`
-- Resulting branch: `main`
-- Work package: governance lifecycle-state correction
-- Roadmap stage: stage 1 complete; stage 2 next but unauthorized
+- Branch: `docs/reconcile-project-documentation`
+- Issue: #15
+- Work package: reconcile project documentation with current implementation
+- Roadmap stage: 2, in progress
 
-This handoff records the repository state resulting from the governance
-lifecycle-state correction.
+This handoff records the stage 2 documentation-only work package.
 
 ## Objective
 
-Align the governance lifecycle records with the completed initial governance
-work package without changing product direction, deferred decisions, known
-documentation drift, or roadmap stages 2 through 9.
+Reconcile recorded documentation drift with verified repository behavior and
+the approved product direction without changing application behavior or
+resolving deferred decisions.
 
-## Result
+## Work performed
 
-- pull request #13 introduced all six governance files
-- governance content review was completed
-- the required `test and lint` check for pull request #13 completed successfully
-- the follow-up correction aligned the lifecycle records
-- roadmap stage 1 is complete
-- the initial governance work package is complete
-- roadmap stage 2 is next but remains unauthorized and unstarted
+- corrected pipeline order, quality checks, SQL transformation, and environment
+  descriptions
+- corrected README data-model, manual-script, repository-tree, and skill status
+  descriptions
+- aligned the README and architecture overview with the current foundation and
+  approved future direction
+- corrected snapshot and quality-result data-model assumptions
+- retained the failure-review example drift as unresolved because issue #15
+  does not authorize skill changes
 
-## Files changed by the correction
+## Files changed
 
+- `readme.md`
+- `docs/architecture.md`
+- `docs/data-model.md`
+- `docs/environments.md`
 - `docs/roadmap.md`
 - `docs/scope-register.md`
 - `docs/handoffs/current.md`
 
-No technical documentation was changed, and documentation reconciliation did
-not begin.
-
 ## Validation
 
-The required `test and lint` GitHub Actions check for pull request #13 completed
-successfully.
+Validation completed successfully:
 
-Validation for this documentation-only lifecycle correction is pending and must
-pass before merge.
+- `.\.venv\Scripts\python.exe -m pytest`: 49 tests passed
+- `.\.venv\Scripts\python.exe -m ruff check .`: all checks passed
+- `git diff --check`: passed with LF-to-CRLF normalization warnings
+- changed-path review: exactly the seven files authorized by issue #15
+
+Roadmap stage 2 remains in progress until the pull request is merged into
+`main` and issue #15 acceptance criteria are met.
 
 ## Known documentation drift
 
-The existing inconsistencies found during repository inspection are recorded
-in the [scope register](../scope-register.md). No existing documentation was
-corrected in this package.
+The failure-review example still recommends inspecting a raw response after a
+quality-check failure, but the pipeline stores no snapshot for that failure.
+Issue #15 does not authorize changes under `skills/`, so the item remains in
+the [scope register](../scope-register.md) for a separate work package.
 
 ## Open decisions
 
@@ -59,14 +66,6 @@ No decision records exist.
 
 ## Next checkpoint
 
-Roadmap stage 2 is next in sequence, but no stage 2 work package is authorized
-or started. Documentation reconciliation requires a separate issue, branch,
-bounded plan, and scope authorization.
-
-Until then, the known documentation drift remains unresolved.
-
-## Lifecycle closure
-
-The governance lifecycle-state correction does not authorize documentation
-reconciliation, product implementation, or resolution of any deferred
-decision.
+Review the validated documentation diff, then stage and deliver it through the
+issue #15 pull request. Do not mark roadmap stage 2 complete before the pull
+request is merged into `main` and the issue acceptance criteria are met.
