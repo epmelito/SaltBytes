@@ -3,7 +3,7 @@
 ForecastOps uses `dev`, `test`, and `prod` as local environment configurations.
 They do not represent deployed cloud environments.
 
-## Shared atmospheric contract
+## Shared source contracts
 
 Every environment configures:
 
@@ -12,7 +12,10 @@ Every environment configures:
 - seven forecast days
 - `timezone=auto` request behavior
 - the same five atmospheric fields
-- display, weather-request, and expected returned weather coordinates
+- Open-Meteo Marine model `meteofrance_wave`
+- seven forecast days for wave requests
+- the same three wave fields
+- display and source-specific request and expected returned coordinates
 - fishing context and static coastal regime
 
 The locations are:
@@ -33,9 +36,9 @@ The locations are:
 
 The same application and transformation behavior run in each environment.
 
-Automated tests do not depend on the live endpoint in `config/test.yml`. They
-replace forecast fetching with deterministic responses and use temporary
-storage through the test harness.
+Automated tests do not depend on the live endpoints in `config/test.yml`. They
+replace atmospheric and wave fetching with deterministic responses and use
+temporary storage through the test harness.
 
 ## Promotion flow
 
@@ -53,4 +56,4 @@ The repository does not maintain separate long-lived environment branches.
 
 Configuration supplies source, field, location, spatial-relationship, storage,
 and logging values. It does not select alternate implementations, fallbacks,
-quality thresholds, marine or tide sources, scheduling, or cloud deployment.
+quality thresholds, tide sources, scheduling, or cloud deployment.

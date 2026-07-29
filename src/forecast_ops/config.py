@@ -14,6 +14,12 @@ REQUIRED_HOURLY_FIELDS = {
     "precipitation_probability",
     "precipitation",
 }
+REQUIRED_WAVE_MODEL = "meteofrance_wave"
+REQUIRED_WAVE_FIELDS = {
+    "wave_height",
+    "wave_direction",
+    "wave_period",
+}
 
 
 # require a mapping and return it with a useful type
@@ -103,6 +109,18 @@ def _validate_location(
         weather_config.get("expected_returned_coordinate"),
         f"locations[{index}].weather.expected_returned_coordinate",
     )
+    wave_config = _require_mapping(
+        location_config.get("wave"),
+        f"locations[{index}].wave",
+    )
+    wave_request_coordinate = _require_mapping(
+        wave_config.get("request_coordinate"),
+        f"locations[{index}].wave.request_coordinate",
+    )
+    wave_expected_returned_coordinate = _require_mapping(
+        wave_config.get("expected_returned_coordinate"),
+        f"locations[{index}].wave.expected_returned_coordinate",
+    )
 
     coordinates = (
         ("display_coordinate", display_coordinate),
@@ -110,6 +128,11 @@ def _validate_location(
         (
             "weather.expected_returned_coordinate",
             expected_returned_coordinate,
+        ),
+        ("wave.request_coordinate", wave_request_coordinate),
+        (
+            "wave.expected_returned_coordinate",
+            wave_expected_returned_coordinate,
         ),
     )
 
@@ -204,6 +227,51 @@ def validate_config(
         raise ValueError(
             "api.hourly_fields must contain exactly: "
             f"{expected_fields}"
+        )
+
+    wave_api_config = _require_mapping(
+        config.get("wave_api"),
+        "wave_api",
+    )
+    wave_base_url = _require_string(
+        wave_api_config.get("base_url"),
+        "wave_api.base_url",
+    )
+
+    if not wave_base_url.startswith("https://"):
+        raise ValueError("wave_api.base_url must use https")
+
+    wave_model = _require_string(
+        wave_api_config.get("model"),
+        "wave_api.model",
+    )
+
+    if wave_model != REQUIRED_WAVE_MODEL:
+        raise ValueError(f"unsupported wave api model: {wave_model}")
+
+    if wave_api_config.get("forecast_days") != 7:
+        raise ValueError("wave_api.forecast_days must be 7")
+
+    wave_fields = wave_api_config.get("hourly_fields")
+
+    if not isinstance(wave_fields, list) or not all(
+        isinstance(field, str) and field
+        for field in wave_fields
+    ):
+        raise ValueError(
+            "wave_api.hourly_fields must be a nonempty list of strings"
+        )
+
+    configured_wave_fields = set(wave_fields)
+
+    if (
+        len(wave_fields) != len(REQUIRED_WAVE_FIELDS)
+        or configured_wave_fields != REQUIRED_WAVE_FIELDS
+    ):
+        expected_wave_fields = ", ".join(sorted(REQUIRED_WAVE_FIELDS))
+        raise ValueError(
+            "wave_api.hourly_fields must contain exactly: "
+            f"{expected_wave_fields}"
         )
 
     storage_config = _require_mapping(

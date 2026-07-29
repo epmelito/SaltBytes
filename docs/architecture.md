@@ -2,7 +2,8 @@
 
 ## Purpose
 
-This document describes the current local atmospheric forecast implementation.
+This document describes the current local atmospheric and wave forecast
+implementation.
 The [project charter](project-charter.md) defines the broader approved North
 Carolina coastal fishing conditions platform.
 
@@ -10,19 +11,22 @@ Carolina coastal fishing conditions platform.
 
 1. Load a local environment configuration.
 2. Initialize DuckDB and start a pipeline run.
-3. Request an Open-Meteo `ncep_nbm_conus` forecast for each location's weather
-   request coordinate.
-4. Validate and persist the complete location result.
-5. Skip raw and normalized storage when that result fails quality checks.
-6. Continue processing unrelated locations after a quality rejection.
-7. Write a passing response unchanged to immutable raw storage.
-8. Store snapshot provenance and 168 normalized UTC hourly rows.
+3. Request independent Open-Meteo `ncep_nbm_conus` atmospheric and
+   `meteofrance_wave` wave results using their source-specific coordinates.
+4. Validate and persist each complete source result independently.
+5. Skip raw and normalized storage for a rejected source result.
+6. Continue with the other source and unrelated locations after a quality
+   rejection.
+7. Write each passing response unchanged to a separate immutable raw snapshot.
+8. Store source-specific snapshot provenance and 168 normalized UTC hourly
+   rows in the corresponding atmospheric or wave table.
 9. Complete the run after every location or abort on an operational failure.
-10. Compare consecutive forecasts through the revision view.
+10. Compare consecutive forecasts through separate atmospheric and wave
+    revision views.
 
-API, raw-storage, and database failures abort immediately. Quality rejection is
-location-specific, but any rejected location makes the final run status
-`failed`. Successfully stored unrelated locations are not rolled back.
+API, raw-storage, and database failures abort immediately. Any rejected source
+result makes the final run status `failed`, while successfully stored results
+from the other source or unrelated locations are retained.
 
 ## Configuration
 
@@ -31,6 +35,8 @@ All three environments configure the five approved locations and distinguish:
 - display coordinate
 - weather request coordinate
 - expected returned NBM coordinate
+- marine request coordinate
+- expected returned `meteofrance_wave` coordinate
 - fishing context
 - static coastal regime
 
@@ -41,26 +47,35 @@ The atmospheric API contract is:
 - `timezone=auto`
 - the five accepted hourly fields
 
+The wave API contract is:
+
+- `models=meteofrance_wave`
+- `forecast_days=7`
+- `timezone=auto`
+- `wave_height`, `wave_direction`, and `wave_period`
+
 Configuration validation rejects other selectors, horizons, fields, incomplete
 spatial relationships, invalid coordinates, unsupported fishing contexts, and
 empty coastal regimes.
 
 ## Ingestion and raw storage
 
-One Open-Meteo response is treated as one complete location result. Quality
-checks run before storage. Passing responses are preserved unmodified as
-immutable JSON. Failed responses produce quality evidence but no raw snapshot
-or normalized rows.
+Each Open-Meteo response is treated as one complete, independent source result.
+Source-qualified quality checks run before storage. Passing responses are
+preserved unmodified as separate immutable JSON snapshots. Failed results
+produce quality evidence but no raw snapshot or normalized rows for that
+source.
 
-The pipeline retains the configured model and request coordinate as request
-provenance. Returned coordinates, response timezone, and UTC offset remain
-attributable to the captured response.
+The pipeline retains each configured model and source-specific request
+coordinate as request provenance. Returned coordinates, response timezone, and
+UTC offset remain attributable to the corresponding captured response.
 
 ## Normalization
 
 The response timezone is used to convert local hourly labels to UTC. Passing
 results contain exactly 168 unique, strictly ascending hourly UTC instants.
-DuckDB stores the five accepted atmospheric values for each instant.
+DuckDB stores the five accepted atmospheric values in `forecast_hourly` and
+the three accepted wave values in `wave_hourly`.
 
 ## Revision history
 
@@ -72,15 +87,20 @@ probability, and precipitation forecasts.
 Wind direction exposes current and previous values only. No circular or signed
 directional difference is defined.
 
+`wave_revision_changes` applies the same stable-location and normalized-time
+matching to `meteofrance_wave` snapshots. Wave height and period include
+differences; wave direction exposes current and previous values only.
+
 ## Environments
 
 `dev`, `test`, and `prod` run the same application and seven-day atmospheric
-contract using separate local storage paths. Automated tests replace live
-forecast fetching with deterministic responses and temporary storage.
+and wave contracts using separate local storage paths. Automated tests replace
+live source fetching with deterministic responses and temporary storage.
 
 These names do not represent deployed cloud environments.
 
 ## Current boundary
 
-Marine, sea-surface-temperature, tide, scoring, scheduling, publication, and
-cloud infrastructure are outside the current implementation.
+Sea-surface-temperature, ocean-current, sea-level-height, tide, scoring,
+scheduling, publication, agents, and cloud infrastructure are outside the
+current implementation.

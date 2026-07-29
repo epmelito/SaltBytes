@@ -31,6 +31,16 @@ def valid_config(environment: str = "dev") -> dict[str, Any]:
                     },
                     "coastal_regime": "Atlantic coastal grid",
                 },
+                "wave": {
+                    "request_coordinate": {
+                        "latitude": 35.91,
+                        "longitude": -75.54,
+                    },
+                    "expected_returned_coordinate": {
+                        "latitude": 35.875,
+                        "longitude": -75.54166,
+                    },
+                },
             }
         ],
         "api": {
@@ -43,6 +53,16 @@ def valid_config(environment: str = "dev") -> dict[str, Any]:
                 "wind_gusts_10m",
                 "precipitation_probability",
                 "precipitation",
+            ],
+        },
+        "wave_api": {
+            "base_url": "https://marine-api.open-meteo.com/v1/marine",
+            "model": "meteofrance_wave",
+            "forecast_days": 7,
+            "hourly_fields": [
+                "wave_height",
+                "wave_direction",
+                "wave_period",
             ],
         },
         "storage": {
@@ -103,10 +123,23 @@ def test_repository_config_contains_approved_coastal_contract(
             "precipitation",
         ],
     }
+    assert config["wave_api"] == {
+        "base_url": "https://marine-api.open-meteo.com/v1/marine",
+        "model": "meteofrance_wave",
+        "forecast_days": 7,
+        "hourly_fields": [
+            "wave_height",
+            "wave_direction",
+            "wave_period",
+        ],
+    }
 
 
-def test_repository_config_matches_approved_spatial_relationships() -> None:
-    config = load_config("dev")
+@pytest.mark.parametrize("environment", ["dev", "test", "prod"])
+def test_repository_config_matches_approved_spatial_relationships(
+    environment: str,
+) -> None:
+    config = load_config(environment)
 
     relationships = {
         location["id"]: {
@@ -115,6 +148,10 @@ def test_repository_config_matches_approved_spatial_relationships() -> None:
             "request": location["weather"]["request_coordinate"],
             "returned": location["weather"]["expected_returned_coordinate"],
             "regime": location["weather"]["coastal_regime"],
+            "wave_request": location["wave"]["request_coordinate"],
+            "wave_returned": location["wave"][
+                "expected_returned_coordinate"
+            ],
         }
         for location in config["locations"]
     }
@@ -126,6 +163,11 @@ def test_repository_config_matches_approved_spatial_relationships() -> None:
             "request": {"latitude": 35.9096355, "longitude": -75.5966537},
             "returned": {"latitude": 35.89557, "longitude": -75.5936},
             "regime": "Atlantic coastal grid",
+            "wave_request": {"latitude": 35.91, "longitude": -75.54},
+            "wave_returned": {
+                "latitude": 35.875,
+                "longitude": -75.54166,
+            },
         },
         "ocracoke_ramp_72": {
             "context": "surf",
@@ -133,6 +175,14 @@ def test_repository_config_matches_approved_spatial_relationships() -> None:
             "request": {"latitude": 35.0868922, "longitude": -75.9844152},
             "returned": {"latitude": 35.101955, "longitude": -75.983315},
             "regime": "Ocean-side coastal grid",
+            "wave_request": {
+                "latitude": 35.0868922,
+                "longitude": -75.9844152,
+            },
+            "wave_returned": {
+                "latitude": 35.125,
+                "longitude": -75.95833,
+            },
         },
         "fort_macon_ocean": {
             "context": "surf",
@@ -140,6 +190,11 @@ def test_repository_config_matches_approved_spatial_relationships() -> None:
             "request": {"latitude": 34.6933, "longitude": -76.7117},
             "returned": {"latitude": 34.68586, "longitude": -76.717896},
             "regime": "Atlantic coastal grid",
+            "wave_request": {"latitude": 34.65, "longitude": -76.697},
+            "wave_returned": {
+                "latitude": 34.625,
+                "longitude": -76.70833,
+            },
         },
         "bogue_inlet_pier": {
             "context": "pier",
@@ -147,6 +202,14 @@ def test_repository_config_matches_approved_spatial_relationships() -> None:
             "request": {"latitude": 34.6601236, "longitude": -77.0337424},
             "returned": {"latitude": 34.671284, "longitude": -76.996414},
             "regime": "Atlantic coastal grid",
+            "wave_request": {
+                "latitude": 34.6579882,
+                "longitude": -77.0331663,
+            },
+            "wave_returned": {
+                "latitude": 34.625,
+                "longitude": -77.04166,
+            },
         },
         "fort_fisher": {
             "context": "surf",
@@ -154,6 +217,11 @@ def test_repository_config_matches_approved_spatial_relationships() -> None:
             "request": {"latitude": 33.9534, "longitude": -77.929},
             "returned": {"latitude": 33.954144, "longitude": -77.93454},
             "regime": "Atlantic coastal grid",
+            "wave_request": {"latitude": 33.93, "longitude": -77.9},
+            "wave_returned": {
+                "latitude": 33.875,
+                "longitude": -77.87499,
+            },
         },
     }
 
@@ -270,6 +338,18 @@ def test_load_config_rejects_invalid_coordinates(
             ("weather", "expected_returned_coordinate"),
             r"locations\[0\].weather.expected_returned_coordinate must be a mapping",
         ),
+        (
+            ("wave",),
+            r"locations\[0\].wave must be a mapping",
+        ),
+        (
+            ("wave", "request_coordinate"),
+            r"locations\[0\].wave.request_coordinate must be a mapping",
+        ),
+        (
+            ("wave", "expected_returned_coordinate"),
+            r"locations\[0\].wave.expected_returned_coordinate must be a mapping",
+        ),
     ],
 )
 def test_load_config_requires_complete_spatial_relationships(
@@ -313,6 +393,30 @@ def test_load_config_rejects_empty_coastal_regime(
     write_config(tmp_path, config)
 
     with pytest.raises(ValueError, match="coastal_regime"):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("coordinate_name", "field_name", "field_value"),
+    [
+        ("request_coordinate", "latitude", 91),
+        ("request_coordinate", "longitude", "invalid"),
+        ("expected_returned_coordinate", "latitude", None),
+        ("expected_returned_coordinate", "longitude", -181),
+    ],
+)
+def test_load_config_rejects_invalid_wave_coordinates(
+    tmp_path: Path,
+    coordinate_name: str,
+    field_name: str,
+    field_value: Any,
+) -> None:
+    config = valid_config()
+    coordinate = config["locations"][0]["wave"][coordinate_name]
+    coordinate[field_name] = field_value
+    write_config(tmp_path, config)
+
+    with pytest.raises(ValueError, match=field_name):
         load_config("dev", config_dir=tmp_path)
 
 
@@ -380,6 +484,60 @@ def test_load_config_requires_exact_hourly_fields(
     with pytest.raises(
         ValueError,
         match="api.hourly_fields must contain exactly",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+def test_load_config_rejects_unapproved_wave_model(
+    tmp_path: Path,
+) -> None:
+    config = valid_config()
+    config["wave_api"]["model"] = "auto"
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported wave api model: auto",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("forecast_days", [2, 8, True, None])
+def test_load_config_requires_seven_wave_forecast_days(
+    tmp_path: Path,
+    forecast_days: Any,
+) -> None:
+    config = valid_config()
+    config["wave_api"]["forecast_days"] = forecast_days
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="wave_api.forecast_days must be 7",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("change", ["missing", "extra", "duplicate"])
+def test_load_config_requires_exact_wave_fields(
+    tmp_path: Path,
+    change: str,
+) -> None:
+    config = valid_config()
+    wave_fields = config["wave_api"]["hourly_fields"]
+
+    if change == "missing":
+        wave_fields.remove("wave_period")
+    elif change == "extra":
+        wave_fields.append("sea_surface_temperature")
+    else:
+        wave_fields[-1] = "wave_height"
+
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="wave_api.hourly_fields must contain exactly",
     ):
         load_config("dev", config_dir=tmp_path)
 

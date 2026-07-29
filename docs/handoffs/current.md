@@ -2,49 +2,43 @@
 
 ## Handoff metadata
 
-- Current branch: `feature/coastal-atmospheric-ingestion`
+- Current branch: `feature/coastal-wave-ingestion`
 - Resulting branch: `main`
-- Issue: #30
-- Work package: stage 4 coastal atmospheric ingestion
+- Active issue: #33
+- Work package: stage 4 coastal wave ingestion
 - Roadmap state: stage 4 authorized and in progress
 
-Issue #30 and its future pull request are not complete. Marine,
-sea-surface-temperature, and tide ingestion remain unstarted.
+## Starting state
 
-## Objective
+- pull request #31 merged the coastal atmospheric ingestion into `main`
+- pull request #32 merged the updated agent workflow guidance into `main`
+- the branch started from a clean repository state
+- the issue #33 wave implementation plan is approved
 
-Implement the first coastal ingestion slice for the five approved locations
-using the accepted Open-Meteo atmospheric model, spatial relationships, field
-contract, validity rules, provenance, normalized storage, and revision history.
+## Current checkpoint
 
-## Implementation completed
+Checkpoints 0 through 4 implemented and reviewed the bounded Open-Meteo
+`meteofrance_wave` slice for the five approved locations. Atmospheric and wave
+source results are processed independently with source-qualified quality
+evidence, separate raw snapshots and provenance, separate normalized tables,
+and separate revision views.
 
-- configured the five approved coastal locations with display, request, and
-  expected returned weather coordinates
-- configured `ncep_nbm_conus`, seven forecast days, and the five atmospheric
-  fields
-- constructed requests from the weather-request coordinates
-- implemented model-contract, field, coordinate, timezone, and 168-hour UTC
-  quality checks
-- added idempotent DuckDB upgrades and bounded snapshot provenance
-- normalized passing atmospheric results to UTC
-- expanded atmospheric forecast revision history
-- retained nullable legacy `temperature_2m` storage
-- continued after location quality rejection while preserving successful
-  unrelated results
-- retained immediate abort behavior for API, raw-storage, and database failures
-- updated the affected manual database and revision scripts
-- reconciled current technical documentation and governance state
+Sea surface temperature, ocean currents, sea-level height, NOAA tide
+ingestion, tide phase, scoring, scheduling, publication, Azure deployment, and
+agents remain outside issue #33.
 
-No marine, sea-surface-temperature, tide, scoring, scheduling, publication,
-cloud, or agent implementation is included.
-
-## Files changed for issue #30
+## Files changed
 
 - `config/dev.yml`
 - `config/prod.yml`
 - `config/test.yml`
-- `scripts/check_database.py`
+- `docs/architecture.md`
+- `docs/data-model.md`
+- `docs/environments.md`
+- `docs/scope-register.md`
+- `docs/handoffs/current.md`
+- `docs/roadmap.md`
+- `readme.md`
 - `scripts/check_forecast_revisions.py`
 - `src/forecast_ops/api.py`
 - `src/forecast_ops/config.py`
@@ -57,55 +51,30 @@ cloud, or agent implementation is included.
 - `tests/test_pipeline.py`
 - `tests/test_pipeline_fixtures.py`
 - `tests/test_quality.py`
-- `readme.md`
-- `docs/architecture.md`
-- `docs/data-model.md`
-- `docs/environments.md`
-- `docs/scope-register.md`
-- `docs/roadmap.md`
-- `docs/handoffs/current.md`
-
-`AGENTS.md` is separately modified by a pre-existing governance change. It is
-not part of issue #30.
 
 ## Validation
 
-Completed checkpoint validation:
+Targeted validation completed:
 
-- configuration and API tests: 38 passed
-- quality tests: 23 passed
-- database tests: 13 passed
-- pipeline tests: 5 passed
+- configuration and API: 59 passed
+- quality: 43 passed
+- database: 16 passed
+- pipeline: 11 passed
 - all targeted Ruff checks passed
-- all checkpoint diff checks passed with only nonblocking LF-to-CRLF
-  normalization warnings
+- all targeted diff checks passed with only nonblocking LF-to-CRLF warnings
 
-Completed final validation:
+Full-suite validation completed:
 
-- full test suite: 94 passed in 15.33s
-- repository-wide Ruff: `All checks passed!`
-- `git diff --check`: passed with only nonblocking LF-to-CRLF normalization
-  warnings
-- the complete issue #30 diff was reviewed
-- exactly the 23 issue #30 files listed above are changed, with `AGENTS.md`
-  remaining a separate pre-existing governance change
+- `python -m pytest`: 144 passed in 35.47 seconds
+- `python -m ruff check .`: all checks passed
+- `git diff --check`: passed with only nonblocking LF-to-CRLF warnings
 
-## Remaining stage 4 work
-
-- Open-Meteo wave ingestion
-- Open-Meteo sea-surface-temperature ingestion
-- NOAA tide prediction ingestion and phase calculation
-- observation-station relationships
-- accuracy and bias validation
-- source fallback and precedence rules
-- warning and forecast-zone mappings
-- marine run-history reconstruction
-
-Deferred scoring, retention, scheduling, publication, API, dashboard, Azure,
-inlet, vessel, offshore, and species-specific work remains unchanged.
+The complete 22-file issue #33 diff was reviewed against the issue, accepted
+decisions, scope register, and roadmap. No inconsistency or unrelated change
+was found.
 
 ## Next checkpoint
 
-Complete the final review checkpoint, then stage the issue #30 files and
-prepare the commit. Keep the separate `AGENTS.md` governance change out of the
-issue #30 staging set.
+The required documentation corrections are applied, diff-check revalidation
+passed, and the focused final documentation re-review found no issues. Stage
+only the 22 issue #33 files after final re-review approval.

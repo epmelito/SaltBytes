@@ -15,6 +15,13 @@ locations:
         latitude: 35.89557
         longitude: -75.5936
       coastal_regime: Atlantic coastal grid
+    wave:
+      request_coordinate:
+        latitude: 35.91
+        longitude: -75.54
+      expected_returned_coordinate:
+        latitude: 35.875
+        longitude: -75.54166
 
   - id: ocracoke_ramp_72
     name: Beach Access Ramp 72, Ocracoke Island
@@ -30,6 +37,13 @@ locations:
         latitude: 35.101955
         longitude: -75.983315
       coastal_regime: Ocean-side coastal grid
+    wave:
+      request_coordinate:
+        latitude: 35.0868922
+        longitude: -75.9844152
+      expected_returned_coordinate:
+        latitude: 35.125
+        longitude: -75.95833
 
   - id: fort_macon_ocean
     name: Fort Macon State Park, ocean side
@@ -45,6 +59,13 @@ locations:
         latitude: 34.68586
         longitude: -76.717896
       coastal_regime: Atlantic coastal grid
+    wave:
+      request_coordinate:
+        latitude: 34.65
+        longitude: -76.697
+      expected_returned_coordinate:
+        latitude: 34.625
+        longitude: -76.70833
 
   - id: bogue_inlet_pier
     name: Bogue Inlet Pier
@@ -60,6 +81,13 @@ locations:
         latitude: 34.671284
         longitude: -76.996414
       coastal_regime: Atlantic coastal grid
+    wave:
+      request_coordinate:
+        latitude: 34.6579882
+        longitude: -77.0331663
+      expected_returned_coordinate:
+        latitude: 34.625
+        longitude: -77.04166
 
   - id: fort_fisher
     name: Fort Fisher State Recreation Area
@@ -75,6 +103,13 @@ locations:
         latitude: 33.954144
         longitude: -77.93454
       coastal_regime: Atlantic coastal grid
+    wave:
+      request_coordinate:
+        latitude: 33.93
+        longitude: -77.9
+      expected_returned_coordinate:
+        latitude: 33.875
+        longitude: -77.87499
 
 api:
   base_url: https://api.open-meteo.com/v1/forecast
@@ -86,6 +121,15 @@ api:
     - wind_gusts_10m
     - precipitation_probability
     - precipitation
+
+wave_api:
+  base_url: https://marine-api.open-meteo.com/v1/marine
+  model: meteofrance_wave
+  forecast_days: 7
+  hourly_fields:
+    - wave_height
+    - wave_direction
+    - wave_period
 
 storage:
   raw_data_path: data/test/raw

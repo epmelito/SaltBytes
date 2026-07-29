@@ -2,11 +2,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-REQUIRED_MODEL = "ncep_nbm_conus"
 EXPECTED_HOURLY_INSTANTS = 168
+VALID_SOURCE_LABELS = {"weather", "wave"}
 
 
 def _quality_result(
+    source_label: str,
     check_name: str,
     passed: bool,
     observed_value: Any,
@@ -14,7 +15,7 @@ def _quality_result(
     checked_at: datetime,
 ) -> dict[str, str | datetime]:
     return {
-        "check_name": check_name,
+        "check_name": f"{source_label}:{check_name}",
         "status": "pass" if passed else "fail",
         "observed_value": str(observed_value),
         "expected_value": str(expected_value),
@@ -32,22 +33,28 @@ def _parse_coordinate(value: Any) -> float | None:
         return None
 
 
-# validate one configured atmospheric result before storage
+# validate one configured open meteo hourly result before storage
 def run_payload_quality_checks(
     payload: dict[str, Any],
     expected_hourly_fields: list[str],
     model_selector: str,
     expected_returned_coordinate: dict[str, Any],
+    expected_model_selector: str = "ncep_nbm_conus",
+    source_label: str = "weather",
 ) -> list[dict[str, str | datetime]]:
+    if source_label not in VALID_SOURCE_LABELS:
+        raise ValueError(f"unsupported quality source label: {source_label}")
+
     checked_at = datetime.now(timezone.utc)
     results: list[dict[str, str | datetime]] = []
 
     results.append(
         _quality_result(
+            source_label,
             "configured_model_selector",
-            model_selector == REQUIRED_MODEL,
+            model_selector == expected_model_selector,
             model_selector,
-            REQUIRED_MODEL,
+            expected_model_selector,
             checked_at,
         )
     )
@@ -65,6 +72,7 @@ def run_payload_quality_checks(
 
         results.append(
             _quality_result(
+                source_label,
                 f"returned_{coordinate_name}_matches_expected",
                 coordinates_match,
                 returned_coordinate,
@@ -84,6 +92,7 @@ def run_payload_quality_checks(
 
     results.append(
         _quality_result(
+            source_label,
             "response_timezone_valid",
             response_timezone is not None,
             timezone_name,
@@ -96,6 +105,7 @@ def run_payload_quality_checks(
     hourly_exists = isinstance(hourly, dict)
     results.append(
         _quality_result(
+            source_label,
             "hourly_mapping_exists",
             hourly_exists,
             type(hourly).__name__,
@@ -111,6 +121,7 @@ def run_payload_quality_checks(
     time_values = forecast_times if isinstance(forecast_times, list) else []
     results.append(
         _quality_result(
+            source_label,
             "hourly_time_count",
             len(time_values) == EXPECTED_HOURLY_INSTANTS,
             len(time_values),
@@ -136,6 +147,7 @@ def run_payload_quality_checks(
 
     results.append(
         _quality_result(
+            source_label,
             "hourly_times_parseable",
             times_parseable,
             len(parsed_times),
@@ -164,6 +176,7 @@ def run_payload_quality_checks(
 
     results.append(
         _quality_result(
+            source_label,
             "hourly_times_normalized_to_utc",
             times_normalized,
             len(normalized_times),
@@ -175,6 +188,7 @@ def run_payload_quality_checks(
     unique_time_count = len(set(normalized_times))
     results.append(
         _quality_result(
+            source_label,
             "hourly_utc_time_count",
             times_normalized
             and unique_time_count == EXPECTED_HOURLY_INSTANTS,
@@ -198,6 +212,7 @@ def run_payload_quality_checks(
     )
     results.append(
         _quality_result(
+            source_label,
             "hourly_utc_times_strictly_ascending",
             strictly_ascending,
             strictly_ascending,
@@ -219,6 +234,7 @@ def run_payload_quality_checks(
     )
     results.append(
         _quality_result(
+            source_label,
             "hourly_utc_spacing",
             hourly_spacing,
             hourly_spacing,
@@ -235,6 +251,7 @@ def run_payload_quality_checks(
 
         results.append(
             _quality_result(
+                source_label,
                 f"{field_name}_exists",
                 field_exists,
                 field_exists,
@@ -244,6 +261,7 @@ def run_payload_quality_checks(
         )
         results.append(
             _quality_result(
+                source_label,
                 f"{field_name}_count",
                 values_are_list
                 and value_count == EXPECTED_HOURLY_INSTANTS,
@@ -260,6 +278,7 @@ def run_payload_quality_checks(
         )
         results.append(
             _quality_result(
+                source_label,
                 f"{field_name}_has_no_nulls",
                 values_without_nulls,
                 values_without_nulls,
@@ -279,6 +298,7 @@ def run_payload_quality_checks(
         )
         results.append(
             _quality_result(
+                source_label,
                 f"{field_name}_values_are_numeric",
                 values_are_numeric,
                 values_are_numeric,

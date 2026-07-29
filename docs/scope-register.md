@@ -20,24 +20,28 @@ without replacing the product charter or roadmap.
 
 The current repository provides:
 
-- a local Python coastal atmospheric forecast pipeline
+- a local Python coastal atmospheric and wave forecast pipeline
 - `dev`, `test`, and `prod` local YAML configurations
 - the five approved North Carolina coastal locations
 - seven-day Open-Meteo `ncep_nbm_conus` ingestion
 - separate display, weather-request, and expected returned weather coordinates
 - wind speed, direction, gust, precipitation probability, and precipitation
+- seven-day Open-Meteo `meteofrance_wave` ingestion
+- separate marine-request and expected returned wave-grid coordinates
+- wave height, direction, and period
 - immutable raw JSON snapshots for payloads that pass pipeline quality checks
-- 168 normalized hourly UTC forecasts for each passing location result
-- independent location quality rejection without partial result storage
+- 168 normalized hourly UTC forecasts for each passing source result
+- independent weather and wave quality rejection without partial result storage
 - pipeline run, request, response, snapshot, and quality metadata
-- forecast revision calculations for implemented weather fields
+- atmospheric and wave forecast revision calculations
 - structured logging and manual inspection scripts
 - pytest coverage and GitHub Actions validation
 - a bounded, diagnostic forecast failure review skill
 
 The nullable `temperature_2m` database column remains only for compatibility
-with existing local history. Marine, sea-surface-temperature, tide, scoring,
-scheduling, publication, and cloud infrastructure are not implemented.
+with existing local history. Sea-surface-temperature, ocean-current,
+sea-level-height, tide, scoring, scheduling, publication, agents, and cloud
+infrastructure are not implemented.
 
 ## Initial governance work package
 
@@ -87,8 +91,7 @@ decision records, and governance updates into `main`. Issue #20 closed after
 its acceptance criteria were satisfied.
 
 The coastal requirements work package and roadmap stage 3 are complete.
-Roadmap stage 4 is authorized and in progress. Issue #30 implements its first
-coastal ingestion checkpoint.
+Roadmap stage 4 is authorized and in progress.
 
 The requirements focus on stable location identity, spatial source
 relationships, environmental metrics, forecast history, data quality, and
@@ -105,12 +108,12 @@ The accepted decisions are:
 - [Composite geographic model and initial locations](decisions/0002-composite-geographic-model-and-initial-locations.md)
 - [First-release environmental requirement baseline](decisions/0003-first-release-environmental-requirement-baseline.md)
 
-## Active coastal atmospheric implementation work package
+## Completed coastal atmospheric implementation checkpoint
 
 Issues #24 and #26 established the accepted stage 4 source, spatial, tide, and
-source-result decisions. Issue #30 authorizes the first coastal implementation
-checkpoint: atmospheric ingestion for the five approved locations using
-`ncep_nbm_conus`.
+source-result decisions. Issue #30 implemented the first coastal ingestion
+checkpoint for the five approved locations using `ncep_nbm_conus`. Pull
+request #31 merged the atmospheric ingestion into `main`.
 
 The issue #30 implementation includes only:
 
@@ -122,7 +125,40 @@ The issue #30 implementation includes only:
 - request and response provenance
 - normalized atmospheric storage and revision history
 
-It does not authorize marine, sea-surface-temperature, or tide ingestion.
+## Implemented coastal wave checkpoint
+
+Issue #33 implements the bounded wave-ingestion checkpoint:
+
+- Open-Meteo Marine API wave ingestion
+- model `meteofrance_wave`
+- `wave_height`
+- `wave_direction`
+- `wave_period`
+- the five approved coastal locations
+- the accepted marine request and expected returned coordinates
+- independent atmospheric and wave source results
+- wave raw snapshots, normalized storage, provenance, quality evidence, and
+  revision history
+
+The implementation processes atmospheric and wave results independently,
+retains source-qualified quality evidence, stores separate raw snapshots and
+request and response provenance, normalizes passing results into separate
+tables, and exposes wave revision history. A fully passing five-location run
+produces ten snapshots and 1,680 normalized rows.
+
+Issue #33 does not implement or authorize:
+
+- sea-surface-temperature ingestion
+- ocean-current ingestion
+- sea-level-height ingestion
+- NOAA tide ingestion
+- tide-phase calculation
+- scoring
+- scheduling
+- publication
+- Azure deployment
+- agents
+
 Roadmap stage 4 remains in progress. Observation relationships, accuracy and
 bias validation, fallback and precedence rules, alternative marine-model
 adoption, warning and forecast-zone mappings, and marine run-history
@@ -191,8 +227,8 @@ Roadmap stage 3 has approved the following first-release requirements:
   wave, sea-surface-temperature, and tide results
 
 The accepted decisions and their rationale are recorded in the
-[decision index](decisions/README.md). Issue #30 implements only the atmospheric
-subset described in the current implementation section.
+[decision index](decisions/README.md). Issues #30 and #33 implement the
+atmospheric and wave subsets described in the current implementation section.
 
 Delivery order is controlled by the [roadmap](roadmap.md).
 

@@ -46,6 +46,17 @@ create table if not exists forecast_hourly (
     foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
 );
 
+create table if not exists wave_hourly (
+    snapshot_id varchar not null,
+    location_id varchar not null,
+    forecast_time timestamptz not null,
+    wave_height double,
+    wave_direction double,
+    wave_period double,
+    primary key (snapshot_id, location_id, forecast_time),
+    foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
+);
+
 create table if not exists quality_results (
     run_id varchar not null,
     check_name varchar not null,
@@ -173,6 +184,70 @@ select
     previous_precipitation,
     precipitation - previous_precipitation as precipitation_change
 from ordered_forecasts
+where previous_snapshot_id is not null;
+
+create or replace view wave_revision_changes as
+with ordered_wave_forecasts as (
+    select
+        hourly.location_id,
+        hourly.forecast_time,
+        snapshots.captured_at,
+        hourly.snapshot_id,
+        hourly.wave_height,
+        hourly.wave_direction,
+        hourly.wave_period,
+        lag(hourly.snapshot_id) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_snapshot_id,
+        lag(hourly.wave_height) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_wave_height,
+        lag(hourly.wave_direction) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_wave_direction,
+        lag(hourly.wave_period) over (
+            partition by
+                hourly.location_id,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_wave_period
+    from wave_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on hourly.snapshot_id = snapshots.snapshot_id
+    where snapshots.model_selector = 'meteofrance_wave'
+)
+select
+    location_id,
+    forecast_time,
+    captured_at,
+    snapshot_id,
+    previous_snapshot_id,
+    wave_height,
+    previous_wave_height,
+    wave_height - previous_wave_height as wave_height_change,
+    wave_direction,
+    previous_wave_direction,
+    wave_period,
+    previous_wave_period,
+    wave_period - previous_wave_period as wave_period_change
+from ordered_wave_forecasts
 where previous_snapshot_id is not null;
 """
 
@@ -378,6 +453,93 @@ def insert_forecast_hourly(
                 precipitation
             )
             values (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+    return len(rows)
+
+
+# insert normalized hourly wave rows for one snapshot
+def insert_wave_hourly(
+    database_path: Path | str,
+    snapshot_id: str,
+    location_id: str,
+    payload: dict[str, Any],
+) -> int:
+    hourly = payload.get("hourly")
+
+    if not isinstance(hourly, dict):
+        raise ValueError("wave payload must contain an hourly mapping")
+
+    forecast_times = hourly.get("time")
+
+    if not isinstance(forecast_times, list):
+        raise ValueError("wave payload must contain an hourly time list")
+
+    timezone_name = payload.get("timezone")
+
+    if not isinstance(timezone_name, str):
+        raise ValueError("wave payload must contain a timezone")
+
+    try:
+        forecast_timezone = ZoneInfo(timezone_name)
+    except Exception as error:
+        raise ValueError(f"invalid wave timezone: {timezone_name}") from error
+
+    metric_names = (
+        "wave_height",
+        "wave_direction",
+        "wave_period",
+    )
+
+    for metric_name in metric_names:
+        metric_values = hourly.get(metric_name)
+
+        if not isinstance(metric_values, list):
+            raise ValueError(
+                f"wave payload must contain an hourly {metric_name} list"
+            )
+
+        if len(metric_values) != len(forecast_times):
+            raise ValueError(
+                f"hourly {metric_name} length must match hourly time length"
+            )
+
+    normalized_times = []
+
+    for forecast_time in forecast_times:
+        parsed_time = datetime.fromisoformat(forecast_time)
+
+        if parsed_time.tzinfo is None:
+            parsed_time = parsed_time.replace(tzinfo=forecast_timezone)
+
+        normalized_times.append(parsed_time.astimezone(timezone.utc))
+
+    rows = [
+        (
+            snapshot_id,
+            location_id,
+            forecast_time,
+            hourly["wave_height"][index],
+            hourly["wave_direction"][index],
+            hourly["wave_period"][index],
+        )
+        for index, forecast_time in enumerate(normalized_times)
+    ]
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.executemany(
+            """
+            insert into wave_hourly (
+                snapshot_id,
+                location_id,
+                forecast_time,
+                wave_height,
+                wave_direction,
+                wave_period
+            )
+            values (?, ?, ?, ?, ?, ?)
             """,
             rows,
         )

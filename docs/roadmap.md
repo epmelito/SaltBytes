@@ -12,9 +12,10 @@ decisions and authorizes active work packages.
 
 ## Current state
 
-ForecastOps is a tested local weather forecast snapshot pipeline. It is the
-technical foundation for the approved North Carolina coastal fishing
-conditions data platform, but it does not yet implement that product.
+ForecastOps is a tested local coastal forecast pipeline with atmospheric and
+wave ingestion. It is the technical foundation for the approved North Carolina
+coastal fishing conditions data platform, but it does not yet implement that
+complete product.
 
 Roadmap stage 1 is complete. Pull request #13 introduced the six governance
 files after review and a successful required `test and lint` check. The
@@ -30,9 +31,9 @@ request #21 merged the completed stage 3 documentation into `main`.
 
 Roadmap stage 4 is authorized and in progress. Issues #24 and #26 established
 the first-release source relationships and validity rules. Issue #30 implements
-the first coastal ingestion checkpoint for the accepted atmospheric source.
+the atmospheric checkpoint, and issue #33 implements the wave checkpoint.
 
-Marine, sea-surface-temperature, and tide ingestion remain unstarted.
+Sea-surface-temperature and tide ingestion remain unstarted.
 
 ## Delivery stages
 
@@ -89,11 +90,12 @@ The supporting accepted decisions are indexed in the
 This stage defines requirements and durable product boundaries only.
 Implementation remains outside stage 3.
 
-Before coastal ingestion work begins, stage 4 must evaluate source fitness and
-resolve each location's display or destination and weather request coordinates,
-marine sampling coordinates, tide or water-level reference,
-observation-station relationship, and warning and forecast-zone mappings. That
-evaluation must document source resolution and spatial representativeness.
+Stage 3 provided the requirements groundwork for stage 4 source evaluation.
+Stage 4 subsequently accepted the final display, weather, marine, and tide
+relationships and source-result validity rules in ADRs 0007 through 0009. The
+implemented atmospheric and wave slices use their applicable accepted
+relationships. Observation-station relationships and warning and forecast-zone
+mappings remain unresolved or deferred in the scope register.
 
 Completion evidence: Satisfied.
 
@@ -134,11 +136,24 @@ locations:
 - 168 normalized hourly UTC rows per passing location
 - atmospheric forecast revision history
 
+Issue #33 implements the independent wave checkpoint for the same locations:
+
+- seven-day Open-Meteo `meteofrance_wave` requests
+- wave height, direction, and period
+- configured marine-request and expected returned wave-grid relationships
+- source-qualified deterministic validation
+- separate immutable passing raw snapshots and provenance
+- 168 normalized hourly UTC rows per passing wave result
+- wave forecast revision history without a wave-direction delta
+
+Atmospheric and wave quality rejections are independent. A fully passing
+five-location run produces ten snapshots and 1,680 normalized rows.
+
 Observation relationships, accuracy validation, fallback and precedence rules,
 warning and forecast-zone mappings, alternative marine-model adoption, and
-marine run-history reconstruction remain unresolved or deferred. Marine,
-sea-surface-temperature, and tide ingestion remain unstarted. Stage 4
-completion evidence remains unsatisfied.
+marine run-history reconstruction remain unresolved or deferred.
+Sea-surface-temperature and tide ingestion remain unstarted. Stage 4 completion
+evidence remains unsatisfied.
 
 Completion evidence requires:
 

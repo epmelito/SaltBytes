@@ -16,6 +16,15 @@ EXPECTED_COORDINATE = {
     "latitude": 35.89557,
     "longitude": -75.5936,
 }
+WAVE_FIELDS = [
+    "wave_height",
+    "wave_direction",
+    "wave_period",
+]
+EXPECTED_WAVE_COORDINATE = {
+    "latitude": 34.625,
+    "longitude": -76.70833,
+}
 
 
 def valid_payload(hour_count: int = 168) -> dict[str, Any]:
@@ -40,6 +49,26 @@ def valid_payload(hour_count: int = 168) -> dict[str, Any]:
     }
 
 
+def valid_wave_payload(hour_count: int = 168) -> dict[str, Any]:
+    start = datetime(2026, 7, 28)
+    times = [
+        (start + timedelta(hours=index)).isoformat(timespec="minutes")
+        for index in range(hour_count)
+    ]
+
+    return {
+        "latitude": 34.625,
+        "longitude": -76.70833,
+        "timezone": "America/New_York",
+        "hourly": {
+            "time": times,
+            "wave_height": [1.2] * hour_count,
+            "wave_direction": [135.0] * hour_count,
+            "wave_period": [8.0] * hour_count,
+        },
+    }
+
+
 def run_checks(
     payload: dict[str, Any],
     model_selector: str = "ncep_nbm_conus",
@@ -49,17 +78,34 @@ def run_checks(
         expected_hourly_fields=REQUIRED_FIELDS,
         model_selector=model_selector,
         expected_returned_coordinate=EXPECTED_COORDINATE,
+        expected_model_selector="ncep_nbm_conus",
+        source_label="weather",
+    )
+
+
+def run_wave_checks(
+    payload: dict[str, Any],
+    model_selector: str = "meteofrance_wave",
+) -> list[dict[str, Any]]:
+    return run_payload_quality_checks(
+        payload=payload,
+        expected_hourly_fields=WAVE_FIELDS,
+        model_selector=model_selector,
+        expected_returned_coordinate=EXPECTED_WAVE_COORDINATE,
+        expected_model_selector="meteofrance_wave",
+        source_label="wave",
     )
 
 
 def result_for(
     results: list[dict[str, Any]],
     check_name: str,
+    source_label: str = "weather",
 ) -> dict[str, Any]:
     return next(
         result
         for result in results
-        if result["check_name"] == check_name
+        if result["check_name"] == f"{source_label}:{check_name}"
     )
 
 
@@ -278,3 +324,225 @@ def test_missing_hourly_mapping_fails() -> None:
         results,
         "hourly_mapping_exists",
     )["status"] == "fail"
+
+
+def test_valid_168_hour_wave_payload_passes_without_selector_echo() -> None:
+    payload = valid_wave_payload()
+
+    assert "model" not in payload
+    assert "models" not in payload
+    assert all(
+        result["status"] == "pass"
+        for result in run_wave_checks(payload)
+    )
+
+
+def test_invalid_configured_wave_selector_fails() -> None:
+    results = run_wave_checks(
+        valid_wave_payload(),
+        model_selector="auto",
+    )
+
+    assert result_for(
+        results,
+        "configured_model_selector",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+@pytest.mark.parametrize("field_name", WAVE_FIELDS)
+def test_missing_required_wave_field_fails(field_name: str) -> None:
+    payload = valid_wave_payload()
+    del payload["hourly"][field_name]
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        f"{field_name}_exists",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+@pytest.mark.parametrize(
+    ("value", "check_name"),
+    [
+        (None, "wave_height_has_no_nulls"),
+        (True, "wave_height_values_are_numeric"),
+        ("high", "wave_height_values_are_numeric"),
+    ],
+)
+def test_invalid_wave_values_fail(
+    value: Any,
+    check_name: str,
+) -> None:
+    payload = valid_wave_payload()
+    payload["hourly"]["wave_height"][12] = value
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        check_name,
+        source_label="wave",
+    )["status"] == "fail"
+
+
+def test_wave_field_length_mismatch_fails() -> None:
+    payload = valid_wave_payload()
+    payload["hourly"]["wave_period"].pop()
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        "wave_period_count",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+def test_wave_coordinate_comparison_uses_parsed_numeric_equality() -> None:
+    payload = valid_wave_payload()
+    payload["latitude"] = "34.6250000"
+    payload["longitude"] = "-76.7083300"
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        "returned_latitude_matches_expected",
+        source_label="wave",
+    )["status"] == "pass"
+    assert result_for(
+        results,
+        "returned_longitude_matches_expected",
+        source_label="wave",
+    )["status"] == "pass"
+
+
+@pytest.mark.parametrize(
+    ("coordinate_name", "check_name"),
+    [
+        ("latitude", "returned_latitude_matches_expected"),
+        ("longitude", "returned_longitude_matches_expected"),
+    ],
+)
+def test_unexpected_returned_wave_coordinate_fails(
+    coordinate_name: str,
+    check_name: str,
+) -> None:
+    payload = valid_wave_payload()
+    payload[coordinate_name] = 0
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        check_name,
+        source_label="wave",
+    )["status"] == "fail"
+
+
+def test_invalid_wave_timezone_fails() -> None:
+    payload = valid_wave_payload()
+    payload["timezone"] = "Not/A_Timezone"
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        "response_timezone_valid",
+        source_label="wave",
+    )["status"] == "fail"
+    assert result_for(
+        results,
+        "hourly_times_normalized_to_utc",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+def test_unparsable_wave_valid_time_fails() -> None:
+    payload = valid_wave_payload()
+    payload["hourly"]["time"][12] = "not-a-time"
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        "hourly_times_parseable",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+def test_duplicate_wave_utc_valid_times_fail() -> None:
+    payload = valid_wave_payload()
+    payload["hourly"]["time"][12] = payload["hourly"]["time"][11]
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        "hourly_utc_time_count",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+def test_unordered_wave_utc_valid_times_fail() -> None:
+    payload = valid_wave_payload()
+    times = payload["hourly"]["time"]
+    times[12], times[13] = times[13], times[12]
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        "hourly_utc_times_strictly_ascending",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+def test_non_hourly_wave_utc_spacing_fails() -> None:
+    payload = valid_wave_payload()
+    payload["hourly"]["time"][12] = "2026-07-28T12:30"
+
+    results = run_wave_checks(payload)
+
+    assert result_for(
+        results,
+        "hourly_utc_spacing",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+@pytest.mark.parametrize("hour_count", [167, 169])
+def test_wave_result_requires_exactly_168_utc_instants(
+    hour_count: int,
+) -> None:
+    results = run_wave_checks(
+        valid_wave_payload(hour_count=hour_count)
+    )
+
+    assert result_for(
+        results,
+        "hourly_time_count",
+        source_label="wave",
+    )["status"] == "fail"
+    assert result_for(
+        results,
+        "hourly_utc_time_count",
+        source_label="wave",
+    )["status"] == "fail"
+
+
+def test_quality_result_names_are_source_qualified() -> None:
+    weather_results = run_checks(valid_payload())
+    wave_results = run_wave_checks(valid_wave_payload())
+
+    assert all(
+        str(result["check_name"]).startswith("weather:")
+        for result in weather_results
+    )
+    assert all(
+        str(result["check_name"]).startswith("wave:")
+        for result in wave_results
+    )

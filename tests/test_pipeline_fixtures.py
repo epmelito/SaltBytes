@@ -40,6 +40,31 @@ def atmospheric_payload(
     }
 
 
+def wave_payload(
+    location: dict[str, Any],
+    value_offset: float,
+) -> dict[str, Any]:
+    start = datetime(2026, 7, 28)
+    times = [
+        (start + timedelta(hours=index)).isoformat(timespec="minutes")
+        for index in range(168)
+    ]
+    returned_coordinate = location["wave"]["expected_returned_coordinate"]
+
+    return {
+        "latitude": returned_coordinate["latitude"],
+        "longitude": returned_coordinate["longitude"],
+        "timezone": "America/New_York",
+        "utc_offset_seconds": -14400,
+        "hourly": {
+            "time": times,
+            "wave_height": [1.0 + value_offset] * 168,
+            "wave_direction": [90.0 + value_offset] * 168,
+            "wave_period": [8.0 + value_offset] * 168,
+        },
+    }
+
+
 def test_run_pipeline_ingests_all_five_coastal_locations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -49,7 +74,8 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         "raw_data_path": str(tmp_path / "raw"),
         "database_path": str(tmp_path / "forecast_ops.duckdb"),
     }
-    payloads: dict[str, dict[str, Any]] = {}
+    weather_payloads: dict[str, dict[str, Any]] = {}
+    wave_payloads: dict[str, dict[str, Any]] = {}
 
     def fake_fetch_forecast(
         location: dict[str, Any],
@@ -65,19 +91,40 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             )
         )
         payload = atmospheric_payload(location, value_offset)
-        payloads[location["id"]] = payload
+        weather_payloads[location["id"]] = payload
+        return payload
+
+    def fake_fetch_wave_forecast(
+        location: dict[str, Any],
+        wave_api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        value_offset = float(
+            next(
+                index
+                for index, configured_location in enumerate(
+                    config["locations"]
+                )
+                if configured_location["id"] == location["id"]
+            )
+        )
+        payload = wave_payload(location, value_offset)
+        wave_payloads[location["id"]] = payload
         return payload
 
     monkeypatch.setattr(
         "forecast_ops.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        fake_fetch_wave_forecast,
+    )
 
     result = run_pipeline(config)
 
     assert result["status"] == "success"
-    assert result["snapshots_written"] == 5
-    assert result["rows_loaded"] == 840
+    assert result["snapshots_written"] == 10
+    assert result["rows_loaded"] == 1680
 
     database_path = Path(config["storage"]["database_path"])
 
@@ -103,10 +150,10 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
                 response_timezone,
                 response_utc_offset_seconds
             from forecast_snapshots
-            order by location_id
+            order by location_id, model_selector
             """
         ).fetchall()
-        hourly_counts = connection.execute(
+        weather_hourly_counts = connection.execute(
             """
             select location_id, count(*)
             from forecast_hourly
@@ -114,7 +161,15 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             order by location_id
             """
         ).fetchall()
-        first_rows = connection.execute(
+        wave_hourly_counts = connection.execute(
+            """
+            select location_id, count(*)
+            from wave_hourly
+            group by location_id
+            order by location_id
+            """
+        ).fetchall()
+        first_weather_rows = connection.execute(
             """
             select
                 location_id,
@@ -125,6 +180,21 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
                 precipitation_probability,
                 precipitation
             from forecast_hourly
+            qualify row_number() over (
+                partition by location_id
+                order by forecast_time
+            ) = 1
+            order by location_id
+            """
+        ).fetchall()
+        first_wave_rows = connection.execute(
+            """
+            select
+                location_id,
+                wave_height,
+                wave_direction,
+                wave_period
+            from wave_hourly
             qualify row_number() over (
                 partition by location_id
                 order by forecast_time
@@ -144,31 +214,49 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         for location in config["locations"]
     }
 
-    assert run == ("success", 840, None)
-    assert hourly_counts == [
+    assert run == ("success", 1680, None)
+    assert weather_hourly_counts == [
         ("bogue_inlet_pier", 168),
         ("fort_fisher", 168),
         ("fort_macon_ocean", 168),
         ("jennettes_pier", 168),
         ("ocracoke_ramp_72", 168),
     ]
-    assert len(first_rows) == 5
-    assert all(row[1] is None for row in first_rows)
-    assert all(all(value is not None for value in row[2:]) for row in first_rows)
-    assert len(quality_results) == 155
+    assert wave_hourly_counts == weather_hourly_counts
+    assert len(first_weather_rows) == 5
+    assert all(row[1] is None for row in first_weather_rows)
+    assert all(
+        all(value is not None for value in row[2:])
+        for row in first_weather_rows
+    )
+    assert len(first_wave_rows) == 5
+    assert all(
+        all(value is not None for value in row[1:])
+        for row in first_wave_rows
+    )
+    assert len(quality_results) == 270
     assert all(status == "pass" for _, status in quality_results)
+    assert {
+        check_name.split(":", maxsplit=2)[1]
+        for check_name, _ in quality_results
+    } == {"weather", "wave"}
 
     for snapshot in snapshots:
         location_id = snapshot[0]
         raw_file_path = Path(snapshot[1])
         location = locations_by_id[location_id]
-        request_coordinate = location["weather"]["request_coordinate"]
-        returned_coordinate = location["weather"][
+        model_selector = snapshot[2]
+        source_relationship = (
+            location["weather"]
+            if model_selector == "ncep_nbm_conus"
+            else location["wave"]
+        )
+        request_coordinate = source_relationship["request_coordinate"]
+        returned_coordinate = source_relationship[
             "expected_returned_coordinate"
         ]
 
-        assert snapshot[2:] == (
-            "ncep_nbm_conus",
+        assert snapshot[3:] == (
             request_coordinate["latitude"],
             request_coordinate["longitude"],
             returned_coordinate["latitude"],
@@ -178,8 +266,14 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         )
         assert raw_file_path.exists()
         assert json.loads(raw_file_path.read_text(encoding="utf-8")) == (
-            payloads[location_id]
+            weather_payloads[location_id]
+            if model_selector == "ncep_nbm_conus"
+            else wave_payloads[location_id]
         )
 
-    assert len(snapshots) == 5
-    assert len({snapshot[1] for snapshot in snapshots}) == 5
+    assert len(snapshots) == 10
+    assert {
+        snapshot[2]
+        for snapshot in snapshots
+    } == {"ncep_nbm_conus", "meteofrance_wave"}
+    assert len({snapshot[1] for snapshot in snapshots}) == 10
