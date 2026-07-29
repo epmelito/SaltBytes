@@ -5,8 +5,10 @@ import pytest
 
 from forecast_ops.api import (
     build_forecast_params,
+    build_sst_params,
     build_wave_params,
     fetch_forecast,
+    fetch_sst_forecast,
     fetch_wave_forecast,
 )
 
@@ -41,6 +43,17 @@ def coastal_location() -> dict[str, Any]:
                 "longitude": -76.70833,
             },
         },
+        "sst": {
+            "request_coordinate": {
+                "latitude": 34.65,
+                "longitude": -76.697,
+            },
+            "expected_returned_coordinate": {
+                "latitude": 34.625,
+                "longitude": -76.70833,
+            },
+            "coastal_regime": "Atlantic-facing marine grid",
+        },
     }
 
 
@@ -69,6 +82,15 @@ def wave_api_config() -> dict[str, Any]:
             "wave_direction",
             "wave_period",
         ],
+    }
+
+
+def sst_api_config() -> dict[str, Any]:
+    return {
+        "base_url": "https://marine-api.open-meteo.com/v1/marine",
+        "model": "meteofrance_currents",
+        "forecast_days": 7,
+        "hourly_fields": ["sea_surface_temperature"],
     }
 
 
@@ -103,6 +125,22 @@ def test_build_wave_params_uses_marine_request_relationship() -> None:
         "models": "meteofrance_wave",
         "forecast_days": 7,
         "hourly": "wave_height,wave_direction,wave_period",
+        "timezone": "auto",
+    }
+
+
+def test_build_sst_params_uses_product_specific_relationship() -> None:
+    params = build_sst_params(
+        coastal_location(),
+        sst_api_config(),
+    )
+
+    assert params == {
+        "latitude": 34.65,
+        "longitude": -76.697,
+        "models": "meteofrance_currents",
+        "forecast_days": 7,
+        "hourly": "sea_surface_temperature",
         "timezone": "auto",
     }
 
@@ -384,4 +422,95 @@ def test_fetch_wave_forecast_propagates_http_errors(
         fetch_wave_forecast(
             coastal_location(),
             wave_api_config(),
+        )
+
+
+def test_fetch_sst_forecast_returns_json_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "latitude": 34.625,
+        "longitude": -76.70833,
+        "timezone": "America/New_York",
+        "hourly": {
+            "time": ["2026-07-28T00:00"],
+            "sea_surface_temperature": [25.1],
+        },
+    }
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return payload
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> FakeResponse:
+            assert url == "https://marine-api.open-meteo.com/v1/marine"
+            assert params == build_sst_params(
+                coastal_location(),
+                sst_api_config(),
+            )
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+
+    result = fetch_sst_forecast(
+        coastal_location(),
+        sst_api_config(),
+    )
+
+    assert result == payload
+
+
+def test_fetch_sst_forecast_rejects_non_object_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[str]:
+            return ["unexpected"]
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+
+    with pytest.raises(
+        ValueError,
+        match="sst forecast api response must contain a json object",
+    ):
+        fetch_sst_forecast(
+            coastal_location(),
+            sst_api_config(),
         )

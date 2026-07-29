@@ -19,6 +19,7 @@ WAVE_FIELDS = [
     "wave_direction",
     "wave_period",
 ]
+SST_FIELDS = ["sea_surface_temperature"]
 
 
 def pipeline_config(tmp_path: Path) -> dict[str, Any]:
@@ -54,6 +55,17 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
                         "longitude": -75.54166,
                     },
                 },
+                "sst": {
+                    "request_coordinate": {
+                        "latitude": 35.91,
+                        "longitude": -75.54,
+                    },
+                    "expected_returned_coordinate": {
+                        "latitude": 35.875,
+                        "longitude": -75.54166,
+                    },
+                    "coastal_regime": "Atlantic-facing marine grid",
+                },
             },
             {
                 "id": "fort_fisher",
@@ -84,6 +96,19 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
                         "longitude": -77.87499,
                     },
                 },
+                "sst": {
+                    "request_coordinate": {
+                        "latitude": 33.93,
+                        "longitude": -77.9,
+                    },
+                    "expected_returned_coordinate": {
+                        "latitude": 33.958336,
+                        "longitude": -77.87499,
+                    },
+                    "coastal_regime": (
+                        "Atlantic-facing marine grid distinct from wave grid"
+                    ),
+                },
             },
         ],
         "api": {
@@ -97,6 +122,12 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
             "model": "meteofrance_wave",
             "forecast_days": 7,
             "hourly_fields": WAVE_FIELDS,
+        },
+        "sst_api": {
+            "base_url": "https://example.test/marine",
+            "model": "meteofrance_currents",
+            "forecast_days": 7,
+            "hourly_fields": SST_FIELDS,
         },
         "storage": {
             "raw_data_path": str(tmp_path / "raw"),
@@ -155,6 +186,40 @@ def wave_payload(location: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def sst_payload(location: dict[str, Any]) -> dict[str, Any]:
+    start = datetime(2026, 7, 28)
+    times = [
+        (start + timedelta(hours=index)).isoformat(timespec="minutes")
+        for index in range(168)
+    ]
+    returned_coordinate = location["sst"]["expected_returned_coordinate"]
+
+    return {
+        "latitude": returned_coordinate["latitude"],
+        "longitude": returned_coordinate["longitude"],
+        "timezone": "America/New_York",
+        "utc_offset_seconds": -14400,
+        "hourly": {
+            "time": times,
+            "sea_surface_temperature": [25.1] * 168,
+        },
+    }
+
+
+@pytest.fixture(autouse=True)
+def stub_sst_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_fetch_sst_forecast(
+        location: dict[str, Any],
+        sst_api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        return sst_payload(location)
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_sst_forecast",
+        fake_fetch_sst_forecast,
+    )
+
+
 def test_source_quality_failures_are_independent_and_collected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -162,6 +227,7 @@ def test_source_quality_failures_are_independent_and_collected(
     config = pipeline_config(tmp_path)
     fetched_weather_locations: list[str] = []
     fetched_wave_locations: list[str] = []
+    fetched_sst_locations: list[str] = []
 
     def fake_fetch_forecast(
         location: dict[str, Any],
@@ -187,6 +253,18 @@ def test_source_quality_failures_are_independent_and_collected(
 
         return payload
 
+    def fake_fetch_sst_forecast(
+        location: dict[str, Any],
+        sst_api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_sst_locations.append(location["id"])
+        payload = sst_payload(location)
+
+        if location["id"] == "jennettes_pier":
+            payload["latitude"] = 0
+
+        return payload
+
     monkeypatch.setattr(
         "forecast_ops.pipeline.fetch_forecast",
         fake_fetch_forecast,
@@ -194,6 +272,10 @@ def test_source_quality_failures_are_independent_and_collected(
     monkeypatch.setattr(
         "forecast_ops.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_sst_forecast",
+        fake_fetch_sst_forecast,
     )
 
     with pytest.raises(ValueError) as error:
@@ -229,6 +311,13 @@ def test_source_quality_failures_are_independent_and_collected(
             group by location_id
             """
         ).fetchall()
+        sst_locations = connection.execute(
+            """
+            select location_id, count(*)
+            from sst_hourly
+            group by location_id
+            """
+        ).fetchall()
         quality_results = connection.execute(
             """
             select check_name, status
@@ -238,32 +327,166 @@ def test_source_quality_failures_are_independent_and_collected(
 
     assert fetched_weather_locations == ["jennettes_pier", "fort_fisher"]
     assert fetched_wave_locations == ["jennettes_pier", "fort_fisher"]
+    assert fetched_sst_locations == ["jennettes_pier", "fort_fisher"]
     assert run is not None
     assert run[0] == "failed"
-    assert run[1] == 336
+    assert run[1] == 504
     assert "wave quality checks failed for jennettes_pier" in run[2]
     assert "wave:returned_longitude_matches_expected" in run[2]
     assert "weather quality checks failed for fort_fisher" in run[2]
     assert "weather:returned_latitude_matches_expected" in run[2]
+    assert "sst quality checks failed for jennettes_pier" in run[2]
+    assert "sst:returned_latitude_matches_expected" in run[2]
     assert str(error.value) == run[2]
     assert snapshots == [
+        ("fort_fisher", "meteofrance_currents"),
         ("fort_fisher", "meteofrance_wave"),
         ("jennettes_pier", "ncep_nbm_conus"),
     ]
     assert weather_locations == [("jennettes_pier", 168)]
     assert wave_locations == [("fort_fisher", 168)]
+    assert sst_locations == [("fort_fisher", 168)]
     assert {
         ":".join(check_name.split(":", maxsplit=2)[:2])
         for check_name, _ in quality_results
     } == {
         "jennettes_pier:weather",
         "jennettes_pier:wave",
+        "jennettes_pier:sst",
         "fort_fisher:weather",
         "fort_fisher:wave",
+        "fort_fisher:sst",
     }
     assert any(status == "fail" for _, status in quality_results)
     assert any(status == "pass" for _, status in quality_results)
-    assert len(list((tmp_path / "raw").rglob("*.json"))) == 2
+    assert len(list((tmp_path / "raw").rglob("*.json"))) == 3
+
+
+def test_sst_preflight_rejection_preserves_independent_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    del config["locations"][0]["sst"]
+    config["locations"][1]["sst"]["coastal_regime"] = ""
+    fetched_weather_locations: list[str] = []
+    fetched_wave_locations: list[str] = []
+    fetched_sst_locations: list[str] = []
+
+    def fake_fetch_forecast(
+        location: dict[str, Any],
+        api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_weather_locations.append(location["id"])
+        return atmospheric_payload(location)
+
+    def fake_fetch_wave_forecast(
+        location: dict[str, Any],
+        wave_api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_wave_locations.append(location["id"])
+        return wave_payload(location)
+
+    def fake_fetch_sst_forecast(
+        location: dict[str, Any],
+        sst_api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_sst_locations.append(location["id"])
+        return sst_payload(location)
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_forecast",
+        fake_fetch_forecast,
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        fake_fetch_wave_forecast,
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_sst_forecast",
+        fake_fetch_sst_forecast,
+    )
+
+    with pytest.raises(ValueError) as error:
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            """
+            select status, rows_loaded, error_message
+            from pipeline_runs
+            """
+        ).fetchone()
+        snapshots = connection.execute(
+            """
+            select location_id, model_selector
+            from forecast_snapshots
+            order by location_id, model_selector
+            """
+        ).fetchall()
+        weather_locations = connection.execute(
+            """
+            select location_id, count(*)
+            from forecast_hourly
+            group by location_id
+            order by location_id
+            """
+        ).fetchall()
+        wave_locations = connection.execute(
+            """
+            select location_id, count(*)
+            from wave_hourly
+            group by location_id
+            order by location_id
+            """
+        ).fetchall()
+        sst_row_count = connection.execute(
+            "select count(*) from sst_hourly"
+        ).fetchone()
+        failed_quality_checks = connection.execute(
+            """
+            select check_name
+            from quality_results
+            where status = 'fail'
+            order by check_name
+            """
+        ).fetchall()
+
+    expected_source_rows = [
+        ("fort_fisher", 168),
+        ("jennettes_pier", 168),
+    ]
+
+    assert fetched_weather_locations == ["jennettes_pier", "fort_fisher"]
+    assert fetched_wave_locations == ["jennettes_pier", "fort_fisher"]
+    assert fetched_sst_locations == []
+    assert run is not None
+    assert run[0] == "failed"
+    assert run[1] == 672
+    assert str(error.value) == run[2]
+    assert "sst quality checks failed for jennettes_pier" in run[2]
+    assert "sst:relationship_present" in run[2]
+    assert "sst quality checks failed for fort_fisher" in run[2]
+    assert "sst:coastal_regime_present" in run[2]
+    assert snapshots == [
+        ("fort_fisher", "meteofrance_wave"),
+        ("fort_fisher", "ncep_nbm_conus"),
+        ("jennettes_pier", "meteofrance_wave"),
+        ("jennettes_pier", "ncep_nbm_conus"),
+    ]
+    assert weather_locations == expected_source_rows
+    assert wave_locations == expected_source_rows
+    assert sst_row_count == (0,)
+    assert failed_quality_checks == [
+        ("fort_fisher:sst:coastal_regime_present",),
+        ("jennettes_pier:sst:coastal_regime_present",),
+        ("jennettes_pier:sst:expected_returned_coordinate_usable",),
+        ("jennettes_pier:sst:relationship_present",),
+        ("jennettes_pier:sst:request_coordinate_usable",),
+    ]
+    assert len(list((tmp_path / "raw").rglob("*.json"))) == 4
 
 
 def test_api_failure_is_recorded_and_aborts(
@@ -626,3 +849,161 @@ def test_wave_normalized_failure_aborts_immediately(
         match="wave normalized storage unavailable",
     ):
         run_pipeline(config)
+
+
+def test_sst_api_failure_is_recorded_and_aborts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    fetched_sst_locations: list[str] = []
+
+    def fake_fetch_forecast(
+        location: dict[str, Any],
+        api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        return atmospheric_payload(location)
+
+    def fake_fetch_wave_forecast(
+        location: dict[str, Any],
+        wave_api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        return wave_payload(location)
+
+    def fail_fetch_sst_forecast(
+        location: dict[str, Any],
+        sst_api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_sst_locations.append(location["id"])
+        raise RuntimeError("sst api unavailable")
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_forecast",
+        fake_fetch_forecast,
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        fake_fetch_wave_forecast,
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_sst_forecast",
+        fail_fetch_sst_forecast,
+    )
+
+    with pytest.raises(RuntimeError, match="sst api unavailable"):
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+
+    assert fetched_sst_locations == ["jennettes_pier"]
+    assert run == ("failed", 336, "sst api unavailable")
+
+
+@pytest.mark.parametrize(
+    ("failure_point", "message"),
+    [
+        ("quality", "sst quality database unavailable"),
+        ("raw", "sst raw storage unavailable"),
+        ("snapshot", "sst snapshot database unavailable"),
+        ("normalized", "sst normalized storage unavailable"),
+    ],
+)
+def test_sst_persistence_failures_abort_immediately(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_point: str,
+    message: str,
+) -> None:
+    config = pipeline_config(tmp_path)
+
+    def fake_fetch_forecast(
+        location: dict[str, Any],
+        api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        return atmospheric_payload(location)
+
+    def fake_fetch_wave_forecast(
+        location: dict[str, Any],
+        wave_api_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        return wave_payload(location)
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_forecast",
+        fake_fetch_forecast,
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        fake_fetch_wave_forecast,
+    )
+
+    if failure_point == "quality":
+        from forecast_ops.database import (
+            insert_quality_result as real_quality_insert,
+        )
+
+        def fail_sst_quality_insert(**kwargs: Any) -> None:
+            if ":sst:" in kwargs["check_name"]:
+                raise RuntimeError(message)
+            real_quality_insert(**kwargs)
+
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.insert_quality_result",
+            fail_sst_quality_insert,
+        )
+    elif failure_point == "raw":
+        from forecast_ops.storage import write_raw_snapshot as real_write
+
+        raw_write_count = 0
+
+        def fail_sst_raw_write(**kwargs: Any) -> dict[str, Any]:
+            nonlocal raw_write_count
+            raw_write_count += 1
+            if raw_write_count == 3:
+                raise OSError(message)
+            return real_write(**kwargs)
+
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.write_raw_snapshot",
+            fail_sst_raw_write,
+        )
+    elif failure_point == "snapshot":
+        from forecast_ops.database import (
+            insert_forecast_snapshot as real_snapshot_insert,
+        )
+
+        def fail_sst_snapshot_insert(
+            database_path: Path | str,
+            metadata: dict[str, Any],
+        ) -> None:
+            if metadata["model_selector"] == "meteofrance_currents":
+                raise RuntimeError(message)
+            real_snapshot_insert(database_path, metadata)
+
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.insert_forecast_snapshot",
+            fail_sst_snapshot_insert,
+        )
+    else:
+        def fail_sst_hourly_insert(**kwargs: Any) -> int:
+            raise RuntimeError(message)
+
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.insert_sst_hourly",
+            fail_sst_hourly_insert,
+        )
+
+    with pytest.raises((OSError, RuntimeError), match=message):
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+
+    assert run == ("failed", 336, message)

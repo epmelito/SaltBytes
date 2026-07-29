@@ -3,7 +3,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from forecast_ops.api import fetch_forecast, fetch_wave_forecast
+from forecast_ops.api import (
+    fetch_forecast,
+    fetch_sst_forecast,
+    fetch_wave_forecast,
+)
 from forecast_ops.database import (
     complete_pipeline_run,
     initialize_database,
@@ -11,9 +15,13 @@ from forecast_ops.database import (
     insert_forecast_snapshot,
     insert_pipeline_run,
     insert_quality_result,
+    insert_sst_hourly,
     insert_wave_hourly,
 )
-from forecast_ops.quality import run_payload_quality_checks
+from forecast_ops.quality import (
+    run_payload_quality_checks,
+    run_sst_preflight_checks,
+)
 from forecast_ops.storage import create_run_id, write_raw_snapshot
 
 logger = logging.getLogger(__name__)
@@ -24,6 +32,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     locations = config["locations"]
     api_config = config["api"]
     wave_api_config = config["wave_api"]
+    sst_api_config = config["sst_api"]
     storage_config = config["storage"]
 
     database_path = Path(storage_config["database_path"])
@@ -274,6 +283,151 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     run_id,
                     location["id"],
                     wave_rows_loaded,
+                )
+
+            logger.info(
+                "sst processing started run_id=%s location=%s",
+                run_id,
+                location["id"],
+            )
+
+            sst_preflight_results = run_sst_preflight_checks(location)
+
+            for quality_result in sst_preflight_results:
+                insert_quality_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    check_name=f"{location['id']}:{quality_result['check_name']}",
+                    status=str(quality_result["status"]),
+                    observed_value=str(quality_result["observed_value"]),
+                    expected_value=str(quality_result["expected_value"]),
+                    checked_at=quality_result["checked_at"],
+                )
+
+            failed_sst_preflight_checks = [
+                quality_result
+                for quality_result in sst_preflight_results
+                if quality_result["status"] == "fail"
+            ]
+
+            if failed_sst_preflight_checks:
+                failed_check_names = ", ".join(
+                    str(quality_result["check_name"])
+                    for quality_result in failed_sst_preflight_checks
+                )
+                location_failure = (
+                    f"sst quality checks failed for {location['id']}: "
+                    f"{failed_check_names}"
+                )
+                location_failures.append(location_failure)
+                logger.error(
+                    "sst preflight quality checks failed run_id=%s "
+                    "location=%s checks=%s",
+                    run_id,
+                    location["id"],
+                    failed_check_names,
+                )
+                continue
+
+            sst_config = location["sst"]
+            sst_request_coordinate = sst_config["request_coordinate"]
+            sst_payload = fetch_sst_forecast(
+                location=location,
+                sst_api_config=sst_api_config,
+            )
+
+            sst_quality_results = run_payload_quality_checks(
+                payload=sst_payload,
+                expected_hourly_fields=sst_api_config["hourly_fields"],
+                model_selector=sst_api_config["model"],
+                expected_returned_coordinate=sst_config[
+                    "expected_returned_coordinate"
+                ],
+                expected_model_selector="meteofrance_currents",
+                source_label="sst",
+            )
+
+            for quality_result in sst_quality_results:
+                insert_quality_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    check_name=f"{location['id']}:{quality_result['check_name']}",
+                    status=str(quality_result["status"]),
+                    observed_value=str(quality_result["observed_value"]),
+                    expected_value=str(quality_result["expected_value"]),
+                    checked_at=quality_result["checked_at"],
+                )
+
+            failed_sst_checks = [
+                quality_result
+                for quality_result in sst_quality_results
+                if quality_result["status"] == "fail"
+            ]
+
+            if failed_sst_checks:
+                failed_check_names = ", ".join(
+                    str(quality_result["check_name"])
+                    for quality_result in failed_sst_checks
+                )
+                location_failure = (
+                    f"sst quality checks failed for {location['id']}: "
+                    f"{failed_check_names}"
+                )
+                location_failures.append(location_failure)
+                logger.error(
+                    "sst quality checks failed run_id=%s location=%s checks=%s",
+                    run_id,
+                    location["id"],
+                    failed_check_names,
+                )
+            else:
+                logger.info(
+                    "sst quality checks passed run_id=%s location=%s checks=%s",
+                    run_id,
+                    location["id"],
+                    len(sst_quality_results),
+                )
+
+                sst_metadata = write_raw_snapshot(
+                    payload=sst_payload,
+                    location_id=location["id"],
+                    raw_data_path=raw_data_path,
+                    run_id=run_id,
+                )
+                sst_metadata.update(
+                    {
+                        "model_selector": sst_api_config["model"],
+                        "request_latitude": sst_request_coordinate["latitude"],
+                        "request_longitude": sst_request_coordinate["longitude"],
+                        "returned_latitude": sst_payload["latitude"],
+                        "returned_longitude": sst_payload["longitude"],
+                        "response_timezone": sst_payload["timezone"],
+                        "response_utc_offset_seconds": sst_payload[
+                            "utc_offset_seconds"
+                        ],
+                    }
+                )
+
+                insert_forecast_snapshot(
+                    database_path=database_path,
+                    metadata=sst_metadata,
+                )
+
+                sst_rows_loaded = insert_sst_hourly(
+                    database_path=database_path,
+                    snapshot_id=sst_metadata["snapshot_id"],
+                    location_id=location["id"],
+                    payload=sst_payload,
+                )
+
+                rows_loaded += sst_rows_loaded
+                snapshots_written += 1
+
+                logger.info(
+                    "sst processing completed run_id=%s location=%s rows=%s",
+                    run_id,
+                    location["id"],
+                    sst_rows_loaded,
                 )
 
         if location_failures:

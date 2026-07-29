@@ -41,6 +41,17 @@ def valid_config(environment: str = "dev") -> dict[str, Any]:
                         "longitude": -75.54166,
                     },
                 },
+                "sst": {
+                    "request_coordinate": {
+                        "latitude": 35.91,
+                        "longitude": -75.54,
+                    },
+                    "expected_returned_coordinate": {
+                        "latitude": 35.875,
+                        "longitude": -75.54166,
+                    },
+                    "coastal_regime": "Atlantic-facing marine grid",
+                },
             }
         ],
         "api": {
@@ -64,6 +75,12 @@ def valid_config(environment: str = "dev") -> dict[str, Any]:
                 "wave_direction",
                 "wave_period",
             ],
+        },
+        "sst_api": {
+            "base_url": "https://marine-api.open-meteo.com/v1/marine",
+            "model": "meteofrance_currents",
+            "forecast_days": 7,
+            "hourly_fields": ["sea_surface_temperature"],
         },
         "storage": {
             "raw_data_path": f"data/{environment}/raw",
@@ -133,6 +150,12 @@ def test_repository_config_contains_approved_coastal_contract(
             "wave_period",
         ],
     }
+    assert config["sst_api"] == {
+        "base_url": "https://marine-api.open-meteo.com/v1/marine",
+        "model": "meteofrance_currents",
+        "forecast_days": 7,
+        "hourly_fields": ["sea_surface_temperature"],
+    }
 
 
 @pytest.mark.parametrize("environment", ["dev", "test", "prod"])
@@ -152,6 +175,11 @@ def test_repository_config_matches_approved_spatial_relationships(
             "wave_returned": location["wave"][
                 "expected_returned_coordinate"
             ],
+            "sst_request": location["sst"]["request_coordinate"],
+            "sst_returned": location["sst"][
+                "expected_returned_coordinate"
+            ],
+            "sst_regime": location["sst"]["coastal_regime"],
         }
         for location in config["locations"]
     }
@@ -168,6 +196,12 @@ def test_repository_config_matches_approved_spatial_relationships(
                 "latitude": 35.875,
                 "longitude": -75.54166,
             },
+            "sst_request": {"latitude": 35.91, "longitude": -75.54},
+            "sst_returned": {
+                "latitude": 35.875,
+                "longitude": -75.54166,
+            },
+            "sst_regime": "Atlantic-facing marine grid",
         },
         "ocracoke_ramp_72": {
             "context": "surf",
@@ -183,6 +217,15 @@ def test_repository_config_matches_approved_spatial_relationships(
                 "latitude": 35.125,
                 "longitude": -75.95833,
             },
+            "sst_request": {
+                "latitude": 35.0868922,
+                "longitude": -75.9844152,
+            },
+            "sst_returned": {
+                "latitude": 35.125,
+                "longitude": -75.95833,
+            },
+            "sst_regime": "Ocean-side Atlantic grid",
         },
         "fort_macon_ocean": {
             "context": "surf",
@@ -195,6 +238,12 @@ def test_repository_config_matches_approved_spatial_relationships(
                 "latitude": 34.625,
                 "longitude": -76.70833,
             },
+            "sst_request": {"latitude": 34.65, "longitude": -76.697},
+            "sst_returned": {
+                "latitude": 34.625,
+                "longitude": -76.70833,
+            },
+            "sst_regime": "Atlantic-facing marine grid",
         },
         "bogue_inlet_pier": {
             "context": "pier",
@@ -210,6 +259,15 @@ def test_repository_config_matches_approved_spatial_relationships(
                 "latitude": 34.625,
                 "longitude": -77.04166,
             },
+            "sst_request": {
+                "latitude": 34.6579882,
+                "longitude": -77.0331663,
+            },
+            "sst_returned": {
+                "latitude": 34.625,
+                "longitude": -77.04166,
+            },
+            "sst_regime": "Atlantic-facing marine grid",
         },
         "fort_fisher": {
             "context": "surf",
@@ -222,6 +280,14 @@ def test_repository_config_matches_approved_spatial_relationships(
                 "latitude": 33.875,
                 "longitude": -77.87499,
             },
+            "sst_request": {"latitude": 33.93, "longitude": -77.9},
+            "sst_returned": {
+                "latitude": 33.958336,
+                "longitude": -77.87499,
+            },
+            "sst_regime": (
+                "Atlantic-facing marine grid distinct from wave grid"
+            ),
         },
     }
 
@@ -370,6 +436,33 @@ def test_load_config_requires_complete_spatial_relationships(
         load_config("dev", config_dir=tmp_path)
 
 
+@pytest.mark.parametrize(
+    "field_path",
+    [
+        ("sst",),
+        ("sst", "request_coordinate"),
+        ("sst", "expected_returned_coordinate"),
+        ("sst", "coastal_regime"),
+    ],
+)
+def test_load_config_defers_incomplete_sst_relationships_to_pipeline(
+    tmp_path: Path,
+    field_path: tuple[str, ...],
+) -> None:
+    config = valid_config()
+    target = config["locations"][0]
+
+    for key in field_path[:-1]:
+        target = target[key]
+
+    del target[field_path[-1]]
+    write_config(tmp_path, config)
+
+    loaded_config = load_config("dev", config_dir=tmp_path)
+
+    assert loaded_config["locations"][0]["id"] == "jennettes_pier"
+
+
 @pytest.mark.parametrize("fishing_context", ["boat", "", None])
 def test_load_config_rejects_invalid_fishing_context(
     tmp_path: Path,
@@ -418,6 +511,49 @@ def test_load_config_rejects_invalid_wave_coordinates(
 
     with pytest.raises(ValueError, match=field_name):
         load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("coordinate_name", "field_name", "field_value"),
+    [
+        ("request_coordinate", "latitude", 91),
+        ("request_coordinate", "longitude", "invalid"),
+        ("expected_returned_coordinate", "latitude", None),
+        ("expected_returned_coordinate", "longitude", -181),
+    ],
+)
+def test_load_config_defers_invalid_sst_coordinates_to_pipeline(
+    tmp_path: Path,
+    coordinate_name: str,
+    field_name: str,
+    field_value: Any,
+) -> None:
+    config = valid_config()
+    coordinate = config["locations"][0]["sst"][coordinate_name]
+    coordinate[field_name] = field_value
+    write_config(tmp_path, config)
+
+    loaded_config = load_config("dev", config_dir=tmp_path)
+
+    assert loaded_config["locations"][0]["sst"][coordinate_name][
+        field_name
+    ] == field_value
+
+@pytest.mark.parametrize("coastal_regime", ["", "   ", None])
+def test_load_config_defers_empty_sst_coastal_regime_to_pipeline(
+    tmp_path: Path,
+    coastal_regime: Any,
+) -> None:
+    config = valid_config()
+    config["locations"][0]["sst"]["coastal_regime"] = coastal_regime
+    write_config(tmp_path, config)
+
+    loaded_config = load_config("dev", config_dir=tmp_path)
+
+    assert (
+        loaded_config["locations"][0]["sst"]["coastal_regime"]
+        == coastal_regime
+    )
 
 
 def test_load_config_requires_https_api_url(
@@ -538,6 +674,60 @@ def test_load_config_requires_exact_wave_fields(
     with pytest.raises(
         ValueError,
         match="wave_api.hourly_fields must contain exactly",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+def test_load_config_rejects_unapproved_sst_model(
+    tmp_path: Path,
+) -> None:
+    config = valid_config()
+    config["sst_api"]["model"] = "auto"
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported sst api model: auto",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("forecast_days", [2, 8, True, None])
+def test_load_config_requires_seven_sst_forecast_days(
+    tmp_path: Path,
+    forecast_days: Any,
+) -> None:
+    config = valid_config()
+    config["sst_api"]["forecast_days"] = forecast_days
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="sst_api.forecast_days must be 7",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("change", ["missing", "extra", "duplicate"])
+def test_load_config_requires_exact_sst_fields(
+    tmp_path: Path,
+    change: str,
+) -> None:
+    config = valid_config()
+    sst_fields = config["sst_api"]["hourly_fields"]
+
+    if change == "missing":
+        sst_fields.clear()
+    elif change == "extra":
+        sst_fields.append("ocean_current_velocity")
+    else:
+        sst_fields.append("sea_surface_temperature")
+
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="sst_api.hourly_fields must contain exactly",
     ):
         load_config("dev", config_dir=tmp_path)
 

@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This document describes the current local atmospheric and wave forecast
-implementation.
+This document describes the current local atmospheric, wave, and
+sea-surface-temperature forecast implementation.
 The [project charter](project-charter.md) defines the broader approved North
 Carolina coastal fishing conditions platform.
 
@@ -11,22 +11,23 @@ Carolina coastal fishing conditions platform.
 
 1. Load a local environment configuration.
 2. Initialize DuckDB and start a pipeline run.
-3. Request independent Open-Meteo `ncep_nbm_conus` atmospheric and
-   `meteofrance_wave` wave results using their source-specific coordinates.
+3. Request independent Open-Meteo `ncep_nbm_conus` atmospheric,
+   `meteofrance_wave` wave, and `meteofrance_currents` SST results using their
+   source-specific coordinates.
 4. Validate and persist each complete source result independently.
 5. Skip raw and normalized storage for a rejected source result.
-6. Continue with the other source and unrelated locations after a quality
+6. Continue with the other sources and unrelated locations after a quality
    rejection.
 7. Write each passing response unchanged to a separate immutable raw snapshot.
 8. Store source-specific snapshot provenance and 168 normalized UTC hourly
-   rows in the corresponding atmospheric or wave table.
+   rows in the corresponding atmospheric, wave, or SST table.
 9. Complete the run after every location or abort on an operational failure.
-10. Compare consecutive forecasts through separate atmospheric and wave
+10. Compare consecutive forecasts through separate atmospheric, wave, and SST
     revision views.
 
 API, raw-storage, and database failures abort immediately. Any rejected source
 result makes the final run status `failed`, while successfully stored results
-from the other source or unrelated locations are retained.
+from other sources or unrelated locations are retained.
 
 ## Configuration
 
@@ -35,8 +36,10 @@ All three environments configure the five approved locations and distinguish:
 - display coordinate
 - weather request coordinate
 - expected returned NBM coordinate
-- marine request coordinate
+- `meteofrance_wave` request coordinate
 - expected returned `meteofrance_wave` coordinate
+- `meteofrance_currents` SST request coordinate
+- expected returned `meteofrance_currents` SST coordinate
 - fishing context
 - static coastal regime
 
@@ -54,9 +57,18 @@ The wave API contract is:
 - `timezone=auto`
 - `wave_height`, `wave_direction`, and `wave_period`
 
+The SST API contract is:
+
+- `models=meteofrance_currents`
+- `forecast_days=7`
+- `timezone=auto`
+- `sea_surface_temperature` only
+
 Configuration validation rejects other selectors, horizons, fields, incomplete
-spatial relationships, invalid coordinates, unsupported fishing contexts, and
-empty coastal regimes.
+atmospheric or wave relationships, invalid display, atmospheric, or wave
+coordinates, unsupported fishing contexts, and empty weather coastal regimes.
+SST relationship, coordinate, and coastal-regime prerequisites are checked as
+source-qualified results before an SST request.
 
 ## Ingestion and raw storage
 
@@ -74,8 +86,9 @@ UTC offset remain attributable to the corresponding captured response.
 
 The response timezone is used to convert local hourly labels to UTC. Passing
 results contain exactly 168 unique, strictly ascending hourly UTC instants.
-DuckDB stores the five accepted atmospheric values in `forecast_hourly` and
-the three accepted wave values in `wave_hourly`.
+DuckDB stores the five accepted atmospheric values in `forecast_hourly`, the
+three accepted wave values in `wave_hourly`, and sea-surface temperature in
+`sst_hourly`.
 
 ## Revision history
 
@@ -91,16 +104,20 @@ directional difference is defined.
 matching to `meteofrance_wave` snapshots. Wave height and period include
 differences; wave direction exposes current and previous values only.
 
+`sst_revision_changes` applies the same matching to
+`meteofrance_currents` snapshots and exposes current, previous, and scalar
+sea-surface-temperature changes.
+
 ## Environments
 
-`dev`, `test`, and `prod` run the same application and seven-day atmospheric
-and wave contracts using separate local storage paths. Automated tests replace
-live source fetching with deterministic responses and temporary storage.
+`dev`, `test`, and `prod` run the same application and seven-day atmospheric,
+wave, and SST contracts using separate local storage paths. Automated tests
+replace live source fetching with deterministic responses and temporary
+storage.
 
 These names do not represent deployed cloud environments.
 
 ## Current boundary
 
-Sea-surface-temperature, ocean-current, sea-level-height, tide, scoring,
-scheduling, publication, agents, and cloud infrastructure are outside the
-current implementation.
+Ocean-current, sea-level-height, tide, scoring, scheduling, publication,
+agents, and cloud infrastructure are outside the current implementation.

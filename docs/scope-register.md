@@ -20,7 +20,7 @@ without replacing the product charter or roadmap.
 
 The current repository provides:
 
-- a local Python coastal atmospheric and wave forecast pipeline
+- a local Python coastal atmospheric, wave, and SST forecast pipeline
 - `dev`, `test`, and `prod` local YAML configurations
 - the five approved North Carolina coastal locations
 - seven-day Open-Meteo `ncep_nbm_conus` ingestion
@@ -29,19 +29,22 @@ The current repository provides:
 - seven-day Open-Meteo `meteofrance_wave` ingestion
 - separate marine-request and expected returned wave-grid coordinates
 - wave height, direction, and period
+- seven-day Open-Meteo `meteofrance_currents` ingestion
+- separate SST request and expected returned product-grid coordinates
+- sea-surface temperature only
 - immutable raw JSON snapshots for payloads that pass pipeline quality checks
 - 168 normalized hourly UTC forecasts for each passing source result
-- independent weather and wave quality rejection without partial result storage
+- independent weather, wave, and SST quality rejection without partial result
+  storage
 - pipeline run, request, response, snapshot, and quality metadata
-- atmospheric and wave forecast revision calculations
+- atmospheric, wave, and SST forecast revision calculations
 - structured logging and manual inspection scripts
 - pytest coverage and GitHub Actions validation
 - a bounded, diagnostic forecast failure review skill
 
 The nullable `temperature_2m` database column remains only for compatibility
-with existing local history. Sea-surface-temperature, ocean-current,
-sea-level-height, tide, scoring, scheduling, publication, agents, and cloud
-infrastructure are not implemented.
+with existing local history. Ocean-current, sea-level-height, tide, scoring,
+scheduling, publication, agents, and cloud infrastructure are not implemented.
 
 ## Initial governance work package
 
@@ -159,6 +162,36 @@ Issue #33 does not implement or authorize:
 - Azure deployment
 - agents
 
+## Implemented coastal SST checkpoint
+
+Issue #41 implements the bounded sea-surface-temperature checkpoint:
+
+- Open-Meteo Marine API SST ingestion
+- model `meteofrance_currents`
+- `sea_surface_temperature` only
+- the five approved coastal locations
+- accepted product-specific SST request and expected returned coordinates
+- independent atmospheric, wave, and SST source results
+- SST raw snapshots, normalized storage, provenance, source-qualified quality
+  evidence, and revision history
+
+The implementation validates and stores SST independently from atmospheric and
+wave results. Passing SST results produce separate immutable raw snapshots and
+168 normalized hourly UTC rows. A fully passing five-location run produces 15
+snapshots and 2,520 normalized rows across the three implemented sources.
+
+Issue #41 does not implement or authorize:
+
+- ocean-current velocity or direction
+- sea-level-height ingestion
+- NOAA tide ingestion or tide-phase calculation
+- sunrise, sunset, or lunar data
+- scoring
+- scheduling changes
+- publication
+- Azure deployment
+- additional agents or skills
+
 Roadmap stage 4 remains in progress. Observation relationships, accuracy and
 bias validation, fallback and precedence rules, alternative marine-model
 adoption, warning and forecast-zone mappings, and marine run-history
@@ -227,8 +260,9 @@ Roadmap stage 3 has approved the following first-release requirements:
   wave, sea-surface-temperature, and tide results
 
 The accepted decisions and their rationale are recorded in the
-[decision index](decisions/README.md). Issues #30 and #33 implement the
-atmospheric and wave subsets described in the current implementation section.
+[decision index](decisions/README.md). Issues #30, #33, and #41 implement the
+atmospheric, wave, and SST subsets described in the current implementation
+section.
 
 Delivery order is controlled by the [roadmap](roadmap.md).
 

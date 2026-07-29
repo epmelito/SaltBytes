@@ -3,7 +3,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 EXPECTED_HOURLY_INSTANTS = 168
-VALID_SOURCE_LABELS = {"weather", "wave"}
+VALID_SOURCE_LABELS = {"weather", "wave", "sst"}
 
 
 def _quality_result(
@@ -31,6 +31,76 @@ def _parse_coordinate(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _sst_coordinate_is_usable(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+
+    latitude = value.get("latitude")
+    longitude = value.get("longitude")
+
+    return (
+        not isinstance(latitude, bool)
+        and isinstance(latitude, int | float)
+        and -90 <= latitude <= 90
+        and not isinstance(longitude, bool)
+        and isinstance(longitude, int | float)
+        and -180 <= longitude <= 180
+    )
+
+
+# validate location-specific SST prerequisites before fetching the source
+def run_sst_preflight_checks(
+    location: dict[str, Any],
+) -> list[dict[str, str | datetime]]:
+    checked_at = datetime.now(timezone.utc)
+    sst_config = location.get("sst")
+    relationship_present = isinstance(sst_config, dict)
+    relationship = sst_config if relationship_present else {}
+    request_coordinate = relationship.get("request_coordinate")
+    expected_returned_coordinate = relationship.get(
+        "expected_returned_coordinate"
+    )
+    coastal_regime = relationship.get("coastal_regime")
+    coastal_regime_present = (
+        isinstance(coastal_regime, str) and bool(coastal_regime.strip())
+    )
+
+    return [
+        _quality_result(
+            "sst",
+            "relationship_present",
+            relationship_present,
+            type(sst_config).__name__,
+            "dict",
+            checked_at,
+        ),
+        _quality_result(
+            "sst",
+            "request_coordinate_usable",
+            _sst_coordinate_is_usable(request_coordinate),
+            request_coordinate,
+            "numeric latitude and longitude in range",
+            checked_at,
+        ),
+        _quality_result(
+            "sst",
+            "expected_returned_coordinate_usable",
+            _sst_coordinate_is_usable(expected_returned_coordinate),
+            expected_returned_coordinate,
+            "numeric latitude and longitude in range",
+            checked_at,
+        ),
+        _quality_result(
+            "sst",
+            "coastal_regime_present",
+            coastal_regime_present,
+            coastal_regime,
+            "nonempty string",
+            checked_at,
+        ),
+    ]
 
 
 # validate one configured open meteo hourly result before storage

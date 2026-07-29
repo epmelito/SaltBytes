@@ -15,6 +15,9 @@ Every environment configures:
 - Open-Meteo Marine model `meteofrance_wave`
 - seven forecast days for wave requests
 - the same three wave fields
+- Open-Meteo Marine model `meteofrance_currents`
+- seven forecast days for SST requests
+- `sea_surface_temperature` as the only SST field
 - display and source-specific request and expected returned coordinates
 - fishing context and static coastal regime
 
@@ -37,8 +40,8 @@ The locations are:
 The same application and transformation behavior run in each environment.
 
 Automated tests do not depend on the live endpoints in `config/test.yml`. They
-replace atmospheric and wave fetching with deterministic responses and use
-temporary storage through the test harness.
+replace atmospheric, wave, and SST fetching with deterministic responses and
+use temporary storage through the test harness.
 
 ## Promotion flow
 

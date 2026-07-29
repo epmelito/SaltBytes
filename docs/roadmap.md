@@ -31,9 +31,10 @@ request #21 merged the completed stage 3 documentation into `main`.
 
 Roadmap stage 4 is authorized and in progress. Issues #24 and #26 established
 the first-release source relationships and validity rules. Issue #30 implements
-the atmospheric checkpoint, and issue #33 implements the wave checkpoint.
+the atmospheric checkpoint, issue #33 implements the wave checkpoint, and
+issue #41 implements the SST checkpoint.
 
-Sea-surface-temperature and tide ingestion remain unstarted.
+Tide ingestion remains unstarted.
 
 ## Delivery stages
 
@@ -146,14 +147,23 @@ Issue #33 implements the independent wave checkpoint for the same locations:
 - 168 normalized hourly UTC rows per passing wave result
 - wave forecast revision history without a wave-direction delta
 
-Atmospheric and wave quality rejections are independent. A fully passing
-five-location run produces ten snapshots and 1,680 normalized rows.
+Issue #41 implements the independent SST checkpoint for the same locations:
+
+- seven-day Open-Meteo `meteofrance_currents` requests
+- `sea_surface_temperature` only
+- product-specific SST request and expected returned-grid relationships
+- source-qualified deterministic validation
+- separate immutable passing raw snapshots and provenance
+- 168 normalized hourly UTC rows per passing SST result
+- SST revision history
+
+Atmospheric, wave, and SST quality rejections are independent. A fully passing
+five-location run produces 15 snapshots and 2,520 normalized rows.
 
 Observation relationships, accuracy validation, fallback and precedence rules,
 warning and forecast-zone mappings, alternative marine-model adoption, and
-marine run-history reconstruction remain unresolved or deferred.
-Sea-surface-temperature and tide ingestion remain unstarted. Stage 4 completion
-evidence remains unsatisfied.
+marine run-history reconstruction remain unresolved or deferred. Tide
+ingestion remains unstarted. Stage 4 completion evidence remains unsatisfied.
 
 Completion evidence requires:
 

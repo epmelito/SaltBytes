@@ -12,6 +12,7 @@ from forecast_ops.database import (
     insert_forecast_snapshot,
     insert_pipeline_run,
     insert_quality_result,
+    insert_sst_hourly,
     insert_wave_hourly,
 )
 
@@ -20,10 +21,12 @@ EXPECTED_TABLES = {
     "forecast_snapshots",
     "pipeline_runs",
     "quality_results",
+    "sst_hourly",
     "wave_hourly",
 }
 EXPECTED_VIEWS = {
     "forecast_revision_changes",
+    "sst_revision_changes",
     "wave_revision_changes",
 }
 EXPECTED_SNAPSHOT_COLUMNS = {
@@ -58,6 +61,12 @@ EXPECTED_WAVE_COLUMNS = {
     "wave_height",
     "wave_direction",
     "wave_period",
+}
+EXPECTED_SST_COLUMNS = {
+    "snapshot_id",
+    "location_id",
+    "forecast_time",
+    "sea_surface_temperature",
 }
 
 
@@ -105,6 +114,28 @@ def wave_snapshot_metadata(
     }
 
 
+def sst_snapshot_metadata(
+    snapshot_id: str = "sst-snapshot123",
+    run_id: str = "run123",
+    captured_at: datetime | None = None,
+) -> dict[str, Any]:
+    return {
+        "snapshot_id": snapshot_id,
+        "run_id": run_id,
+        "location_id": "fort_fisher",
+        "captured_at": captured_at
+        or datetime(2026, 7, 28, 10, 7, tzinfo=timezone.utc),
+        "raw_file_path": f"data/test/raw/{snapshot_id}.json",
+        "model_selector": "meteofrance_currents",
+        "request_latitude": 33.93,
+        "request_longitude": -77.9,
+        "returned_latitude": 33.958336,
+        "returned_longitude": -77.87499,
+        "response_timezone": "America/New_York",
+        "response_utc_offset_seconds": -14400,
+    }
+
+
 def atmospheric_payload(
     wind_speed: float = 10.0,
     wind_direction: float = 180.0,
@@ -137,6 +168,18 @@ def wave_payload(
             "wave_height": [wave_height],
             "wave_direction": [wave_direction],
             "wave_period": [wave_period],
+        },
+    }
+
+
+def sst_payload(
+    sea_surface_temperature: float = 25.1,
+) -> dict[str, Any]:
+    return {
+        "timezone": "America/New_York",
+        "hourly": {
+            "time": ["2026-07-29T12:00"],
+            "sea_surface_temperature": [sea_surface_temperature],
         },
     }
 
@@ -217,12 +260,23 @@ def test_initialize_database_creates_required_schema(
                 """
             ).fetchall()
         }
+        sst_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'sst_hourly'
+                """
+            ).fetchall()
+        }
 
     assert tables == EXPECTED_TABLES
     assert views == EXPECTED_VIEWS
     assert snapshot_columns == EXPECTED_SNAPSHOT_COLUMNS
     assert hourly_columns == EXPECTED_HOURLY_COLUMNS
     assert wave_columns == EXPECTED_WAVE_COLUMNS
+    assert sst_columns == EXPECTED_SST_COLUMNS
 
 
 def test_initialize_database_can_run_more_than_once(
@@ -372,6 +426,24 @@ def test_initialize_database_upgrades_legacy_schema_and_preserves_rows(
                 """
             ).fetchall()
         }
+        sst_table_count = connection.execute(
+            """
+            select count(*)
+            from information_schema.tables
+            where table_name = 'sst_hourly'
+                and table_type = 'BASE TABLE'
+            """
+        ).fetchone()
+        sst_revision_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'sst_revision_changes'
+                """
+            ).fetchall()
+        }
 
     assert snapshot == ("legacy-snapshot", None, None, None)
     assert hourly == (18.2, 8.4, None, None, 20.0, None)
@@ -381,6 +453,8 @@ def test_initialize_database_upgrades_legacy_schema_and_preserves_rows(
     assert wave_table_count == (1,)
     assert "wave_height_change" in wave_revision_columns
     assert "wave_direction_change" not in wave_revision_columns
+    assert sst_table_count == (1,)
+    assert "sea_surface_temperature_change" in sst_revision_columns
 
 
 def test_forecast_hourly_rejects_duplicate_business_key(
@@ -570,7 +644,7 @@ def test_insert_forecast_hourly_stores_coastal_fields_in_utc(
     ]
 
 
-def test_atmospheric_and_wave_snapshot_provenance_remain_distinct(
+def test_atmospheric_wave_and_sst_snapshot_provenance_remain_distinct(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "forecast_ops.duckdb"
@@ -578,6 +652,7 @@ def test_atmospheric_and_wave_snapshot_provenance_remain_distinct(
     insert_run(database_path)
     insert_forecast_snapshot(database_path, snapshot_metadata())
     insert_forecast_snapshot(database_path, wave_snapshot_metadata())
+    insert_forecast_snapshot(database_path, sst_snapshot_metadata())
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
         snapshots = connection.execute(
@@ -604,12 +679,69 @@ def test_atmospheric_and_wave_snapshot_provenance_remain_distinct(
             -75.5936,
         ),
         (
+            "sst-snapshot123",
+            "meteofrance_currents",
+            33.93,
+            -77.9,
+            33.958336,
+            -77.87499,
+        ),
+        (
             "wave-snapshot123",
             "meteofrance_wave",
             34.65,
             -76.697,
             34.625,
             -76.70833,
+        ),
+    ]
+
+
+def test_insert_sst_hourly_stores_values_in_utc(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_forecast_snapshot(database_path, sst_snapshot_metadata())
+    payload = {
+        "timezone": "America/New_York",
+        "hourly": {
+            "time": [
+                "2026-07-29T12:00",
+                "2026-07-29T13:00",
+            ],
+            "sea_surface_temperature": [25.1, 25.4],
+        },
+    }
+
+    rows_loaded = insert_sst_hourly(
+        database_path=database_path,
+        snapshot_id="sst-snapshot123",
+        location_id="fort_fisher",
+        payload=payload,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            """
+            select
+                forecast_time,
+                sea_surface_temperature
+            from sst_hourly
+            order by forecast_time
+            """
+        ).fetchall()
+
+    assert rows_loaded == 2
+    assert rows == [
+        (
+            datetime(2026, 7, 29, 16, 0, tzinfo=timezone.utc),
+            25.1,
+        ),
+        (
+            datetime(2026, 7, 29, 17, 0, tzinfo=timezone.utc),
+            25.4,
         ),
     ]
 
@@ -1011,3 +1143,118 @@ def test_wave_revision_view_compares_only_meteofrance_wave_captures(
         )
     ]
     assert "wave_direction_change" not in revision_columns
+
+
+def test_sst_revision_view_compares_only_meteofrance_currents_captures(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+
+    for run_id, started_hour in (
+        ("run001", 8),
+        ("run002", 9),
+        ("run003", 10),
+    ):
+        insert_run(
+            database_path,
+            run_id=run_id,
+            started_at=datetime(
+                2026,
+                7,
+                28,
+                started_hour,
+                0,
+                tzinfo=timezone.utc,
+            ),
+        )
+
+    insert_forecast_snapshot(
+        database_path,
+        sst_snapshot_metadata(
+            snapshot_id="sst-snapshot001",
+            run_id="run001",
+            captured_at=datetime(
+                2026,
+                7,
+                28,
+                8,
+                5,
+                tzinfo=timezone.utc,
+            ),
+        ),
+    )
+
+    wrong_model_metadata = sst_snapshot_metadata(
+        snapshot_id="wrong-model-snapshot",
+        run_id="run002",
+        captured_at=datetime(
+            2026,
+            7,
+            28,
+            9,
+            5,
+            tzinfo=timezone.utc,
+        ),
+    )
+    wrong_model_metadata["model_selector"] = "meteofrance_wave"
+    insert_forecast_snapshot(database_path, wrong_model_metadata)
+
+    insert_forecast_snapshot(
+        database_path,
+        sst_snapshot_metadata(
+            snapshot_id="sst-snapshot002",
+            run_id="run003",
+            captured_at=datetime(
+                2026,
+                7,
+                28,
+                10,
+                5,
+                tzinfo=timezone.utc,
+            ),
+        ),
+    )
+
+    insert_sst_hourly(
+        database_path,
+        "sst-snapshot001",
+        "fort_fisher",
+        sst_payload(sea_surface_temperature=25.1),
+    )
+    insert_sst_hourly(
+        database_path,
+        "wrong-model-snapshot",
+        "fort_fisher",
+        sst_payload(sea_surface_temperature=99.0),
+    )
+    insert_sst_hourly(
+        database_path,
+        "sst-snapshot002",
+        "fort_fisher",
+        sst_payload(sea_surface_temperature=25.8),
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        revisions = connection.execute(
+            """
+            select
+                snapshot_id,
+                previous_snapshot_id,
+                sea_surface_temperature,
+                previous_sea_surface_temperature,
+                sea_surface_temperature_change
+            from sst_revision_changes
+            where location_id = 'fort_fisher'
+            """
+        ).fetchall()
+
+    assert revisions == [
+        (
+            "sst-snapshot002",
+            "sst-snapshot001",
+            25.8,
+            25.1,
+            pytest.approx(0.7),
+        )
+    ]
