@@ -48,6 +48,20 @@ with duckdb.connect(str(database_path), read_only=True) as connection:
         limit 20
         """
     ).fetchall()
+    sst_revisions = connection.execute(
+        """
+        select
+            location_id,
+            forecast_time,
+            sea_surface_temperature_change
+        from sst_revision_changes
+        order by
+            captured_at desc,
+            location_id,
+            forecast_time
+        limit 20
+        """
+    ).fetchall()
 
 print(f"database: {database_path}")
 print(f"atmospheric revision rows: {len(revisions)}")
@@ -58,4 +72,9 @@ for revision in revisions:
 print(f"wave revision rows: {len(wave_revisions)}")
 
 for revision in wave_revisions:
+    print(revision)
+
+print(f"sst revision rows: {len(sst_revisions)}")
+
+for revision in sst_revisions:
     print(revision)

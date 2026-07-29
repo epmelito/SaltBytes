@@ -1,8 +1,9 @@
 # ForecastOps
 
 ForecastOps is evolving into a North Carolina coastal fishing conditions data
-platform. The current repository implements local atmospheric and wave forecast
-ingestion for five approved coastal fishing locations.
+platform. The current repository implements local atmospheric, wave, and
+sea-surface-temperature forecast ingestion for five approved coastal fishing
+locations.
 
 The implementation demonstrates configuration-driven API ingestion, spatial
 source relationships, immutable raw storage, normalized DuckDB models,
@@ -47,30 +48,38 @@ The Open-Meteo Marine API request uses:
 - `wave_direction`
 - `wave_period`
 
-Sea-surface-temperature and tide ingestion are not implemented.
+A separate Open-Meteo Marine API request uses:
+
+- model selector `meteofrance_currents`
+- seven forecast days
+- `timezone=auto`
+- `sea_surface_temperature` only
+
+Ocean-current, sea-level-height, and tide ingestion are not implemented.
 
 ## Data flow
 
 1. Load and validate the selected local environment configuration.
 2. Initialize DuckDB and record the running pipeline execution.
-3. Request independent atmospheric and wave results for each configured
+3. Request independent atmospheric, wave, and SST results for each configured
    location.
 4. Validate and persist source-qualified quality checks for each result.
 5. Reject an invalid source result without writing its raw or normalized data.
-6. Continue after a quality rejection so the other source and later locations
+6. Continue after a quality rejection so the other sources and later locations
    can succeed.
 7. Write each passing response unchanged as a separate immutable raw JSON
    snapshot.
 8. Store source-specific request and response provenance with each snapshot.
-9. Normalize 168 hourly valid times to UTC and store atmospheric and wave
+9. Normalize 168 hourly valid times to UTC and store atmospheric, wave, and SST
    values in separate DuckDB tables.
 10. Record the final run status and actual number of rows loaded.
-11. Expose atmospheric and wave forecast changes through separate SQL views.
+11. Expose atmospheric, wave, and SST forecast changes through separate SQL
+    views.
 
 API, raw-storage, and database failures abort the run immediately. If one or
 more source results fail quality validation, the run is failed after all
-locations have been evaluated. Passing results from the other source and
-unrelated locations remain stored.
+locations have been evaluated. Passing results from other sources and unrelated
+locations remain stored.
 
 ## Repository structure
 
@@ -94,7 +103,7 @@ forecast-ops/
 
 ## Data model
 
-ForecastOps uses five DuckDB tables:
+ForecastOps uses six DuckDB tables:
 
 - `pipeline_runs` records execution status, row counts, and failure details.
 - `forecast_snapshots` relates passing raw responses to their run, location,
@@ -103,6 +112,7 @@ ForecastOps uses five DuckDB tables:
   atmospheric fields. Its nullable `temperature_2m` column is retained only
   for compatibility with existing local history.
 - `wave_hourly` stores normalized UTC wave height, direction, and period.
+- `sst_hourly` stores normalized UTC sea-surface temperature.
 - `quality_results` stores location- and source-qualified validation results.
 
 The `forecast_revision_changes` view compares consecutive snapshots for the
@@ -113,12 +123,18 @@ retains current and previous values without defining a directional delta.
 The `wave_revision_changes` view provides equivalent revision history for wave
 height, direction, and period. Wave direction also has no directional delta.
 
+The `sst_revision_changes` view compares consecutive
+`meteofrance_currents` captures and exposes current, previous, and scalar
+sea-surface-temperature changes.
+
 See [Data model](docs/data-model.md) for the column-level contract.
 
 ## Data quality
 
 Before raw or normalized storage, the pipeline checks:
 
+- usable SST request and expected returned relationships and a nonempty static
+  coastal regime before requesting SST
 - configured model selector
 - returned coordinate equality against the configured expected grid
 - recognized response timezone
@@ -132,9 +148,9 @@ coordinate, or replacement model is implemented.
 
 ## Environments
 
-The same application code and atmospheric contract run in `dev`, `test`, and
-`prod`. These are local configurations, not deployed cloud environments.
-Configuration varies only in storage paths and logging level.
+The same application code and atmospheric, wave, and SST contracts run in
+`dev`, `test`, and `prod`. These are local configurations, not deployed cloud
+environments. Configuration varies only in storage paths and logging level.
 
 Automated tests replace live forecast fetching with deterministic responses and
 use temporary storage. The YAML configurations do not select a fixture mode.
@@ -166,8 +182,8 @@ Run the production-style local configuration:
 forecast-ops --environment prod
 ```
 
-A fully passing run writes ten snapshots and 1,680 normalized rows: 840
-atmospheric rows and 840 wave rows.
+A fully passing run writes 15 snapshots and 2,520 normalized rows: 840 each for
+atmospheric, wave, and SST results.
 
 ## Manual validation
 
@@ -212,7 +228,7 @@ GitHub Actions runs both commands for pull requests and pushes to `main`.
 
 The repository does not currently implement:
 
-- sea-surface-temperature, ocean-current, sea-level-height, or tide ingestion
+- ocean-current, sea-level-height, or tide ingestion
 - fishing-condition scoring or window ranking
 - scheduled or cloud execution
 - publication, API, or dashboard features

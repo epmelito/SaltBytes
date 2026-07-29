@@ -1,19 +1,21 @@
 # Data model
 
 ForecastOps stores run metadata, source-specific snapshot provenance,
-normalized atmospheric and wave forecasts, and quality results in DuckDB.
+normalized atmospheric, wave, and sea-surface-temperature forecasts, and
+quality results in DuckDB.
 
-The implementation retains five tables:
+The implementation retains six tables:
 
 - `pipeline_runs`
 - `forecast_snapshots`
 - `forecast_hourly`
 - `wave_hourly`
+- `sst_hourly`
 - `quality_results`
 
 Existing local databases are upgraded idempotently by adding nullable columns,
-creating the wave table, and recreating affected revision views. Existing rows
-are preserved.
+creating missing wave and SST tables, and recreating affected revision views.
+Existing rows are preserved.
 
 ## `pipeline_runs`
 
@@ -99,6 +101,21 @@ The business key is:
 
 `snapshot_id + location_id + forecast_time`
 
+## `sst_hourly`
+
+One passing seven-day SST result produces 168 rows.
+
+| Column | Purpose |
+| --- | --- |
+| `snapshot_id` | SST snapshot that produced the row |
+| `location_id` | Stable configured location identifier |
+| `forecast_time` | Forecast valid time normalized to UTC |
+| `sea_surface_temperature` | Sea-surface temperature |
+
+The business key is:
+
+`snapshot_id + location_id + forecast_time`
+
 ## `forecast_revision_changes`
 
 The view matches consecutive snapshots by stable `location_id` and normalized
@@ -123,11 +140,20 @@ The view matches consecutive `meteofrance_wave` snapshots by stable
 It exposes current and previous values for wave height, direction, and period.
 Height and period include differences. Wave direction does not.
 
+## `sst_revision_changes`
+
+The view matches consecutive `meteofrance_currents` snapshots by stable
+`location_id` and normalized `forecast_time`.
+
+It exposes current and previous sea-surface-temperature values and their scalar
+difference.
+
 ## Relationships
 
 - One pipeline run can produce multiple snapshots and quality results.
-- One passing snapshot produces atmospheric or wave normalized hourly rows.
+- One passing snapshot produces atmospheric, wave, or SST normalized hourly
+  rows.
 - A rejected source result produces quality results but no snapshot or
   normalized rows for that source.
-- A failed run may retain successful results from the other source and
-  unrelated locations, together with its actual loaded-row count.
+- A failed run may retain successful results from other sources and unrelated
+  locations, together with its actual loaded-row count.

@@ -20,6 +20,8 @@ REQUIRED_WAVE_FIELDS = {
     "wave_direction",
     "wave_period",
 }
+REQUIRED_SST_MODEL = "meteofrance_currents"
+REQUIRED_SST_FIELDS = {"sea_surface_temperature"}
 
 
 # require a mapping and return it with a useful type
@@ -121,7 +123,6 @@ def _validate_location(
         wave_config.get("expected_returned_coordinate"),
         f"locations[{index}].wave.expected_returned_coordinate",
     )
-
     coordinates = (
         ("display_coordinate", display_coordinate),
         ("weather.request_coordinate", request_coordinate),
@@ -272,6 +273,51 @@ def validate_config(
         raise ValueError(
             "wave_api.hourly_fields must contain exactly: "
             f"{expected_wave_fields}"
+        )
+
+    sst_api_config = _require_mapping(
+        config.get("sst_api"),
+        "sst_api",
+    )
+    sst_base_url = _require_string(
+        sst_api_config.get("base_url"),
+        "sst_api.base_url",
+    )
+
+    if not sst_base_url.startswith("https://"):
+        raise ValueError("sst_api.base_url must use https")
+
+    sst_model = _require_string(
+        sst_api_config.get("model"),
+        "sst_api.model",
+    )
+
+    if sst_model != REQUIRED_SST_MODEL:
+        raise ValueError(f"unsupported sst api model: {sst_model}")
+
+    if sst_api_config.get("forecast_days") != 7:
+        raise ValueError("sst_api.forecast_days must be 7")
+
+    sst_fields = sst_api_config.get("hourly_fields")
+
+    if not isinstance(sst_fields, list) or not all(
+        isinstance(field, str) and field
+        for field in sst_fields
+    ):
+        raise ValueError(
+            "sst_api.hourly_fields must be a nonempty list of strings"
+        )
+
+    configured_sst_fields = set(sst_fields)
+
+    if (
+        len(sst_fields) != len(REQUIRED_SST_FIELDS)
+        or configured_sst_fields != REQUIRED_SST_FIELDS
+    ):
+        expected_sst_fields = ", ".join(sorted(REQUIRED_SST_FIELDS))
+        raise ValueError(
+            "sst_api.hourly_fields must contain exactly: "
+            f"{expected_sst_fields}"
         )
 
     storage_config = _require_mapping(

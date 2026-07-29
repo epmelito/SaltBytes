@@ -22,6 +22,14 @@ locations:
       expected_returned_coordinate:
         latitude: 35.875
         longitude: -75.54166
+    sst:
+      request_coordinate:
+        latitude: 35.91
+        longitude: -75.54
+      expected_returned_coordinate:
+        latitude: 35.875
+        longitude: -75.54166
+      coastal_regime: Atlantic-facing marine grid
 
   - id: ocracoke_ramp_72
     name: Beach Access Ramp 72, Ocracoke Island
@@ -44,6 +52,14 @@ locations:
       expected_returned_coordinate:
         latitude: 35.125
         longitude: -75.95833
+    sst:
+      request_coordinate:
+        latitude: 35.0868922
+        longitude: -75.9844152
+      expected_returned_coordinate:
+        latitude: 35.125
+        longitude: -75.95833
+      coastal_regime: Ocean-side Atlantic grid
 
   - id: fort_macon_ocean
     name: Fort Macon State Park, ocean side
@@ -66,6 +82,14 @@ locations:
       expected_returned_coordinate:
         latitude: 34.625
         longitude: -76.70833
+    sst:
+      request_coordinate:
+        latitude: 34.65
+        longitude: -76.697
+      expected_returned_coordinate:
+        latitude: 34.625
+        longitude: -76.70833
+      coastal_regime: Atlantic-facing marine grid
 
   - id: bogue_inlet_pier
     name: Bogue Inlet Pier
@@ -88,6 +112,14 @@ locations:
       expected_returned_coordinate:
         latitude: 34.625
         longitude: -77.04166
+    sst:
+      request_coordinate:
+        latitude: 34.6579882
+        longitude: -77.0331663
+      expected_returned_coordinate:
+        latitude: 34.625
+        longitude: -77.04166
+      coastal_regime: Atlantic-facing marine grid
 
   - id: fort_fisher
     name: Fort Fisher State Recreation Area
@@ -110,6 +142,14 @@ locations:
       expected_returned_coordinate:
         latitude: 33.875
         longitude: -77.87499
+    sst:
+      request_coordinate:
+        latitude: 33.93
+        longitude: -77.9
+      expected_returned_coordinate:
+        latitude: 33.958336
+        longitude: -77.87499
+      coastal_regime: Atlantic-facing marine grid distinct from wave grid
 
 api:
   base_url: https://api.open-meteo.com/v1/forecast
@@ -130,6 +170,13 @@ wave_api:
     - wave_height
     - wave_direction
     - wave_period
+
+sst_api:
+  base_url: https://marine-api.open-meteo.com/v1/marine
+  model: meteofrance_currents
+  forecast_days: 7
+  hourly_fields:
+    - sea_surface_temperature
 
 storage:
   raw_data_path: data/dev/raw

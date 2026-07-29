@@ -3,7 +3,10 @@ from typing import Any
 
 import pytest
 
-from forecast_ops.quality import run_payload_quality_checks
+from forecast_ops.quality import (
+    run_payload_quality_checks,
+    run_sst_preflight_checks,
+)
 
 REQUIRED_FIELDS = [
     "wind_speed_10m",
@@ -24,6 +27,11 @@ WAVE_FIELDS = [
 EXPECTED_WAVE_COORDINATE = {
     "latitude": 34.625,
     "longitude": -76.70833,
+}
+SST_FIELDS = ["sea_surface_temperature"]
+EXPECTED_SST_COORDINATE = {
+    "latitude": 33.958336,
+    "longitude": -77.87499,
 }
 
 
@@ -69,6 +77,39 @@ def valid_wave_payload(hour_count: int = 168) -> dict[str, Any]:
     }
 
 
+def valid_sst_payload(hour_count: int = 168) -> dict[str, Any]:
+    start = datetime(2026, 7, 28)
+    times = [
+        (start + timedelta(hours=index)).isoformat(timespec="minutes")
+        for index in range(hour_count)
+    ]
+
+    return {
+        "latitude": 33.958336,
+        "longitude": -77.87499,
+        "timezone": "America/New_York",
+        "hourly": {
+            "time": times,
+            "sea_surface_temperature": [25.1] * hour_count,
+        },
+    }
+
+
+def valid_sst_location() -> dict[str, Any]:
+    return {
+        "sst": {
+            "request_coordinate": {
+                "latitude": 33.93,
+                "longitude": -77.9,
+            },
+            "expected_returned_coordinate": EXPECTED_SST_COORDINATE,
+            "coastal_regime": (
+                "Atlantic-facing marine grid distinct from wave grid"
+            ),
+        }
+    }
+
+
 def run_checks(
     payload: dict[str, Any],
     model_selector: str = "ncep_nbm_conus",
@@ -94,6 +135,20 @@ def run_wave_checks(
         expected_returned_coordinate=EXPECTED_WAVE_COORDINATE,
         expected_model_selector="meteofrance_wave",
         source_label="wave",
+    )
+
+
+def run_sst_checks(
+    payload: dict[str, Any],
+    model_selector: str = "meteofrance_currents",
+) -> list[dict[str, Any]]:
+    return run_payload_quality_checks(
+        payload=payload,
+        expected_hourly_fields=SST_FIELDS,
+        model_selector=model_selector,
+        expected_returned_coordinate=EXPECTED_SST_COORDINATE,
+        expected_model_selector="meteofrance_currents",
+        source_label="sst",
     )
 
 
@@ -534,9 +589,168 @@ def test_wave_result_requires_exactly_168_utc_instants(
     )["status"] == "fail"
 
 
+def test_valid_168_hour_sst_payload_passes_without_selector_echo() -> None:
+    payload = valid_sst_payload()
+
+    assert "model" not in payload
+    assert "models" not in payload
+    assert all(
+        result["status"] == "pass"
+        for result in run_sst_checks(payload)
+    )
+
+
+def test_valid_sst_preflight_passes() -> None:
+    assert all(
+        result["status"] == "pass"
+        for result in run_sst_preflight_checks(valid_sst_location())
+    )
+
+
+@pytest.mark.parametrize(
+    ("sst_config", "failed_check"),
+    [
+        (None, "relationship_present"),
+        (
+            {
+                "expected_returned_coordinate": EXPECTED_SST_COORDINATE,
+                "coastal_regime": "Atlantic-facing marine grid",
+            },
+            "request_coordinate_usable",
+        ),
+        (
+            {
+                "request_coordinate": {
+                    "latitude": True,
+                    "longitude": -77.9,
+                },
+                "expected_returned_coordinate": EXPECTED_SST_COORDINATE,
+                "coastal_regime": "Atlantic-facing marine grid",
+            },
+            "request_coordinate_usable",
+        ),
+        (
+            {
+                "request_coordinate": {
+                    "latitude": 33.93,
+                    "longitude": -77.9,
+                },
+                "coastal_regime": "Atlantic-facing marine grid",
+            },
+            "expected_returned_coordinate_usable",
+        ),
+        (
+            {
+                "request_coordinate": {
+                    "latitude": 33.93,
+                    "longitude": -77.9,
+                },
+                "expected_returned_coordinate": EXPECTED_SST_COORDINATE,
+                "coastal_regime": " ",
+            },
+            "coastal_regime_present",
+        ),
+    ],
+)
+def test_sst_preflight_rejects_missing_or_unusable_prerequisite(
+    sst_config: Any,
+    failed_check: str,
+) -> None:
+    results = run_sst_preflight_checks({"sst": sst_config})
+
+    assert result_for(
+        results,
+        failed_check,
+        source_label="sst",
+    )["status"] == "fail"
+
+
+def test_invalid_configured_sst_selector_fails() -> None:
+    results = run_sst_checks(
+        valid_sst_payload(),
+        model_selector="auto",
+    )
+
+    assert result_for(
+        results,
+        "configured_model_selector",
+        source_label="sst",
+    )["status"] == "fail"
+
+
+def test_missing_required_sst_field_fails() -> None:
+    payload = valid_sst_payload()
+    del payload["hourly"]["sea_surface_temperature"]
+
+    results = run_sst_checks(payload)
+
+    assert result_for(
+        results,
+        "sea_surface_temperature_exists",
+        source_label="sst",
+    )["status"] == "fail"
+
+
+@pytest.mark.parametrize(
+    ("value", "check_name"),
+    [
+        (None, "sea_surface_temperature_has_no_nulls"),
+        (True, "sea_surface_temperature_values_are_numeric"),
+        ("warm", "sea_surface_temperature_values_are_numeric"),
+    ],
+)
+def test_invalid_sst_values_fail(
+    value: Any,
+    check_name: str,
+) -> None:
+    payload = valid_sst_payload()
+    payload["hourly"]["sea_surface_temperature"][12] = value
+
+    results = run_sst_checks(payload)
+
+    assert result_for(
+        results,
+        check_name,
+        source_label="sst",
+    )["status"] == "fail"
+
+
+def test_unexpected_returned_sst_coordinate_fails() -> None:
+    payload = valid_sst_payload()
+    payload["latitude"] = "0"
+
+    results = run_sst_checks(payload)
+
+    assert result_for(
+        results,
+        "returned_latitude_matches_expected",
+        source_label="sst",
+    )["status"] == "fail"
+
+
+def test_invalid_sst_timezone_and_timeline_fail() -> None:
+    payload = valid_sst_payload()
+    payload["timezone"] = "Not/A_Timezone"
+    payload["hourly"]["time"][12] = payload["hourly"]["time"][11]
+
+    results = run_sst_checks(payload)
+
+    assert result_for(
+        results,
+        "response_timezone_valid",
+        source_label="sst",
+    )["status"] == "fail"
+    assert result_for(
+        results,
+        "hourly_utc_time_count",
+        source_label="sst",
+    )["status"] == "fail"
+
+
 def test_quality_result_names_are_source_qualified() -> None:
     weather_results = run_checks(valid_payload())
     wave_results = run_wave_checks(valid_wave_payload())
+    sst_results = run_sst_checks(valid_sst_payload())
 
     assert all(
         str(result["check_name"]).startswith("weather:")
@@ -545,4 +759,8 @@ def test_quality_result_names_are_source_qualified() -> None:
     assert all(
         str(result["check_name"]).startswith("wave:")
         for result in wave_results
+    )
+    assert all(
+        str(result["check_name"]).startswith("sst:")
+        for result in sst_results
     )
