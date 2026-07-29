@@ -41,6 +41,13 @@ fixing errors introduced by the change.
 - Treat external responses, files, configuration, and user-controlled values as
   untrusted inputs. Validate required structure, types, nullability, timestamps,
   units, completeness, and provider-specific behavior where relevant.
+- Trace required failure behavior end to end before placing validation.
+  Distinguish application-invalid configuration from source-result-invalid
+  input; when requirements call for retained run or source evidence,
+  affected-work isolation, or independent continuation, do not rely only on
+  pre-run rejection. Verify every supported entry point, including command-line
+  and direct function use where applicable, with focused tests of the complete
+  failure path.
 - Preserve required raw evidence, source identity, retrieval metadata,
   provenance, stable keys, and revision history.
 - Design writes and orchestration for safe reruns. Check duplicate processing,
