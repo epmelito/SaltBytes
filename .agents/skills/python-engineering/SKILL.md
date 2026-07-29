@@ -1,6 +1,6 @@
 ---
 name: python-engineering
-description: Implement or review Python changes in ForecastOps when the task involves application code, external data access, configuration, validation, persistence, orchestration, operational scripts, or Python tests. Use for bounded Python work that must preserve interfaces, data integrity, reliability, security, and maintainability.
+description: Implement Python changes in ForecastOps involving application code, external data access, configuration, validation, persistence, orchestration, operational scripts, or tests. Use for bounded implementation that must preserve interfaces, data integrity, reliability, security, and maintainability.
 ---
 
 # Python engineering
@@ -10,29 +10,35 @@ description: Implement or review Python changes in ForecastOps when the task inv
 Complete bounded Python engineering work accurately and efficiently.
 
 Inspect the relevant repository context, implement the smallest complete
-solution, validate it proportionately, fix in-scope failures, and return one
-concise completion report.
+solution, validate it proportionately, fix failures introduced by the change or
+required for issue conformance, and return one concise completion report.
 
 ## Autonomous workflow
 
 When requirements are clear:
 
 1. Read the active issue and applicable repository guidance.
-2. Inspect relevant code, callers, configuration, schemas, tests, and
-   documentation before editing.
+2. Inspect the minimum repository context needed to understand the affected
+   contract. Expand into callers, configuration, schemas, tests, or
+   documentation only when the change or uncertainty requires it.
 3. Identify the smallest complete implementation that satisfies the confirmed
    requirement.
 4. Implement the change using existing project patterns unless evidence
    justifies changing them.
 5. Add or update focused tests and directly affected documentation.
-6. Run the narrowest meaningful validation first, then broader checks when the
-   change or repository guidance requires them.
-7. Fix failures caused by the change and rerun the affected checks.
+6. Use focused checks while developing. Run repository-required broad checks
+   once after the implementation stabilizes.
+7. Fix failures introduced by the change or required for issue conformance.
+   Rerun affected checks first, and rerun broad checks only when later changes
+   could invalidate the recorded result.
 8. Return one completion report.
 
 Discover available repository facts before asking the user. Do not request
 approval for routine inspection, focused implementation, tests, validation, or
 fixing errors introduced by the change.
+
+Do not rerun unchanged broad checks merely to reconfirm them. Report unrelated
+pre-existing failures instead of absorbing them into the work package.
 
 ## Engineering rules
 
@@ -45,9 +51,9 @@ fixing errors introduced by the change.
   Distinguish application-invalid configuration from source-result-invalid
   input; when requirements call for retained run or source evidence,
   affected-work isolation, or independent continuation, do not rely only on
-  pre-run rejection. Verify every supported entry point, including command-line
-  and direct function use where applicable, with focused tests of the complete
-  failure path.
+  pre-run rejection. Verify each supported entry point affected by the required
+  failure contract, including command-line and direct function use where
+  applicable, with focused tests of the complete failure path.
 - Preserve required raw evidence, source identity, retrieval metadata,
   provenance, stable keys, and revision history.
 - Design writes and orchestration for safe reruns. Check duplicate processing,

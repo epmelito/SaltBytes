@@ -1,27 +1,32 @@
 ---
 name: work-package-review
-description: Perform a focused, read-only conformance review of one completed ForecastOps GitHub issue from its base and head revisions. Use when asked to verify that a completed ForecastOps work package satisfies its issue, remains within scope, follows relevant accepted decisions, has sufficient validation evidence, and leaves implementation or lifecycle documentation consistent.
+description: Perform a focused, read-only conformance review of one ForecastOps work package using either current working-tree changes or immutable base and head revisions. Use when asked to verify issue conformance, scope, accepted decisions, validation evidence, and directly affected documentation.
 ---
 
 # ForecastOps work-package review
 
 ## Inputs
 
-Require:
+Require an issue number.
 
-- issue number
-- base revision
-- head revision
+In working-tree mode, treat all staged, unstaged, and untracked changes as the
+proposed work package. Stop when unrelated local changes make the review target
+ambiguous.
 
-Ask only for a missing input. Discover the repository, remote, and relevant
-context from the working directory. Confirm that both revisions resolve before
+Discover the base, head, target branch, and review mode from repository and
+GitHub state when unambiguous. Ask only when they cannot be determined safely.
+
+In working-tree mode, identify every staged, unstaged, and untracked path before
 reviewing.
 
 ## Workflow
 
 1. Retrieve and read the completed GitHub issue using read-only access.
 2. Read the applicable `AGENTS.md`.
-3. Inspect the exact `base..head` diff and changed paths.
+3. Inspect the exact review target and changed paths:
+   - in revision mode, inspect the immutable `base..head` diff
+   - in working-tree mode, inspect staged, unstaged, and untracked changes
+     relative to the resolved base
 4. Identify only the governance files and accepted ADRs needed to evaluate the
    issue or changed behavior.
 5. Map the issue requirements, acceptance criteria, and exclusions to the
@@ -30,7 +35,10 @@ reviewing.
    narrowest relevant non-live check only when recorded evidence is missing,
    stale, contradictory, or insufficient. Distinguish recorded results from
    checks run during the review.
-7. Inspect the affected current implementation and documentation for contradictions, stale lifecycle state, or claims unsupported by the head revision. Report post-head drift separately, and do not attribute it to the original work package unless it existed at the head revision.
+7. In revision mode, inspect directly affected current implementation or
+   documentation only when needed to identify confirmed post-head drift. In
+   working-tree mode, treat the working tree as the proposed state and do not
+   perform separate post-head drift analysis.
 8. Report only findings supported by cited repository, revision, issue, or
    validation evidence.
 9. Separate confirmed defects from evidence that is unavailable or
@@ -53,6 +61,11 @@ not treat unrelated current changes as part of the work-package diff.
 - Do not treat absent review comments, historical defect notes, or other
   optional records as material missing evidence unless the issue, repository
   governance, or acceptance criteria explicitly require them.
+- Review the complete target diff, but trace beyond changed paths only when the
+  issue behavior, uncertainty, or risk requires it. Use deeper tracing for
+  persistence, schemas, security, transactions, failure isolation, source
+  independence, and data integrity. Keep isolated documentation, test,
+  metadata, and mechanical changes narrow.
 
 For each finding include:
 
@@ -68,6 +81,8 @@ For each finding include:
 - Do not restate repository governance or require new process artifacts.
 - Do not inspect unrelated repository areas or resolve deferred decisions.
 - Do not recommend speculative abstractions or extensibility.
+- Use this skill for high-risk or uncertain work packages, not as a mandatory
+  stage for every routine change.
 
 ## Output
 

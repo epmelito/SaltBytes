@@ -31,6 +31,14 @@ Do not ask for confirmation before routine inspection, issue comments, applying
 an existing appropriate label, assigning the repository owner, pushing the
 authorized branch, or creating a requested pull request.
 
+When approved work is ready, stage authorized files, commit, push, create or
+update the pull request, apply metadata, and verify the result in one
+invocation. Do not require a separate routine commit-preparation task.
+
+Use recorded implementation and review evidence. Do not rerun application tests
+or lint during GitHub finalization unless the evidence is missing, stale,
+contradictory, or invalidated by later changes.
+
 ## Startup reconciliation
 
 Before starting a new work package or another mutation-based GitHub workflow,
@@ -39,8 +47,15 @@ and linked issue state without requiring a separate user request.
 
 When the current branch belongs to a merged pull request, verify the merge and
 expected issue closure, switch to and synchronize the target branch, confirm
-the merged change is present, delete the merged local branch when safe, and
-verify the working tree is clean before starting new work.
+the merged change is present, and delete the merged local feature branch when
+safe.
+
+When the corresponding remote feature branch still exists and is no longer
+needed, verify it is not protected, is not used by an open pull request, and is
+not retained by repository policy. Delete it, prune stale remote-tracking
+references, and verify it no longer exists.
+
+Verify the working tree is clean before starting new work.
 
 Stop when reconciliation would discard local changes, delete an unmerged
 branch, conflict with repository policy, or require a genuine decision.
@@ -88,8 +103,8 @@ depends on local state.
 - Do not include unrelated working tree changes.
 - Confirm the commit contains the intended paths before pushing.
 - Do not force push.
-- Delete a local branch only through safe startup reconciliation or when
-  explicitly requested.
+- Delete a local or remote feature branch only through safe startup
+  reconciliation or when explicitly requested.
 
 ## Human decision gates
 
@@ -99,8 +114,9 @@ Stop and request input only when:
 - the target or base branch cannot be determined safely
 - unrelated working tree changes create a conflict
 - a new label would represent a questionable or one time category
-- the action would merge, close, reopen, delete, overwrite, or otherwise make a
-  destructive or difficult to reverse change
+- the action would merge, close, reopen, overwrite, delete anything other than
+  a verified merged feature branch during startup reconciliation, or otherwise
+  make a destructive or difficult-to-reverse change
 - required permissions are unavailable
 - an external action falls outside the authorized work package
 
