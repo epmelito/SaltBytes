@@ -31,10 +31,9 @@ request #21 merged the completed stage 3 documentation into `main`.
 
 Roadmap stage 4 is authorized and in progress. Issues #24 and #26 established
 the first-release source relationships and validity rules. Issue #30 implements
-the atmospheric checkpoint, issue #33 implements the wave checkpoint, and
-issue #41 implements the SST checkpoint.
-
-Tide ingestion remains unstarted.
+the atmospheric checkpoint, issue #33 implements the wave checkpoint, issue
+#41 implements the SST checkpoint, and issue #45 implements the tide
+checkpoint.
 
 ## Delivery stages
 
@@ -94,9 +93,9 @@ Implementation remains outside stage 3.
 Stage 3 provided the requirements groundwork for stage 4 source evaluation.
 Stage 4 subsequently accepted the final display, weather, marine, and tide
 relationships and source-result validity rules in ADRs 0007 through 0009. The
-implemented atmospheric and wave slices use their applicable accepted
-relationships. Observation-station relationships and warning and forecast-zone
-mappings remain unresolved or deferred in the scope register.
+implemented atmospheric, wave, SST, and tide slices use their applicable
+accepted relationships. Observation-station relationships and warning and
+forecast-zone mappings remain unresolved or deferred in the scope register.
 
 Completion evidence: Satisfied.
 
@@ -157,13 +156,27 @@ Issue #41 implements the independent SST checkpoint for the same locations:
 - 168 normalized hourly UTC rows per passing SST result
 - SST revision history
 
-Atmospheric, wave, and SST quality rejections are independent. A fully passing
-five-location run produces 15 snapshots and 2,520 normalized rows.
+Issue #45 implements the independent NOAA tide checkpoint:
+
+- the five accepted NOAA CO-OPS prediction relationships
+- product `predictions`, interval `hilo`, datum `MLLW`, time zone `gmt`, and
+  units `metric`
+- source-qualified relationship, provenance, event, and phase validation
+- separate immutable passing raw snapshots and NOAA provenance
+- normalized high and low prediction events
+- 168 hourly UTC `rising` or `falling` phase rows per passing tide result
+- tide phase revision history without numeric phase-delta semantics
+
+Atmospheric, wave, SST, and tide quality rejections are independent. A fully
+passing five-location run produces 20 snapshots, 3,360 hourly rows across the
+four sources, and the normalized NOAA high and low events returned for the
+five tide relationships.
 
 Observation relationships, accuracy validation, fallback and precedence rules,
 warning and forecast-zone mappings, alternative marine-model adoption, and
-marine run-history reconstruction remain unresolved or deferred. Tide
-ingestion remains unstarted. Stage 4 completion evidence remains unsatisfied.
+marine run-history reconstruction remain unresolved or deferred. Stage 4
+remains in progress pending review of the tide checkpoint and the recorded
+completion evidence.
 
 Completion evidence requires:
 

@@ -18,6 +18,10 @@ Every environment configures:
 - Open-Meteo Marine model `meteofrance_currents`
 - seven forecast days for SST requests
 - `sea_surface_temperature` as the only SST field
+- NOAA CO-OPS tide predictions
+- product `predictions`, interval `hilo`, datum `MLLW`, time zone `gmt`, and
+  units `metric`
+- the five accepted direct or transfer prediction-location relationships
 - display and source-specific request and expected returned coordinates
 - fishing context and static coastal regime
 
@@ -40,8 +44,8 @@ The locations are:
 The same application and transformation behavior run in each environment.
 
 Automated tests do not depend on the live endpoints in `config/test.yml`. They
-replace atmospheric, wave, and SST fetching with deterministic responses and
-use temporary storage through the test harness.
+replace atmospheric, wave, SST, and tide fetching with deterministic responses
+and use temporary storage through the test harness.
 
 ## Promotion flow
 
@@ -57,6 +61,6 @@ The repository does not maintain separate long-lived environment branches.
 
 ## Configuration boundary
 
-Configuration supplies source, field, location, spatial-relationship, storage,
-and logging values. It does not select alternate implementations, fallbacks,
-quality thresholds, tide sources, scheduling, or cloud deployment.
+Configuration supplies source, field, location, spatial and tide relationship,
+storage, and logging values. It does not select alternate implementations,
+fallbacks, quality thresholds, scheduling, or cloud deployment.

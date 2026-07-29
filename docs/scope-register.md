@@ -20,7 +20,7 @@ without replacing the product charter or roadmap.
 
 The current repository provides:
 
-- a local Python coastal atmospheric, wave, and SST forecast pipeline
+- a local Python coastal atmospheric, wave, SST, and tide prediction pipeline
 - `dev`, `test`, and `prod` local YAML configurations
 - the five approved North Carolina coastal locations
 - seven-day Open-Meteo `ncep_nbm_conus` ingestion
@@ -32,19 +32,23 @@ The current repository provides:
 - seven-day Open-Meteo `meteofrance_currents` ingestion
 - separate SST request and expected returned product-grid coordinates
 - sea-surface temperature only
+- NOAA CO-OPS high and low tide predictions using the five accepted
+  prediction-location relationships
+- normalized NOAA events and 168 hourly binary tide phases per passing result
 - immutable raw JSON snapshots for payloads that pass pipeline quality checks
 - 168 normalized hourly UTC forecasts for each passing source result
-- independent weather, wave, and SST quality rejection without partial result
-  storage
+- independent weather, wave, SST, and tide quality rejection without partial
+  result storage
 - pipeline run, request, response, snapshot, and quality metadata
-- atmospheric, wave, and SST forecast revision calculations
+- atmospheric, wave, SST, and tide phase revision calculations
 - structured logging and manual inspection scripts
 - pytest coverage and GitHub Actions validation
 - a bounded, diagnostic forecast failure review skill
 
 The nullable `temperature_2m` database column remains only for compatibility
-with existing local history. Ocean-current, sea-level-height, tide, scoring,
-scheduling, publication, agents, and cloud infrastructure are not implemented.
+with existing local history. Ocean-current, sea-level-height,
+observed-water-level, tidal-current, scoring, scheduling, publication, agents,
+and cloud infrastructure are not implemented.
 
 ## Initial governance work package
 
@@ -192,6 +196,33 @@ Issue #41 does not implement or authorize:
 - Azure deployment
 - additional agents or skills
 
+## Implemented coastal tide checkpoint
+
+Issue #45 implements the bounded NOAA tide-prediction checkpoint:
+
+- NOAA CO-OPS product `predictions`
+- interval `hilo`, datum `MLLW`, time zone `gmt`, and units `metric`
+- the five accepted direct or transfer prediction-location relationships
+- source-qualified relationship, request, event, and phase validation
+- separate immutable passing raw snapshots and NOAA provenance
+- normalized high and low events with predicted water level
+- exactly 168 hourly UTC binary phase rows per passing result
+- tide phase revision history without numeric phase-delta semantics
+
+The implementation validates and stores tide independently from atmospheric,
+wave, and SST results. A tide quality rejection retains run and quality
+evidence without tide raw, event, or phase rows and does not discard other
+passing source results.
+
+Issue #45 does not implement or authorize:
+
+- observed water levels or tidal-current predictions
+- interpolation, correction factors, alternate stations, or fallbacks
+- continuous tide phase or synthetic extrema
+- integrated coastal modeling or scoring
+- scheduling, publication, or Azure deployment
+- additional agents or skills
+
 Roadmap stage 4 remains in progress. Observation relationships, accuracy and
 bias validation, fallback and precedence rules, alternative marine-model
 adoption, warning and forecast-zone mappings, and marine run-history
@@ -260,9 +291,9 @@ Roadmap stage 3 has approved the following first-release requirements:
   wave, sea-surface-temperature, and tide results
 
 The accepted decisions and their rationale are recorded in the
-[decision index](decisions/README.md). Issues #30, #33, and #41 implement the
-atmospheric, wave, and SST subsets described in the current implementation
-section.
+[decision index](decisions/README.md). Issues #30, #33, #41, and #45 implement
+the atmospheric, wave, SST, and tide subsets described in the current
+implementation section.
 
 Delivery order is controlled by the [roadmap](roadmap.md).
 

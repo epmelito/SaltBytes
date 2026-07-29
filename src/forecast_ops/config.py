@@ -22,6 +22,14 @@ REQUIRED_WAVE_FIELDS = {
 }
 REQUIRED_SST_MODEL = "meteofrance_currents"
 REQUIRED_SST_FIELDS = {"sea_surface_temperature"}
+REQUIRED_TIDE_REQUEST = {
+    "product": "predictions",
+    "interval": "hilo",
+    "datum": "MLLW",
+    "time_zone": "gmt",
+    "units": "metric",
+    "format": "json",
+}
 
 
 # require a mapping and return it with a useful type
@@ -319,6 +327,32 @@ def validate_config(
             "sst_api.hourly_fields must contain exactly: "
             f"{expected_sst_fields}"
         )
+
+    tide_api_config = _require_mapping(
+        config.get("tide_api"),
+        "tide_api",
+    )
+    tide_base_url = _require_string(
+        tide_api_config.get("base_url"),
+        "tide_api.base_url",
+    )
+
+    if not tide_base_url.startswith("https://"):
+        raise ValueError("tide_api.base_url must use https")
+
+    for field_name, expected_value in REQUIRED_TIDE_REQUEST.items():
+        configured_value = _require_string(
+            tide_api_config.get(field_name),
+            f"tide_api.{field_name}",
+        )
+
+        if configured_value != expected_value:
+            raise ValueError(
+                f"unsupported tide api {field_name}: {configured_value}"
+            )
+
+    if tide_api_config.get("forecast_days") != 7:
+        raise ValueError("tide_api.forecast_days must be 7")
 
     storage_config = _require_mapping(
         config.get("storage"),

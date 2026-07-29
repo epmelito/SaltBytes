@@ -52,6 +52,26 @@ def valid_config(environment: str = "dev") -> dict[str, Any]:
                     },
                     "coastal_regime": "Atlantic-facing marine grid",
                 },
+                "tide": {
+                    "prediction_location": (
+                        "Jennettes Pier, Nags Head (ocean)"
+                    ),
+                    "station_id": "8652226",
+                    "relationship_type": "direct",
+                    "reference_station": "8651370",
+                    "high_time_offset_minutes": -5,
+                    "low_time_offset_minutes": 1,
+                    "high_multiplier": 1.04,
+                    "low_multiplier": 1.43,
+                    "distance_km": 0.448,
+                    "coastal_relationship": (
+                        "Direct use at the Atlantic-facing pier"
+                    ),
+                    "known_limitation": (
+                        "Prediction behavior remains distinct from observed "
+                        "water levels"
+                    ),
+                },
             }
         ],
         "api": {
@@ -81,6 +101,18 @@ def valid_config(environment: str = "dev") -> dict[str, Any]:
             "model": "meteofrance_currents",
             "forecast_days": 7,
             "hourly_fields": ["sea_surface_temperature"],
+        },
+        "tide_api": {
+            "base_url": (
+                "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+            ),
+            "product": "predictions",
+            "interval": "hilo",
+            "datum": "MLLW",
+            "time_zone": "gmt",
+            "units": "metric",
+            "format": "json",
+            "forecast_days": 7,
         },
         "storage": {
             "raw_data_path": f"data/{environment}/raw",
@@ -155,6 +187,117 @@ def test_repository_config_contains_approved_coastal_contract(
         "model": "meteofrance_currents",
         "forecast_days": 7,
         "hourly_fields": ["sea_surface_temperature"],
+    }
+    assert config["tide_api"] == {
+        "base_url": (
+            "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+        ),
+        "product": "predictions",
+        "interval": "hilo",
+        "datum": "MLLW",
+        "time_zone": "gmt",
+        "units": "metric",
+        "format": "json",
+        "forecast_days": 7,
+    }
+
+
+@pytest.mark.parametrize("environment", ["dev", "test", "prod"])
+def test_repository_config_matches_approved_tide_relationships(
+    environment: str,
+) -> None:
+    config = load_config(environment)
+    relationships = {
+        location["id"]: location["tide"]
+        for location in config["locations"]
+    }
+
+    assert relationships == {
+        "jennettes_pier": {
+            "prediction_location": "Jennettes Pier, Nags Head (ocean)",
+            "station_id": "8652226",
+            "relationship_type": "direct",
+            "reference_station": "8651370",
+            "high_time_offset_minutes": -5,
+            "low_time_offset_minutes": 1,
+            "high_multiplier": 1.04,
+            "low_multiplier": 1.43,
+            "distance_km": 0.448,
+            "coastal_relationship": "Direct use at the Atlantic-facing pier",
+            "known_limitation": (
+                "Prediction behavior remains distinct from observed water levels"
+            ),
+        },
+        "ocracoke_ramp_72": {
+            "prediction_location": "Ocracoke Inlet",
+            "station_id": "TEC2793",
+            "relationship_type": "transfer",
+            "reference_station": "8654400",
+            "high_time_offset_minutes": 9,
+            "low_time_offset_minutes": 11,
+            "high_multiplier": 0.63,
+            "low_multiplier": 0.83,
+            "distance_km": 3.697,
+            "coastal_relationship": (
+                "Explicit transfer to the southern ocean-side surf location"
+            ),
+            "known_limitation": (
+                "Transfer does not authorize inlet-current interpretation"
+            ),
+        },
+        "fort_macon_ocean": {
+            "prediction_location": "Atlantic Beach",
+            "station_id": "8656590",
+            "relationship_type": "transfer",
+            "reference_station": None,
+            "high_time_offset_minutes": None,
+            "low_time_offset_minutes": None,
+            "high_multiplier": None,
+            "low_multiplier": None,
+            "distance_km": 1.321,
+            "coastal_relationship": (
+                "Explicit transfer to the nearby Atlantic-facing beach"
+            ),
+            "known_limitation": (
+                "It is not a prediction location at the park destination"
+            ),
+        },
+        "bogue_inlet_pier": {
+            "prediction_location": "Bogue Inlet",
+            "station_id": "TEC2837",
+            "relationship_type": "transfer",
+            "reference_station": "8654400",
+            "high_time_offset_minutes": 13,
+            "low_time_offset_minutes": 15,
+            "high_multiplier": 0.73,
+            "low_multiplier": 0.83,
+            "distance_km": 6.164,
+            "coastal_relationship": (
+                "Explicit transfer for tide phase at the pier"
+            ),
+            "known_limitation": (
+                "Transfer does not authorize inlet-current interpretation"
+            ),
+        },
+        "fort_fisher": {
+            "prediction_location": "Wilmington Beach",
+            "station_id": "8658559",
+            "relationship_type": "transfer",
+            "reference_station": "8654400",
+            "high_time_offset_minutes": 18,
+            "low_time_offset_minutes": 10,
+            "high_multiplier": 1.4,
+            "low_multiplier": 1.25,
+            "distance_km": 9.308,
+            "coastal_relationship": (
+                "Explicit transfer from the nearest reviewed ocean-facing "
+                "relationship"
+            ),
+            "known_limitation": (
+                "The prediction relationship is materially north of the "
+                "destination"
+            ),
+        },
     }
 
 
@@ -463,6 +606,33 @@ def test_load_config_defers_incomplete_sst_relationships_to_pipeline(
     assert loaded_config["locations"][0]["id"] == "jennettes_pier"
 
 
+@pytest.mark.parametrize(
+    "field_path",
+    [
+        ("tide",),
+        ("tide", "station_id"),
+        ("tide", "relationship_type"),
+        ("tide", "coastal_relationship"),
+    ],
+)
+def test_load_config_defers_incomplete_tide_relationships_to_pipeline(
+    tmp_path: Path,
+    field_path: tuple[str, ...],
+) -> None:
+    config = valid_config()
+    target = config["locations"][0]
+
+    for key in field_path[:-1]:
+        target = target[key]
+
+    del target[field_path[-1]]
+    write_config(tmp_path, config)
+
+    loaded_config = load_config("dev", config_dir=tmp_path)
+
+    assert loaded_config["locations"][0]["id"] == "jennettes_pier"
+
+
 @pytest.mark.parametrize("fishing_context", ["boat", "", None])
 def test_load_config_rejects_invalid_fishing_context(
     tmp_path: Path,
@@ -728,6 +898,65 @@ def test_load_config_requires_exact_sst_fields(
     with pytest.raises(
         ValueError,
         match="sst_api.hourly_fields must contain exactly",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("product", "water_level"),
+        ("interval", "h"),
+        ("datum", "MSL"),
+        ("time_zone", "lst_ldt"),
+        ("units", "english"),
+        ("format", "csv"),
+    ],
+)
+def test_load_config_rejects_unapproved_tide_request_contract(
+    tmp_path: Path,
+    field_name: str,
+    invalid_value: str,
+) -> None:
+    config = valid_config()
+    config["tide_api"][field_name] = invalid_value
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match=f"unsupported tide api {field_name}",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+def test_load_config_requires_https_tide_api_url(
+    tmp_path: Path,
+) -> None:
+    config = valid_config()
+    config["tide_api"]["base_url"] = (
+        "http://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+    )
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="tide_api.base_url must use https",
+    ):
+        load_config("dev", config_dir=tmp_path)
+
+
+@pytest.mark.parametrize("forecast_days", [2, 8, True, None])
+def test_load_config_requires_seven_tide_forecast_days(
+    tmp_path: Path,
+    forecast_days: Any,
+) -> None:
+    config = valid_config()
+    config["tide_api"]["forecast_days"] = forecast_days
+    write_config(tmp_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="tide_api.forecast_days must be 7",
     ):
         load_config("dev", config_dir=tmp_path)
 

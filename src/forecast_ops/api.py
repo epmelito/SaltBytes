@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -116,6 +117,56 @@ def fetch_sst_forecast(
     if not isinstance(payload, dict):
         raise ValueError(
             "sst forecast api response must contain a json object"
+        )
+
+    return payload
+
+
+# build the accepted NOAA high and low prediction request
+def build_tide_params(
+    location: dict[str, Any],
+    tide_api_config: dict[str, Any],
+    forecast_start: datetime,
+) -> dict[str, Any]:
+    if forecast_start.tzinfo is None or forecast_start.utcoffset() is None:
+        raise ValueError("forecast_start must include timezone information")
+
+    forecast_date = forecast_start.astimezone(timezone.utc).date()
+    begin_date = forecast_date - timedelta(days=1)
+    end_date = forecast_date + timedelta(
+        days=tide_api_config["forecast_days"] + 1
+    )
+
+    return {
+        "station": location["tide"]["station_id"],
+        "begin_date": begin_date.strftime("%Y%m%d"),
+        "end_date": end_date.strftime("%Y%m%d"),
+        "product": tide_api_config["product"],
+        "interval": tide_api_config["interval"],
+        "datum": tide_api_config["datum"],
+        "time_zone": tide_api_config["time_zone"],
+        "units": tide_api_config["units"],
+        "format": tide_api_config["format"],
+    }
+
+
+# fetch NOAA high and low tide predictions for one configured relationship
+def fetch_tide_predictions(
+    tide_api_config: dict[str, Any],
+    params: dict[str, Any],
+    timeout_seconds: float = 10.0,
+) -> dict[str, Any]:
+    with httpx.Client(timeout=timeout_seconds) as client:
+        response = client.get(
+            tide_api_config["base_url"],
+            params=params,
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    if not isinstance(payload, dict):
+        raise ValueError(
+            "tide prediction api response must contain a json object"
         )
 
     return payload

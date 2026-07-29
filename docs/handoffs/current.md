@@ -2,44 +2,54 @@
 
 ## Handoff metadata
 
-- Current branch: `skills/refine-engineering-workflow`
-- Active issue: #43
-- Work package: repository skill refinements
+- Current branch: `feature/coastal-tide-ingestion`
+- Active issue: #45
+- Work package: NOAA coastal tide ingestion
 
 ## Objective
 
-Refine the Python engineering failure contract and GitHub workflow startup
-reconciliation without changing either skill's responsibility.
+Implement the five accepted NOAA CO-OPS prediction relationships, normalized
+high and low events, and binary hourly tide phase as an independent source.
 
 ## Current checkpoint
 
-- Issue #41 and pull request #42 are closed and merged.
-- Local `main` is synchronized at `c12fecd`, and the merged issue #41 feature
-  branch was deleted safely.
-- The two authorized skill refinements are implemented.
-- No application or runtime files changed.
+- Tide configuration, requests, validation, raw retention, provenance,
+  normalized events, hourly phase, and revision history are implemented.
+- Tide quality rejection preserves atmospheric, wave, and SST results and
+  continues later locations.
+- Operational API and persistence failures retain immediate-abort behavior.
+- Stage 4 remains in progress; integrated coastal modeling is not implemented.
+- No live provider or production-style pipeline run was performed.
 
 ## Files changed
 
-- `.agents/skills/python-engineering/SKILL.md`
-- `.agents/skills/github-workflow/SKILL.md`
+- `config/dev.yml`, `config/test.yml`, and `config/prod.yml`
+- `src/forecast_ops/api.py`, `config.py`, `database.py`, `pipeline.py`, and
+  `quality.py`
+- `tests/test_api.py`, `test_cli.py`, `test_config.py`, `test_database.py`,
+  `test_pipeline.py`, `test_pipeline_fixtures.py`, and `test_quality.py`
+- `readme.md`
+- `docs/architecture.md`, `data-model.md`, `environments.md`, `roadmap.md`,
+  and `scope-register.md`
 - `docs/handoffs/current.md`
 
 ## Validation
 
-- Native validation passed for both skills.
-- Automatic repository skill discovery passed for both skills.
-- Explicit read-only invocation remained within each skill's responsibility
-  and made no repository changes.
-- `git diff --check` passed; LF-to-CRLF notices are nonblocking.
-- Application tests were not run because no application files changed.
+- Focused configuration, API, quality, persistence, pipeline, fixture, and CLI
+  suite: 229 passed.
+- Final quality, persistence, and full fixture check: 102 passed.
+- Focused Ruff on `src`: passed.
+- Full suite: 245 passed.
+- Full Ruff: passed.
+- `git diff --check`: passed with only LF-to-CRLF notices.
 - Deferred validation: none.
 
 ## Known issues and decisions
 
 - Known issues: none.
-- No skill responsibility or repository decision changed.
+- No deferred provider, fallback, observation, scoring, scheduling,
+  publication, or deployment decision was resolved.
 
 ## Next checkpoint
 
-Pull-request review and required checks.
+Perform the independent work-package review.

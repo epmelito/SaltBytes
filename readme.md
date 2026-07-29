@@ -1,9 +1,9 @@
 # ForecastOps
 
 ForecastOps is evolving into a North Carolina coastal fishing conditions data
-platform. The current repository implements local atmospheric, wave, and
-sea-surface-temperature forecast ingestion for five approved coastal fishing
-locations.
+platform. The current repository implements local atmospheric, wave,
+sea-surface-temperature, and NOAA tide-prediction ingestion for five approved
+coastal fishing locations.
 
 The implementation demonstrates configuration-driven API ingestion, spatial
 source relationships, immutable raw storage, normalized DuckDB models,
@@ -55,14 +55,24 @@ A separate Open-Meteo Marine API request uses:
 - `timezone=auto`
 - `sea_surface_temperature` only
 
-Ocean-current, sea-level-height, and tide ingestion are not implemented.
+The NOAA CO-OPS Data API request uses:
+
+- the accepted prediction-location relationship for each location
+- product `predictions`
+- interval `hilo`
+- datum `MLLW`
+- time zone `gmt`
+- units `metric`
+- a high-and-low event window that bounds seven days of hourly phase records
+
+Ocean-current and sea-level-height ingestion are not implemented.
 
 ## Data flow
 
 1. Load and validate the selected local environment configuration.
 2. Initialize DuckDB and record the running pipeline execution.
-3. Request independent atmospheric, wave, and SST results for each configured
-   location.
+3. Request independent atmospheric, wave, SST, and tide results for each
+   configured location.
 4. Validate and persist source-qualified quality checks for each result.
 5. Reject an invalid source result without writing its raw or normalized data.
 6. Continue after a quality rejection so the other sources and later locations
@@ -70,10 +80,10 @@ Ocean-current, sea-level-height, and tide ingestion are not implemented.
 7. Write each passing response unchanged as a separate immutable raw JSON
    snapshot.
 8. Store source-specific request and response provenance with each snapshot.
-9. Normalize 168 hourly valid times to UTC and store atmospheric, wave, and SST
-   values in separate DuckDB tables.
+9. Normalize atmospheric, wave, and SST values, NOAA high and low events, and
+   168 hourly binary tide phases to UTC in separate DuckDB tables.
 10. Record the final run status and actual number of rows loaded.
-11. Expose atmospheric, wave, and SST forecast changes through separate SQL
+11. Expose atmospheric, wave, SST, and tide-phase changes through separate SQL
     views.
 
 API, raw-storage, and database failures abort the run immediately. If one or
@@ -103,7 +113,7 @@ forecast-ops/
 
 ## Data model
 
-ForecastOps uses six DuckDB tables:
+ForecastOps uses nine DuckDB tables:
 
 - `pipeline_runs` records execution status, row counts, and failure details.
 - `forecast_snapshots` relates passing raw responses to their run, location,
@@ -113,6 +123,11 @@ ForecastOps uses six DuckDB tables:
   for compatibility with existing local history.
 - `wave_hourly` stores normalized UTC wave height, direction, and period.
 - `sst_hourly` stores normalized UTC sea-surface temperature.
+- `tide_snapshots` stores NOAA request and relationship provenance separately
+  from Open-Meteo model and coordinate metadata.
+- `tide_events` stores normalized NOAA high and low events and predicted water
+  levels.
+- `tide_phase_hourly` stores the accepted binary `rising` or `falling` phase.
 - `quality_results` stores location- and source-qualified validation results.
 
 The `forecast_revision_changes` view compares consecutive snapshots for the
@@ -127,6 +142,9 @@ The `sst_revision_changes` view compares consecutive
 `meteofrance_currents` captures and exposes current, previous, and scalar
 sea-surface-temperature changes.
 
+The `tide_revision_changes` view compares consecutive binary phase captures
+without inventing a numeric phase delta.
+
 See [Data model](docs/data-model.md) for the column-level contract.
 
 ## Data quality
@@ -135,6 +153,8 @@ Before raw or normalized storage, the pipeline checks:
 
 - usable SST request and expected returned relationships and a nonempty static
   coastal regime before requesting SST
+- usable NOAA relationship metadata and the exact accepted tide request
+  contract before requesting tide predictions
 - configured model selector
 - returned coordinate equality against the configured expected grid
 - recognized response timezone
@@ -142,15 +162,18 @@ Before raw or normalized storage, the pipeline checks:
 - exactly 168 unique, strictly ascending UTC instants
 - exactly one hour between consecutive UTC instants
 - presence, length, null status, and numeric values for every required field
+- usable, unique, strictly ascending, alternating NOAA high and low events
+- complete bounding events for all 168 hourly tide-phase valid times
 
 Coordinate comparison uses parsed numeric equality. No tolerance, fallback
 coordinate, or replacement model is implemented.
 
 ## Environments
 
-The same application code and atmospheric, wave, and SST contracts run in
-`dev`, `test`, and `prod`. These are local configurations, not deployed cloud
-environments. Configuration varies only in storage paths and logging level.
+The same application code and atmospheric, wave, SST, and tide contracts run
+in `dev`, `test`, and `prod`. These are local configurations, not deployed
+cloud environments. Configuration varies only in storage paths and logging
+level.
 
 Automated tests replace live forecast fetching with deterministic responses and
 use temporary storage. The YAML configurations do not select a fixture mode.
@@ -182,8 +205,9 @@ Run the production-style local configuration:
 forecast-ops --environment prod
 ```
 
-A fully passing run writes 15 snapshots and 2,520 normalized rows: 840 each for
-atmospheric, wave, and SST results.
+A fully passing run writes 20 snapshots, 2,520 Open-Meteo hourly rows, 840
+hourly tide-phase rows, and the normalized NOAA high and low events returned
+for the five accepted relationships.
 
 ## Manual validation
 
@@ -228,7 +252,7 @@ GitHub Actions runs both commands for pull requests and pushes to `main`.
 
 The repository does not currently implement:
 
-- ocean-current, sea-level-height, or tide ingestion
+- ocean-current or sea-level-height ingestion
 - fishing-condition scoring or window ranking
 - scheduled or cloud execution
 - publication, API, or dashboard features

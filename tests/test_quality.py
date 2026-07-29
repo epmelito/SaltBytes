@@ -1,11 +1,16 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 
 from forecast_ops.quality import (
+    build_tide_forecast_times,
+    derive_tide_phases,
+    normalize_tide_events,
     run_payload_quality_checks,
     run_sst_preflight_checks,
+    run_tide_preflight_checks,
+    run_tide_quality_checks,
 )
 
 REQUIRED_FIELDS = [
@@ -107,6 +112,88 @@ def valid_sst_location() -> dict[str, Any]:
                 "Atlantic-facing marine grid distinct from wave grid"
             ),
         }
+    }
+
+
+def valid_tide_location() -> dict[str, Any]:
+    return {
+        "tide": {
+            "prediction_location": (
+                "Jennettes Pier, Nags Head (ocean)"
+            ),
+            "station_id": "8652226",
+            "relationship_type": "direct",
+            "reference_station": "8651370",
+            "high_time_offset_minutes": -5,
+            "low_time_offset_minutes": 1,
+            "high_multiplier": 1.04,
+            "low_multiplier": 1.43,
+            "distance_km": 0.448,
+            "coastal_relationship": (
+                "Direct use at the Atlantic-facing pier"
+            ),
+            "known_limitation": (
+                "Prediction behavior remains distinct from observed "
+                "water levels"
+            ),
+        }
+    }
+
+
+def valid_tide_api_config() -> dict[str, Any]:
+    return {
+        "product": "predictions",
+        "interval": "hilo",
+        "datum": "MLLW",
+        "time_zone": "gmt",
+        "units": "metric",
+        "format": "json",
+        "forecast_days": 7,
+    }
+
+
+def valid_tide_payload() -> dict[str, Any]:
+    start = datetime(2026, 7, 27, 18)
+    predictions = []
+
+    for index in range(34):
+        event_time = start + timedelta(hours=index * 6)
+        predictions.append(
+            {
+                "t": event_time.strftime("%Y-%m-%d %H:%M"),
+                "v": str(0.1 if index % 2 == 0 else 1.2),
+                "type": "L" if index % 2 == 0 else "H",
+            }
+        )
+
+    return {"predictions": predictions}
+
+
+def valid_tide_forecast_times() -> list[datetime]:
+    return build_tide_forecast_times(
+        datetime(2026, 7, 28, 10, tzinfo=timezone.utc),
+        7,
+    )
+
+
+def valid_tide_provenance() -> dict[str, Any]:
+    return {
+        "station": "8652226",
+        "begin_date": "20260727",
+        "end_date": "20260805",
+        "product": "predictions",
+        "interval": "hilo",
+        "datum": "MLLW",
+        "time_zone": "gmt",
+        "units": "metric",
+        "format": "json",
+        "captured_at": datetime(
+            2026,
+            7,
+            28,
+            10,
+            tzinfo=timezone.utc,
+        ),
     }
 
 
@@ -764,3 +851,265 @@ def test_quality_result_names_are_source_qualified() -> None:
         str(result["check_name"]).startswith("sst:")
         for result in sst_results
     )
+
+
+def test_valid_tide_preflight_and_payload_pass() -> None:
+    preflight_results = run_tide_preflight_checks(
+        valid_tide_location(),
+        valid_tide_api_config(),
+    )
+    payload_results = run_tide_quality_checks(
+        valid_tide_payload(),
+        valid_tide_provenance(),
+        valid_tide_forecast_times(),
+    )
+
+    assert all(result["status"] == "pass" for result in preflight_results)
+    assert all(result["status"] == "pass" for result in payload_results)
+    assert all(
+        str(result["check_name"]).startswith("tide:")
+        for result in preflight_results + payload_results
+    )
+
+
+@pytest.mark.parametrize(
+    ("tide_config", "failed_check"),
+    [
+        (None, "relationship_present"),
+        (
+            {
+                "prediction_location": "Ocracoke Inlet",
+                "relationship_type": "transfer",
+                "reference_station": "8654400",
+                "high_time_offset_minutes": 9,
+                "low_time_offset_minutes": 11,
+                "high_multiplier": 0.63,
+                "low_multiplier": 0.83,
+                "distance_km": 3.697,
+                "coastal_relationship": "Ocean-side transfer",
+                "known_limitation": "No current interpretation",
+            },
+            "station_id_present",
+        ),
+        (
+            {
+                "prediction_location": "Ocracoke Inlet",
+                "station_id": "TEC2793",
+                "relationship_type": "fallback",
+                "reference_station": "8654400",
+                "high_time_offset_minutes": 9,
+                "low_time_offset_minutes": 11,
+                "high_multiplier": 0.63,
+                "low_multiplier": 0.83,
+                "distance_km": 3.697,
+                "coastal_relationship": "Ocean-side transfer",
+                "known_limitation": "No current interpretation",
+            },
+            "relationship_metadata_usable",
+        ),
+    ],
+)
+def test_tide_preflight_rejects_missing_or_unusable_relationship(
+    tide_config: Any,
+    failed_check: str,
+) -> None:
+    results = run_tide_preflight_checks(
+        {"tide": tide_config},
+        valid_tide_api_config(),
+    )
+
+    assert result_for(
+        results,
+        failed_check,
+        source_label="tide",
+    )["status"] == "fail"
+
+
+def test_tide_events_normalize_gmt_and_phase_boundaries() -> None:
+    payload = {
+        "predictions": [
+            {"t": "2026-07-28 00:00", "v": "0.1", "type": "L"},
+            {"t": "2026-07-28 06:00", "v": "1.2", "type": "H"},
+            {"t": "2026-07-28 12:00", "v": "0.2", "type": "L"},
+        ]
+    }
+    events = normalize_tide_events(payload)
+    phases = derive_tide_phases(
+        events,
+        [
+            datetime(2026, 7, 28, 0, tzinfo=timezone.utc),
+            datetime(2026, 7, 28, 5, tzinfo=timezone.utc),
+            datetime(2026, 7, 28, 6, tzinfo=timezone.utc),
+        ],
+    )
+
+    assert events[0] == {
+        "event_time": datetime(
+            2026,
+            7,
+            28,
+            0,
+            tzinfo=timezone.utc,
+        ),
+        "event_type": "low",
+        "predicted_water_level": 0.1,
+    }
+    assert [phase["phase"] for phase in phases] == [
+        "rising",
+        "rising",
+        "falling",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("prediction_change", "failed_check"),
+    [
+        (("remove", "t"), "prediction_events_usable"),
+        (("replace", "v", None), "prediction_events_usable"),
+        (("replace", "v", "not-a-number"), "prediction_events_usable"),
+        (("replace", "type", "X"), "prediction_events_usable"),
+        (("duplicate_time", None), "prediction_events_unique_and_ascending"),
+        (("nonalternating", None), "prediction_events_alternate"),
+    ],
+)
+def test_invalid_tide_event_response_fails(
+    prediction_change: tuple[str, str | None, Any] | tuple[str, None],
+    failed_check: str,
+) -> None:
+    payload = valid_tide_payload()
+    action = prediction_change[0]
+
+    if action == "remove":
+        del payload["predictions"][1][prediction_change[1]]
+    elif action == "replace":
+        payload["predictions"][1][prediction_change[1]] = (
+            prediction_change[2]
+        )
+    elif action == "duplicate_time":
+        payload["predictions"][1]["t"] = payload["predictions"][0]["t"]
+    else:
+        payload["predictions"][1]["type"] = "L"
+
+    results = run_tide_quality_checks(
+        payload,
+        valid_tide_provenance(),
+        valid_tide_forecast_times(),
+    )
+
+    assert result_for(
+        results,
+        failed_check,
+        source_label="tide",
+    )["status"] == "fail"
+
+
+def test_tide_result_rejects_missing_phase_bounds() -> None:
+    payload = valid_tide_payload()
+    payload["predictions"] = payload["predictions"][2:-5]
+
+    results = run_tide_quality_checks(
+        payload,
+        valid_tide_provenance(),
+        valid_tide_forecast_times(),
+    )
+
+    assert result_for(
+        results,
+        "phase_bounds_complete",
+        source_label="tide",
+    )["status"] == "fail"
+
+
+def test_tide_result_rejects_non_utc_forecast_timeline() -> None:
+    forecast_times = [
+        forecast_time.replace(tzinfo=None)
+        for forecast_time in valid_tide_forecast_times()
+    ]
+
+    results = run_tide_quality_checks(
+        valid_tide_payload(),
+        valid_tide_provenance(),
+        forecast_times,
+    )
+
+    assert result_for(
+        results,
+        "forecast_timeline_valid",
+        source_label="tide",
+    )["status"] == "fail"
+    assert result_for(
+        results,
+        "phase_bounds_complete",
+        source_label="tide",
+    )["status"] == "fail"
+
+
+def test_tide_phase_is_not_inferred_outside_event_pair() -> None:
+    events = normalize_tide_events(
+        {
+            "predictions": [
+                {"t": "2026-07-28 00:00", "v": "0.1", "type": "L"},
+                {"t": "2026-07-28 06:00", "v": "1.2", "type": "H"},
+            ]
+        }
+    )
+
+    with pytest.raises(ValueError, match="preceding extremum"):
+        derive_tide_phases(
+            events,
+            [datetime(2026, 7, 27, 23, tzinfo=timezone.utc)],
+        )
+
+    with pytest.raises(ValueError, match="following extremum"):
+        derive_tide_phases(
+            events,
+            [datetime(2026, 7, 28, 6, tzinfo=timezone.utc)],
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("station", ""),
+        ("begin_date", "20260728"),
+        ("end_date", "20260803"),
+        ("product", "water_level"),
+        ("interval", "h"),
+        ("datum", "MSL"),
+        ("time_zone", "lst_ldt"),
+        ("units", "english"),
+        ("format", "csv"),
+        ("captured_at", None),
+    ],
+)
+def test_tide_result_rejects_invalid_request_provenance(
+    field_name: str,
+    invalid_value: Any,
+) -> None:
+    provenance = valid_tide_provenance()
+    provenance[field_name] = invalid_value
+
+    results = run_tide_quality_checks(
+        valid_tide_payload(),
+        provenance,
+        valid_tide_forecast_times(),
+    )
+    check_name = (
+        "request_station_present"
+        if field_name == "station"
+        else (
+            "request_capture_time_present"
+            if field_name == "captured_at"
+            else (
+                "request_window_bounds_forecast"
+                if field_name in {"begin_date", "end_date"}
+                else f"request_{field_name}"
+            )
+        )
+    )
+
+    assert result_for(
+        results,
+        check_name,
+        source_label="tide",
+    )["status"] == "fail"

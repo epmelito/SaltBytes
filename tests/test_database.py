@@ -13,6 +13,9 @@ from forecast_ops.database import (
     insert_pipeline_run,
     insert_quality_result,
     insert_sst_hourly,
+    insert_tide_events,
+    insert_tide_phase_hourly,
+    insert_tide_snapshot,
     insert_wave_hourly,
 )
 
@@ -22,11 +25,15 @@ EXPECTED_TABLES = {
     "pipeline_runs",
     "quality_results",
     "sst_hourly",
+    "tide_events",
+    "tide_phase_hourly",
+    "tide_snapshots",
     "wave_hourly",
 }
 EXPECTED_VIEWS = {
     "forecast_revision_changes",
     "sst_revision_changes",
+    "tide_revision_changes",
     "wave_revision_changes",
 }
 EXPECTED_SNAPSHOT_COLUMNS = {
@@ -67,6 +74,41 @@ EXPECTED_SST_COLUMNS = {
     "location_id",
     "forecast_time",
     "sea_surface_temperature",
+}
+EXPECTED_TIDE_SNAPSHOT_COLUMNS = {
+    "snapshot_id",
+    "station_id",
+    "prediction_location",
+    "relationship_type",
+    "reference_station",
+    "product",
+    "interval",
+    "datum",
+    "time_zone",
+    "units",
+    "response_format",
+    "request_begin_date",
+    "request_end_date",
+    "high_time_offset_minutes",
+    "low_time_offset_minutes",
+    "high_multiplier",
+    "low_multiplier",
+    "distance_km",
+    "coastal_relationship",
+    "known_limitation",
+}
+EXPECTED_TIDE_EVENT_COLUMNS = {
+    "snapshot_id",
+    "location_id",
+    "event_time",
+    "event_type",
+    "predicted_water_level",
+}
+EXPECTED_TIDE_PHASE_COLUMNS = {
+    "snapshot_id",
+    "location_id",
+    "forecast_time",
+    "phase",
 }
 
 
@@ -133,6 +175,61 @@ def sst_snapshot_metadata(
         "returned_longitude": -77.87499,
         "response_timezone": "America/New_York",
         "response_utc_offset_seconds": -14400,
+    }
+
+
+def tide_snapshot_metadata(
+    snapshot_id: str = "tide-snapshot123",
+    run_id: str = "run123",
+    captured_at: datetime | None = None,
+) -> dict[str, Any]:
+    return {
+        "snapshot_id": snapshot_id,
+        "run_id": run_id,
+        "location_id": "jennettes_pier",
+        "captured_at": captured_at
+        or datetime(2026, 7, 28, 10, 8, tzinfo=timezone.utc),
+        "raw_file_path": f"data/test/raw/{snapshot_id}.json",
+    }
+
+
+def tide_request_provenance() -> dict[str, Any]:
+    return {
+        "station": "8652226",
+        "begin_date": "20260727",
+        "end_date": "20260805",
+        "product": "predictions",
+        "interval": "hilo",
+        "datum": "MLLW",
+        "time_zone": "gmt",
+        "units": "metric",
+        "format": "json",
+        "captured_at": datetime(
+            2026,
+            7,
+            28,
+            10,
+            8,
+            tzinfo=timezone.utc,
+        ),
+    }
+
+
+def tide_relationship() -> dict[str, Any]:
+    return {
+        "prediction_location": "Jennettes Pier, Nags Head (ocean)",
+        "station_id": "8652226",
+        "relationship_type": "direct",
+        "reference_station": "8651370",
+        "high_time_offset_minutes": -5,
+        "low_time_offset_minutes": 1,
+        "high_multiplier": 1.04,
+        "low_multiplier": 1.43,
+        "distance_km": 0.448,
+        "coastal_relationship": "Direct use at the Atlantic-facing pier",
+        "known_limitation": (
+            "Prediction behavior remains distinct from observed water levels"
+        ),
     }
 
 
@@ -270,6 +367,36 @@ def test_initialize_database_creates_required_schema(
                 """
             ).fetchall()
         }
+        tide_snapshot_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'tide_snapshots'
+                """
+            ).fetchall()
+        }
+        tide_event_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'tide_events'
+                """
+            ).fetchall()
+        }
+        tide_phase_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'tide_phase_hourly'
+                """
+            ).fetchall()
+        }
 
     assert tables == EXPECTED_TABLES
     assert views == EXPECTED_VIEWS
@@ -277,6 +404,9 @@ def test_initialize_database_creates_required_schema(
     assert hourly_columns == EXPECTED_HOURLY_COLUMNS
     assert wave_columns == EXPECTED_WAVE_COLUMNS
     assert sst_columns == EXPECTED_SST_COLUMNS
+    assert tide_snapshot_columns == EXPECTED_TIDE_SNAPSHOT_COLUMNS
+    assert tide_event_columns == EXPECTED_TIDE_EVENT_COLUMNS
+    assert tide_phase_columns == EXPECTED_TIDE_PHASE_COLUMNS
 
 
 def test_initialize_database_can_run_more_than_once(
@@ -444,6 +574,30 @@ def test_initialize_database_upgrades_legacy_schema_and_preserves_rows(
                 """
             ).fetchall()
         }
+        tide_table_counts = connection.execute(
+            """
+            select table_name, count(*)
+            from information_schema.tables
+            where table_name in (
+                'tide_snapshots',
+                'tide_events',
+                'tide_phase_hourly'
+            )
+                and table_type = 'BASE TABLE'
+            group by table_name
+            order by table_name
+            """
+        ).fetchall()
+        tide_revision_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'tide_revision_changes'
+                """
+            ).fetchall()
+        }
 
     assert snapshot == ("legacy-snapshot", None, None, None)
     assert hourly == (18.2, 8.4, None, None, 20.0, None)
@@ -455,6 +609,175 @@ def test_initialize_database_upgrades_legacy_schema_and_preserves_rows(
     assert "wave_direction_change" not in wave_revision_columns
     assert sst_table_count == (1,)
     assert "sea_surface_temperature_change" in sst_revision_columns
+    assert tide_table_counts == [
+        ("tide_events", 1),
+        ("tide_phase_hourly", 1),
+        ("tide_snapshots", 1),
+    ]
+    assert "phase" in tide_revision_columns
+    assert "previous_phase" in tide_revision_columns
+    assert "phase_change" not in tide_revision_columns
+
+
+def test_initialize_database_preserves_populated_coastal_database(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("drop view tide_revision_changes")
+        connection.execute("drop table tide_phase_hourly")
+        connection.execute("drop table tide_events")
+        connection.execute("drop table tide_snapshots")
+
+    capture_times = (
+        datetime(2026, 7, 28, 10, tzinfo=timezone.utc),
+        datetime(2026, 7, 28, 12, tzinfo=timezone.utc),
+    )
+
+    for index, captured_at in enumerate(capture_times, start=1):
+        run_id = f"existing-run-{index}"
+        insert_run(
+            database_path,
+            run_id=run_id,
+            started_at=captured_at,
+        )
+
+        atmospheric_snapshot_id = f"existing-atmospheric-{index}"
+        wave_snapshot_id = f"existing-wave-{index}"
+        sst_snapshot_id = f"existing-sst-{index}"
+
+        insert_forecast_snapshot(
+            database_path,
+            snapshot_metadata(
+                snapshot_id=atmospheric_snapshot_id,
+                run_id=run_id,
+                captured_at=captured_at,
+            ),
+        )
+        insert_forecast_snapshot(
+            database_path,
+            wave_snapshot_metadata(
+                snapshot_id=wave_snapshot_id,
+                run_id=run_id,
+                captured_at=captured_at,
+            ),
+        )
+        insert_forecast_snapshot(
+            database_path,
+            sst_snapshot_metadata(
+                snapshot_id=sst_snapshot_id,
+                run_id=run_id,
+                captured_at=captured_at,
+            ),
+        )
+
+        insert_forecast_hourly(
+            database_path,
+            atmospheric_snapshot_id,
+            "jennettes_pier",
+            atmospheric_payload(wind_speed=10.0 + index),
+        )
+        insert_wave_hourly(
+            database_path,
+            wave_snapshot_id,
+            "fort_macon_ocean",
+            wave_payload(wave_height=1.0 + index),
+        )
+        insert_sst_hourly(
+            database_path,
+            sst_snapshot_id,
+            "fort_fisher",
+            sst_payload(sea_surface_temperature=24.0 + index),
+        )
+        insert_quality_result(
+            database_path=database_path,
+            run_id=run_id,
+            check_name=f"existing-{index}:weather:hourly_length",
+            status="pass",
+            observed_value="168",
+            expected_value="168",
+            checked_at=captured_at,
+        )
+        complete_pipeline_run(
+            database_path=database_path,
+            run_id=run_id,
+            completed_at=captured_at,
+            status="success",
+            rows_loaded=3,
+        )
+
+    seeded_queries = {
+        "pipeline_runs": "select * from pipeline_runs order by run_id",
+        "forecast_snapshots": (
+            "select * from forecast_snapshots order by snapshot_id"
+        ),
+        "forecast_hourly": (
+            "select * from forecast_hourly order by snapshot_id, forecast_time"
+        ),
+        "wave_hourly": (
+            "select * from wave_hourly order by snapshot_id, forecast_time"
+        ),
+        "sst_hourly": (
+            "select * from sst_hourly order by snapshot_id, forecast_time"
+        ),
+        "quality_results": (
+            "select * from quality_results order by run_id, check_name"
+        ),
+    }
+    revision_queries = {
+        "forecast_revision_changes": (
+            "select snapshot_id, previous_snapshot_id "
+            "from forecast_revision_changes order by snapshot_id"
+        ),
+        "wave_revision_changes": (
+            "select snapshot_id, previous_snapshot_id "
+            "from wave_revision_changes order by snapshot_id"
+        ),
+        "sst_revision_changes": (
+            "select snapshot_id, previous_snapshot_id "
+            "from sst_revision_changes order by snapshot_id"
+        ),
+    }
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        seeded_rows = {
+            name: connection.execute(query).fetchall()
+            for name, query in seeded_queries.items()
+        }
+        revision_rows = {
+            name: connection.execute(query).fetchall()
+            for name, query in revision_queries.items()
+        }
+
+    assert revision_rows == {
+        "forecast_revision_changes": [
+            ("existing-atmospheric-2", "existing-atmospheric-1")
+        ],
+        "wave_revision_changes": [
+            ("existing-wave-2", "existing-wave-1")
+        ],
+        "sst_revision_changes": [
+            ("existing-sst-2", "existing-sst-1")
+        ],
+    }
+
+    initialize_database(database_path)
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        preserved_rows = {
+            name: connection.execute(query).fetchall()
+            for name, query in seeded_queries.items()
+        }
+        preserved_revision_rows = {
+            name: connection.execute(query).fetchall()
+            for name, query in revision_queries.items()
+        }
+
+    assert preserved_rows == seeded_rows
+    assert preserved_revision_rows == revision_rows
 
 
 def test_forecast_hourly_rejects_duplicate_business_key(
@@ -1258,3 +1581,244 @@ def test_sst_revision_view_compares_only_meteofrance_currents_captures(
             pytest.approx(0.7),
         )
     ]
+
+
+def test_tide_snapshot_events_and_phase_preserve_distinct_provenance(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_tide_snapshot(
+        database_path,
+        tide_snapshot_metadata(),
+        tide_request_provenance(),
+        tide_relationship(),
+    )
+    events = [
+        {
+            "event_time": datetime(
+                2026,
+                7,
+                28,
+                0,
+                tzinfo=timezone.utc,
+            ),
+            "event_type": "low",
+            "predicted_water_level": 0.1,
+        },
+        {
+            "event_time": datetime(
+                2026,
+                7,
+                28,
+                6,
+                tzinfo=timezone.utc,
+            ),
+            "event_type": "high",
+            "predicted_water_level": 1.2,
+        },
+    ]
+    phases = [
+        {
+            "forecast_time": datetime(
+                2026,
+                7,
+                28,
+                0,
+                tzinfo=timezone.utc,
+            ),
+            "phase": "rising",
+        }
+    ]
+
+    event_count = insert_tide_events(
+        database_path,
+        "tide-snapshot123",
+        "jennettes_pier",
+        events,
+    )
+    phase_count = insert_tide_phase_hourly(
+        database_path,
+        "tide-snapshot123",
+        "jennettes_pier",
+        phases,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        snapshot = connection.execute(
+            """
+            select
+                snapshots.model_selector,
+                snapshots.request_latitude,
+                tide.station_id,
+                tide.product,
+                tide.interval,
+                tide.datum,
+                tide.time_zone,
+                tide.units,
+                tide.response_format,
+                tide.relationship_type,
+                tide.reference_station,
+                tide.request_begin_date,
+                tide.request_end_date
+            from forecast_snapshots as snapshots
+            inner join tide_snapshots as tide
+                on snapshots.snapshot_id = tide.snapshot_id
+            """
+        ).fetchone()
+        stored_events = connection.execute(
+            """
+            select event_time, event_type, predicted_water_level
+            from tide_events
+            order by event_time
+            """
+        ).fetchall()
+        stored_phases = connection.execute(
+            """
+            select forecast_time, phase
+            from tide_phase_hourly
+            """
+        ).fetchall()
+
+    assert event_count == 2
+    assert phase_count == 1
+    assert snapshot == (
+        None,
+        None,
+        "8652226",
+        "predictions",
+        "hilo",
+        "MLLW",
+        "gmt",
+        "metric",
+        "json",
+        "direct",
+        "8651370",
+        datetime(2026, 7, 27).date(),
+        datetime(2026, 8, 5).date(),
+    )
+    assert stored_events == [
+        (
+            datetime(2026, 7, 28, 0, tzinfo=timezone.utc),
+            "low",
+            0.1,
+        ),
+        (
+            datetime(2026, 7, 28, 6, tzinfo=timezone.utc),
+            "high",
+            1.2,
+        ),
+    ]
+    assert stored_phases == [
+        (
+            datetime(2026, 7, 28, 0, tzinfo=timezone.utc),
+            "rising",
+        )
+    ]
+
+
+def test_tide_revision_view_compares_phase_without_numeric_delta(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    forecast_time = datetime(
+        2026,
+        7,
+        29,
+        12,
+        tzinfo=timezone.utc,
+    )
+
+    for snapshot_id, captured_at, phase in (
+        (
+            "tide-snapshot-1",
+            datetime(2026, 7, 28, 10, tzinfo=timezone.utc),
+            "rising",
+        ),
+        (
+            "tide-snapshot-2",
+            datetime(2026, 7, 28, 12, tzinfo=timezone.utc),
+            "falling",
+        ),
+    ):
+        insert_tide_snapshot(
+            database_path,
+            tide_snapshot_metadata(
+                snapshot_id=snapshot_id,
+                captured_at=captured_at,
+            ),
+            tide_request_provenance(),
+            tide_relationship(),
+        )
+        insert_tide_phase_hourly(
+            database_path,
+            snapshot_id,
+            "jennettes_pier",
+            [{"forecast_time": forecast_time, "phase": phase}],
+        )
+
+    alternate_relationship = tide_relationship()
+    alternate_relationship["station_id"] = "TEC2793"
+    alternate_relationship["prediction_location"] = "Ocracoke Inlet"
+    alternate_provenance = tide_request_provenance()
+    alternate_provenance["station"] = "TEC2793"
+    insert_tide_snapshot(
+        database_path,
+        tide_snapshot_metadata(
+            snapshot_id="alternate-station",
+            captured_at=datetime(
+                2026,
+                7,
+                28,
+                11,
+                tzinfo=timezone.utc,
+            ),
+        ),
+        alternate_provenance,
+        alternate_relationship,
+    )
+    insert_tide_phase_hourly(
+        database_path,
+        "alternate-station",
+        "jennettes_pier",
+        [{"forecast_time": forecast_time, "phase": "falling"}],
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        revision = connection.execute(
+            """
+            select
+                station_id,
+                product,
+                datum,
+                snapshot_id,
+                previous_snapshot_id,
+                phase,
+                previous_phase
+            from tide_revision_changes
+            """
+        ).fetchone()
+        revision_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'tide_revision_changes'
+                """
+            ).fetchall()
+        }
+
+    assert revision == (
+        "8652226",
+        "predictions",
+        "MLLW",
+        "tide-snapshot-2",
+        "tide-snapshot-1",
+        "falling",
+        "rising",
+    )
+    assert "phase_change" not in revision_columns
