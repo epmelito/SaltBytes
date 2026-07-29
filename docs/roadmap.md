@@ -2,262 +2,116 @@
 
 ## Purpose
 
-This roadmap defines the approved delivery sequence for ForecastOps. It
-describes outcomes and dependencies without assigning dates or selecting
-deferred implementation details.
+This roadmap defines the shortest approved path from the current repository
+state to a working ForecastOps proof of concept.
 
-The [project charter](project-charter.md) defines product intent. The
-[scope register](scope-register.md) distinguishes approved work from deferred
-decisions and authorizes active work packages.
+The long-term product direction remains documented in the project charter.
+This file controls near-term delivery order only.
 
 ## Current state
 
-ForecastOps is a tested local coastal forecast pipeline with atmospheric and
-wave ingestion. It is the technical foundation for the approved North Carolina
-coastal fishing conditions data platform, but it does not yet implement that
-complete product.
+ForecastOps already implements local ingestion for:
 
-Roadmap stage 1 is complete. Pull request #13 introduced the six governance
-files after review and a successful required `test and lint` check. The
-lifecycle records reflect the completed stage.
+- atmospheric conditions
+- wave conditions
+- sea-surface temperature
+- NOAA tide predictions and tide phase
 
-Roadmap stage 2 is complete. The documentation reconciliation work package
-aligned the authorized technical documentation with verified repository
-behavior.
+The pipeline supports five approved North Carolina coastal locations and
+preserves normalized data, quality results, provenance, run metadata, immutable
+passing raw snapshots, and revision history.
 
-Roadmap stage 3 is complete. Issue #20 defined the coastal location and
-fishing-condition requirements and accepted three supporting decisions. Pull
-request #21 merged the completed stage 3 documentation into `main`.
+The ingestion foundation is complete enough to begin proof-of-concept work.
 
-Roadmap stage 4 is authorized and in progress. Issues #24 and #26 established
-the first-release source relationships and validity rules. Issue #30 implements
-the atmospheric checkpoint, issue #33 implements the wave checkpoint, issue
-#41 implements the SST checkpoint, and issue #45 implements the tide
-checkpoint.
+## Proof-of-concept sequence
 
-## Delivery stages
+### 1. Validate the existing pipeline live
 
-### 1. Establish repository AI workflow and governance
+Run the complete four-source pipeline for all five configured locations.
 
-Create the initial governance package, define distinct sources of truth,
-establish scope and decision controls, and provide a repeatable handoff
-practice.
+Fix only defects that:
 
-Status: Complete.
+- prevent reliable execution
+- produce incorrect data
+- prevent source failures from remaining isolated
+- make the resulting data unusable
 
-Completion evidence:
+Do not add new providers, locations, fallback logic, or generalized
+infrastructure during this stage.
 
-- all six governance files exist
-- their responsibilities and cross-links were reviewed
-- the required `test and lint` pull request check completed successfully
-- pull request #13 introduced the governance files into `main`
-- the lifecycle records reflect the completed stage
+### 2. Build one integrated coastal-conditions dataset
 
-### 2. Reconcile existing documentation
+Create the smallest useful integrated result from the existing atmospheric,
+wave, sea-surface-temperature, and tide data.
 
-Review the known drift in the [scope register](scope-register.md) and update
-existing technical documentation to match verified repository behavior and
-approved product direction.
+The result should:
 
-Status: Complete.
+- retain location and fishing-context identity
+- align source values to a common forecast time
+- preserve source and quality context
+- avoid unsupported scoring or ranking
+- remain inspectable and deterministic
 
-Completion evidence: Satisfied.
+Do not build a generalized semantic layer or broad modeling framework.
 
-- each recorded drift item is reviewed against repository evidence
-- affected documentation is corrected, or the drift item is explicitly retained
-  with rationale
-- resolved drift entries are removed or updated in the scope register
+### 3. Expose one usable output
+
+Present the integrated result through the simplest useful interface.
+
+Acceptable proof-of-concept outputs include:
+
+- a CLI report
+- a generated HTML report
+- a small local application
+
+Choose the simplest option that demonstrates the data clearly.
+
+Do not add cloud deployment, authentication, a public API, or production service
+architecture at this stage.
+
+### 4. Confirm proof-of-concept viability
+
+The proof of concept is complete when:
+
+- the existing pipeline runs successfully for the five configured locations
+- the four source families are represented in one integrated result
+- source or quality failures remain visible
+- a user can inspect upcoming coastal conditions in a usable output
 - repository validation passes
 
-### 3. Define coastal locations and fishing-condition requirements
+## Deferred until after the proof of concept
 
-Select a representative North Carolina coastal location set and define the
-environmental requirements needed for comparable fishing windows.
+Defer:
 
-This stage must resolve only the deferred decisions needed for subsequent data
-work.
+- additional data sources
+- additional locations
+- deterministic scoring and ranking
+- species-specific recommendations
+- observation and bias validation
+- source fallback and precedence
+- scheduling changes
+- retention policy design
+- Azure infrastructure
+- public deployment
+- API design
+- authentication
+- production monitoring and service levels
+- generalized platform abstractions
+- further agent or skill development
 
-Status: Complete.
+## Later direction
 
-The approved requirements are documented in:
+After the proof of concept works, evaluate the next step based on demonstrated
+value.
 
-- [Coastal location requirements](requirements/coastal-locations.md)
-- [Fishing-condition requirements](requirements/fishing-conditions.md)
+Possible later work includes:
 
-The supporting accepted decisions are indexed in the
-[decision records](decisions/README.md).
+- deterministic and explainable scoring
+- fishing-window ranking
+- consumer-ready datasets
+- scheduled execution
+- Azure deployment
+- a public portfolio display
+- broader coastal coverage
 
-This stage defines requirements and durable product boundaries only.
-Implementation remains outside stage 3.
-
-Stage 3 provided the requirements groundwork for stage 4 source evaluation.
-Stage 4 subsequently accepted the final display, weather, marine, and tide
-relationships and source-result validity rules in ADRs 0007 through 0009. The
-implemented atmospheric, wave, SST, and tide slices use their applicable
-accepted relationships. Observation-station relationships and warning and
-forecast-zone mappings remain unresolved or deferred in the scope register.
-
-Completion evidence: Satisfied.
-
-- the representative location set and fishing-condition requirements are
-  documented
-- each selection and requirement is traceable to reviewed evidence
-- decisions needed for subsequent data work are accepted and indexed
-- remaining deferred topics stay identified in the scope register
-- no product implementation is included in the stage
-
-### 4. Extend coastal data-source ingestion
-
-Add reusable ingestion for approved coastal sources while retaining source data
-and preserving observable pipeline behavior.
-
-Status: In progress.
-
-The current checkpoint records the final first-release display, request, and
-product-specific returned-grid relationships, NOAA CO-OPS prediction
-relationships, the minimum tide phase, and deterministic source-result
-validity rules. The reviewed evidence is recorded in:
-
-- [Coastal source evaluation](research/coastal-source-evaluation.md)
-- [Coastal spatial relationships](research/coastal-spatial-relationships.md)
-
-The accepted decisions are indexed in the
-[decision records](decisions/README.md).
-
-Issue #30 implements the atmospheric checkpoint for the five approved
-locations:
-
-- seven-day Open-Meteo `ncep_nbm_conus` requests
-- five accepted atmospheric fields
-- configured request and expected returned weather-grid relationships
-- deterministic source-result validation
-- immutable passing raw snapshots
-- request and response provenance
-- 168 normalized hourly UTC rows per passing location
-- atmospheric forecast revision history
-
-Issue #33 implements the independent wave checkpoint for the same locations:
-
-- seven-day Open-Meteo `meteofrance_wave` requests
-- wave height, direction, and period
-- configured marine-request and expected returned wave-grid relationships
-- source-qualified deterministic validation
-- separate immutable passing raw snapshots and provenance
-- 168 normalized hourly UTC rows per passing wave result
-- wave forecast revision history without a wave-direction delta
-
-Issue #41 implements the independent SST checkpoint for the same locations:
-
-- seven-day Open-Meteo `meteofrance_currents` requests
-- `sea_surface_temperature` only
-- product-specific SST request and expected returned-grid relationships
-- source-qualified deterministic validation
-- separate immutable passing raw snapshots and provenance
-- 168 normalized hourly UTC rows per passing SST result
-- SST revision history
-
-Issue #45 implements the independent NOAA tide checkpoint:
-
-- the five accepted NOAA CO-OPS prediction relationships
-- product `predictions`, interval `hilo`, datum `MLLW`, time zone `gmt`, and
-  units `metric`
-- source-qualified relationship, provenance, event, and phase validation
-- separate immutable passing raw snapshots and NOAA provenance
-- normalized high and low prediction events
-- 168 hourly UTC `rising` or `falling` phase rows per passing tide result
-- tide phase revision history without numeric phase-delta semantics
-
-Atmospheric, wave, SST, and tide quality rejections are independent. A fully
-passing five-location run produces 20 snapshots, 3,360 hourly rows across the
-four sources, and the normalized NOAA high and low events returned for the
-five tide relationships.
-
-Observation relationships, accuracy validation, fallback and precedence rules,
-warning and forecast-zone mappings, alternative marine-model adoption, and
-marine run-history reconstruction remain unresolved or deferred. Stage 4
-remains in progress pending review of the tide checkpoint and the recorded
-completion evidence.
-
-Completion evidence requires:
-
-- ingestion is implemented and tested for only the approved sources
-- retained source data is traceable to its source and pipeline run
-- quality results and operational metadata cover the added ingestion
-- repository validation passes
-- unresolved source decisions remain deferred
-
-### 5. Build normalized and historical coastal data models
-
-Model approved coastal data consistently across locations and time, including
-the history needed to trace forecast changes.
-
-Completion evidence requires:
-
-- the approved normalized and historical models are documented and tested
-- source-to-model lineage is documented
-- forecast history and revision behavior can be demonstrated from retained data
-- repository validation passes
-- unresolved retention choices remain deferred unless required and accepted
-
-### 6. Implement deterministic scoring
-
-Calculate fishing-condition scores from approved variables and weights using
-deterministic, inspectable transformations.
-
-Completion evidence requires:
-
-- the scoring requirements and any required decisions are accepted
-- scoring transformations are deterministic, documented, and tested
-- each score can be explained through its component inputs
-- score inputs are traceable to modeled source conditions
-- repository validation passes
-
-### 7. Rank and publish fishing windows
-
-Compare upcoming windows and publish consumer-ready datasets without presenting
-the results as guarantees or official safety guidance.
-
-Completion evidence requires:
-
-- rankings are reproducible from approved scores and inputs
-- the publication contract is approved
-- published datasets conform to that contract
-- outputs preserve the charter's fishing-success and safety boundaries
-- repository validation passes
-
-### 8. Migrate to reusable Azure infrastructure
-
-Move the solution to a reusable personal Azure data platform that can support
-later portfolio projects.
-
-This stage is not implementation-ready until the required deferred Azure
-architecture and operational decisions are resolved and its completion evidence
-is approved.
-
-### 9. Add a public portfolio display
-
-Present the platform's data, explanations, lineage, and engineering qualities
-as a public portfolio experience.
-
-This stage is not implementation-ready until the required deferred publication
-and display decisions are resolved and its completion evidence is approved.
-
-## Dependencies
-
-Stages are ordered because later work depends on earlier governance,
-requirements, data, and publication contracts. A stage may be refined before it
-becomes active, but product implementation should not bypass unresolved
-decisions required by that stage.
-
-The roadmap sequences outcomes. It does not authorize active work packages;
-authorization belongs in the scope register.
-
-## Roadmap changes
-
-Roadmap changes must remain consistent with the charter and be reflected in the
-scope register. Durable product or architecture choices should follow the
-[decision process](decisions/README.md). Do not add dates or select deferred
-details without approval.
-
-Current work status and the next recommended action belong in the
-[current handoff](handoffs/current.md).
+Do not begin later work until the proof of concept is complete and reviewed.

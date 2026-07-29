@@ -2,191 +2,131 @@
 
 ## Purpose
 
-This file governs how contributors and AI agents work in this repository.
+This file defines the minimum working rules for contributors and AI agents.
 
-ForecastOps is evolving from a local weather forecast pipeline into a North
-Carolina coastal fishing conditions data platform. Read the
-[project charter](docs/project-charter.md) before proposing product or
-architecture changes, and use the
-[scope register](docs/scope-register.md) to distinguish current, authorized,
-deferred, and excluded scope.
+ForecastOps is currently focused on reaching a working coastal-conditions proof
+of concept using the existing atmospheric, wave, sea-surface-temperature, and
+tide pipeline.
 
-## Sources of truth
+## Default context
 
-Each governance file is authoritative within its own responsibility:
+For normal implementation work, read only:
 
-- [Project charter](docs/project-charter.md): product purpose, approved direction,
-  principles, and durable boundaries
-- [Roadmap](docs/roadmap.md): approved delivery sequence
-- [Scope register](docs/scope-register.md): current, future, deferred, and excluded
-  scope, including known documentation drift
-- [Decision records](docs/decisions/README.md): accepted choices and their rationale
-- [Current handoff](docs/handoffs/current.md): transient work state and next steps
+- the active issue or task
+- this file
+- the affected code and tests
+- the selected skill, when applicable
+- directly relevant documentation or ADRs
 
-Source code, configuration, and tests are the evidence for current implemented
-behavior. Existing descriptive documentation may contain known drift.
+Do not read the full charter, roadmap, scope register, handoff, decision index,
+or unrelated ADRs unless the task requires product, scope, architecture, or
+historical context.
 
-These sources have distinct responsibilities rather than forming one universal
-hierarchy. This file governs working behavior, but it does not override the
-charter's product intent or accepted decision records. If sources conflict,
-identify the conflict and seek resolution instead of silently choosing one.
+If sources conflict, stop and identify the conflict rather than silently
+choosing one.
 
-## Current implementation boundary
+## Working rules
 
-The repository currently implements a local, configuration-driven weather
-forecast snapshot pipeline. The current `dev`, `test`, and `prod` settings are
-local configurations rather than deployed cloud environments. The
-[project charter](docs/project-charter.md) defines future product intent, and
-the [scope register](docs/scope-register.md) records the verified implementation
-and current boundaries.
+- Implement the smallest complete change that satisfies the active task.
+- Inspect only the repository context needed to understand the affected
+  behavior and risks.
+- Do not modify unrelated files or absorb unrelated pre-existing problems.
+- Do not invent providers, locations, scoring rules, architecture, fallbacks,
+  schedules, retention policies, or product behavior.
+- Preserve secrets, data integrity, provenance, source identity, safe reruns,
+  and required failure isolation.
+- Do not describe planned behavior as implemented.
+- Prefer existing project patterns and dependencies.
+- Add abstractions or dependencies only when the current task demonstrates a
+  real need.
+- Do not optimize, generalize, or future-proof beyond what is required for a
+  working proof of concept.
+- Use an issue and branch for meaningful code changes. Small manual
+  documentation or instruction edits may be committed directly when reviewed
+  and low risk.
 
-## Required workflow
-
-Follow this sequence for substantive work packages. For small, low-risk changes,
-apply the same principles proportionally and avoid unnecessary process.
-
-1. **Inspect.** Read the issue, current handoff, scope register, and relevant
-   source, tests, configuration, and documentation before changing files.
-2. **Plan.** Create a bounded plan before editing. Identify:
-   - the verified current state
-   - the authorized scope
-   - the files expected to change
-   - decisions or assumptions that must not be made silently
-   - intended validation
-   - the checkpoint where work must stop
-3. **Implement.** Make only the changes authorized by the plan and active work
-   package. Add or update tests when implemented behavior changes.
-4. **Validate.** Follow the change-type requirements below and any narrower
-   limits in the issue. Record any temporarily deferred validation.
-5. **Review.** Before handoff:
-   - inspect the complete diff
-   - compare the diff with the issue and scope register
-   - confirm no unrelated files or unsupported decisions were introduced
-   - confirm documentation reflects the resulting repository state
-6. **Hand off.** For substantive, multi-step, or interrupted work, update the
-   current handoff with the verified branch, work status, files changed,
-   validation results, deferred checks, open issues, and next checkpoint.
-
-Do not resolve deferred product or architecture decisions as an implementation
-convenience. Use the decision process when a durable choice is required.
-
-## Change boundaries
-
-- Do not invent or silently select providers, locations, scoring rules, Azure
-  services, retention periods, schedules, service levels, costs, metrics, or
-  architecture details. Introduce them only through authorized work, reviewed
-  evidence, and the decision process when required.
-- Do not describe planned capabilities as implemented.
-- Product implementation requires an authorized work package in the scope
-  register, alignment with the applicable roadmap stage, and resolution of any
-  decisions required before implementation.
-- Preserve unrelated work and ignored runtime data.
-- Do not expose secrets or commit generated data, databases, logs, caches, or
-  environment files.
-- Treat live API calls and local production-style runs as operations that may
-  create runtime data.
-- Follow narrower limits in the active task or handoff.
-- Use one issue and one focused branch for each substantive work package. Keep
-  small follow-up corrections in the same branch when they directly support the
-  authorized objective.
-
-## Repository conventions
-
-- Use Python 3.11 or later and the existing `src/` package layout.
-- Keep environment-specific values in `config/`; do not fork transformation
-  logic by environment.
-- Preserve immutable raw-data behavior unless an accepted decision changes it.
-- Use type annotations and keep Python lines within the configured 100-character
-  limit.
-- Follow the existing Ruff rules and function-oriented pytest style.
-- Keep Markdown concise, factual, and organized with descriptive headings,
-  short lists, and tables where useful.
-- Use short-lived branches and pull requests rather than separate long-lived
-  environment branches.
-
-## Implementation simplicity
-
-Apply these rules across Python, SQL, configuration, data models,
-orchestration, tests, validation, and architecture:
-
-- Start with the simplest implementation that fully satisfies confirmed
-  requirements. Keep it robust for verified source behavior, real edge cases,
-  failure modes, and platform constraints.
-- Do not add abstractions, helper layers, fallbacks, tie breakers, defensive
-  branches, generalized frameworks, or extra metadata for hypothetical risks.
-  Every material part must have an evidence-based purpose.
-- Before adding complexity, explain the verified problem it solves, why the
-  simpler solution is insufficient, and what happens if the complexity is
-  omitted.
-- Simplicity must not compromise validation, data integrity, idempotency,
-  failure handling, or protection against incorrect data, duplication, data
-  loss, or unstable behavior.
-- Prefer familiar, readable patterns when they are equally correct.
-
-Use an MVP-first documentation and design boundary:
-
-- Document and design only what is needed to unblock the next implementation
-  step.
-- Reserve decision records for durable, meaningful decisions.
-- Defer speculative edge cases and exhaustive contracts.
-- Let implementation, tests, and verified source behavior justify added detail.
-- Strengthen governance iteratively when evidence shows it is needed.
-
-## Validation
-
-For documentation-only changes:
-
-- inspect `git status --short`
-- inspect the complete diff
-- check changed paths against the authorized scope
-- verify headings, relative links, formatting, and whitespace
-- run repository code checks when the documentation affects implemented
-  behavior, commands, configuration contracts, or implementation-dependent
-  governance
-
-For isolated wording or formatting changes, focused documentation validation
-may be sufficient.
+## Implementation
 
 For code, configuration, test, script, or CI changes:
 
-- run targeted checks for the changed behavior
-- run `python -m pytest`
-- run `python -m ruff check .`
-- inspect `git status --short` and the complete diff
+1. Read the active task and affected code.
+2. Implement the smallest complete solution.
+3. Add or update focused tests for changed behavior.
+4. Use focused checks while developing.
+5. Run the repository-required broad checks once when the change is stable.
+6. Inspect the final diff for scope and correctness.
 
-The repository standard checks are:
+Fix failures introduced by the change or required for task conformance. Report
+unrelated failures separately.
+
+## Validation
+
+The standard broad checks are:
 
 ```powershell
 python -m pytest
 python -m ruff check .
 ```
 
-If validation is temporarily deferred by the issue or a review checkpoint,
-record each deferred check in the current handoff. Do not describe work as
-complete until all required validation passes.
+Run them once after a meaningful code change stabilizes.
+
+Do not rerun unchanged broad checks merely to reconfirm them. Rerun affected
+checks after corrections, and rerun broad checks only when later changes could
+invalidate the recorded result.
+
+For documentation-only changes:
+
+- inspect the changed paths and complete diff
+- run `git diff --check`
+- verify links or commands only when the change affects them
+
+Application tests are not required for isolated documentation or instruction
+changes.
 
 ## Documentation and decisions
 
-- Update the charter only when approved product intent or durable boundaries
-  change.
-- Update the roadmap when approved sequencing or stage status changes.
-- Update the scope register when work enters, leaves, or is deferred from scope,
-  or when known drift is discovered or resolved.
-- Create a decision record for a durable product, data, or architecture choice
-  that requires rationale. Follow
-  [the decision process](docs/decisions/README.md).
-- Do not create retrospective rationale unsupported by repository evidence.
-- Keep transient status in the current handoff, not in durable governance files.
+Update documentation only when the task changes documented behavior or leaves
+current instructions incorrect.
+
+Read or update:
+
+- the charter only for durable product intent
+- the roadmap only for delivery sequencing
+- the scope register only for active, deferred, or excluded scope
+- an ADR only for a durable decision or when its accepted contract applies
+- the handoff only for genuinely interrupted work that cannot be reconstructed
+  cheaply
+
+Do not repeat issue, ADR, roadmap, scope, or skill content in prompts or other
+documents.
+
+## Review
+
+Self-review the complete affected diff before finalization.
+
+Use `work-package-review` only for high-risk, uncertain, or suspicious work,
+including security-sensitive changes, destructive persistence changes,
+migrations, major schema changes, or complex failure isolation.
+
+Routine work does not require an independent review stage.
+
+## GitHub workflow
+
+When finalizing approved work:
+
+- stage only authorized files
+- commit, push, create or update the pull request, apply metadata, and verify the
+  result in one workflow
+- reuse recorded validation evidence
+- do not rerun application checks unless evidence is missing, stale,
+  contradictory, or invalidated
+- do not merge unless explicitly requested
+- safely reconcile merged local and remote feature branches before starting new
+  mutation-based work
 
 ## Handoffs
 
-Before ending a substantive, multi-step, or interrupted work package, update
-[docs/handoffs/current.md](docs/handoffs/current.md) with the verified branch,
-objective, current status, files changed, validation performed, deferred
-validation, known issues, deferred decisions, and next checkpoint.
+Do not update `docs/handoffs/current.md` for routine completed work.
 
-A small, low-risk change that is completed in one session does not require a
-handoff update unless the issue or active work package explicitly requires one.
-
-A handoff reports state but does not approve scope, accept work, or resolve
-decisions.
+Use it only when work is interrupted, blocked, or must continue in another
+session and the state cannot be reconstructed cheaply from Git and GitHub.

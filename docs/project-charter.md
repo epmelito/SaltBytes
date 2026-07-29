@@ -19,14 +19,19 @@ AI-assisted engineering workflows.
 
 ## Current foundation
 
-The repository currently contains a local, configuration-driven weather
-forecast snapshot pipeline using Open-Meteo, immutable raw JSON storage,
-DuckDB, quality checks, run metadata, structured logging, automated tests,
-GitHub Actions, and a bounded forecast failure review skill.
+The repository currently contains a local, configuration-driven coastal
+conditions pipeline for five North Carolina locations.
 
-This implementation is the technical foundation. It is not yet a fishing
-conditions platform. The current `dev`, `test`, and `prod` environments are
-local configurations rather than deployed cloud environments.
+It ingests atmospheric conditions, wave conditions, sea-surface temperature,
+and NOAA tide predictions. It preserves passing raw data, normalized UTC data,
+quality results, provenance, run metadata, and revision history.
+
+This implementation is the technical foundation for the proof of concept. It
+does not yet provide one integrated coastal-conditions result or usable
+consumer-facing output.
+
+The current `dev`, `test`, and `prod` environments are local configurations
+rather than deployed cloud environments.
 
 ## Approved long-term capabilities
 
@@ -79,9 +84,6 @@ ForecastOps is not intended to:
 - support every North Carolina fishing location in its first release
 - implement every possible weather, marine, tide, biological, or fishing
   variable
-- begin product feature implementation before the governance package has been
-  reviewed, validated, merged into `main`, and its linked GitHub issue has been
-  closed
 
 ## AI-assisted engineering
 
@@ -96,8 +98,8 @@ evidence and review boundaries.
 
 ## Product progress
 
-Progress is measured against the approved roadmap stages and their completion
-evidence. Final product success metrics remain deferred.
+Near-term progress is measured against the proof-of-concept outcomes in the
+roadmap. Final product success metrics remain deferred.
 
 ## Deferred decisions
 
