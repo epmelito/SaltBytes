@@ -66,6 +66,26 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
                     },
                     "coastal_regime": "Atlantic-facing marine grid",
                 },
+                "tide": {
+                    "prediction_location": (
+                        "Jennettes Pier, Nags Head (ocean)"
+                    ),
+                    "station_id": "8652226",
+                    "relationship_type": "direct",
+                    "reference_station": "8651370",
+                    "high_time_offset_minutes": -5,
+                    "low_time_offset_minutes": 1,
+                    "high_multiplier": 1.04,
+                    "low_multiplier": 1.43,
+                    "distance_km": 0.448,
+                    "coastal_relationship": (
+                        "Direct use at the Atlantic-facing pier"
+                    ),
+                    "known_limitation": (
+                        "Prediction behavior remains distinct from observed "
+                        "water levels"
+                    ),
+                },
             },
             {
                 "id": "fort_fisher",
@@ -109,6 +129,25 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
                         "Atlantic-facing marine grid distinct from wave grid"
                     ),
                 },
+                "tide": {
+                    "prediction_location": "Wilmington Beach",
+                    "station_id": "8658559",
+                    "relationship_type": "transfer",
+                    "reference_station": "8654400",
+                    "high_time_offset_minutes": 18,
+                    "low_time_offset_minutes": 10,
+                    "high_multiplier": 1.4,
+                    "low_multiplier": 1.25,
+                    "distance_km": 9.308,
+                    "coastal_relationship": (
+                        "Explicit transfer from the nearest reviewed "
+                        "ocean-facing relationship"
+                    ),
+                    "known_limitation": (
+                        "The prediction relationship is materially north of "
+                        "the destination"
+                    ),
+                },
             },
         ],
         "api": {
@@ -128,6 +167,18 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
             "model": "meteofrance_currents",
             "forecast_days": 7,
             "hourly_fields": SST_FIELDS,
+        },
+        "tide_api": {
+            "base_url": (
+                "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+            ),
+            "product": "predictions",
+            "interval": "hilo",
+            "datum": "MLLW",
+            "time_zone": "gmt",
+            "units": "metric",
+            "format": "json",
+            "forecast_days": 7,
         },
         "storage": {
             "raw_data_path": str(tmp_path / "raw"),
@@ -206,8 +257,25 @@ def sst_payload(location: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def tide_payload(params: dict[str, Any]) -> dict[str, Any]:
+    start = datetime.strptime(params["begin_date"], "%Y%m%d")
+
+    return {
+        "predictions": [
+            {
+                "t": (
+                    start + timedelta(hours=index * 6)
+                ).strftime("%Y-%m-%d %H:%M"),
+                "v": str(0.1 if index % 2 == 0 else 1.2),
+                "type": "L" if index % 2 == 0 else "H",
+            }
+            for index in range(39)
+        ]
+    }
+
+
 @pytest.fixture(autouse=True)
-def stub_sst_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+def stub_later_source_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_fetch_sst_forecast(
         location: dict[str, Any],
         sst_api_config: dict[str, Any],
@@ -217,6 +285,17 @@ def stub_sst_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "forecast_ops.pipeline.fetch_sst_forecast",
         fake_fetch_sst_forecast,
+    )
+
+    def fake_fetch_tide_predictions(
+        tide_api_config: dict[str, Any],
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        return tide_payload(params)
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_tide_predictions",
+        fake_fetch_tide_predictions,
     )
 
 
@@ -330,7 +409,7 @@ def test_source_quality_failures_are_independent_and_collected(
     assert fetched_sst_locations == ["jennettes_pier", "fort_fisher"]
     assert run is not None
     assert run[0] == "failed"
-    assert run[1] == 504
+    assert run[1] == 918
     assert "wave quality checks failed for jennettes_pier" in run[2]
     assert "wave:returned_longitude_matches_expected" in run[2]
     assert "weather quality checks failed for fort_fisher" in run[2]
@@ -341,7 +420,9 @@ def test_source_quality_failures_are_independent_and_collected(
     assert snapshots == [
         ("fort_fisher", "meteofrance_currents"),
         ("fort_fisher", "meteofrance_wave"),
+        ("fort_fisher", None),
         ("jennettes_pier", "ncep_nbm_conus"),
+        ("jennettes_pier", None),
     ]
     assert weather_locations == [("jennettes_pier", 168)]
     assert wave_locations == [("fort_fisher", 168)]
@@ -353,13 +434,15 @@ def test_source_quality_failures_are_independent_and_collected(
         "jennettes_pier:weather",
         "jennettes_pier:wave",
         "jennettes_pier:sst",
+        "jennettes_pier:tide",
         "fort_fisher:weather",
         "fort_fisher:wave",
         "fort_fisher:sst",
+        "fort_fisher:tide",
     }
     assert any(status == "fail" for _, status in quality_results)
     assert any(status == "pass" for _, status in quality_results)
-    assert len(list((tmp_path / "raw").rglob("*.json"))) == 3
+    assert len(list((tmp_path / "raw").rglob("*.json"))) == 5
 
 
 def test_sst_preflight_rejection_preserves_independent_sources(
@@ -464,7 +547,7 @@ def test_sst_preflight_rejection_preserves_independent_sources(
     assert fetched_sst_locations == []
     assert run is not None
     assert run[0] == "failed"
-    assert run[1] == 672
+    assert run[1] == 1086
     assert str(error.value) == run[2]
     assert "sst quality checks failed for jennettes_pier" in run[2]
     assert "sst:relationship_present" in run[2]
@@ -473,8 +556,10 @@ def test_sst_preflight_rejection_preserves_independent_sources(
     assert snapshots == [
         ("fort_fisher", "meteofrance_wave"),
         ("fort_fisher", "ncep_nbm_conus"),
+        ("fort_fisher", None),
         ("jennettes_pier", "meteofrance_wave"),
         ("jennettes_pier", "ncep_nbm_conus"),
+        ("jennettes_pier", None),
     ]
     assert weather_locations == expected_source_rows
     assert wave_locations == expected_source_rows
@@ -486,7 +571,164 @@ def test_sst_preflight_rejection_preserves_independent_sources(
         ("jennettes_pier:sst:relationship_present",),
         ("jennettes_pier:sst:request_coordinate_usable",),
     ]
-    assert len(list((tmp_path / "raw").rglob("*.json"))) == 4
+    assert len(list((tmp_path / "raw").rglob("*.json"))) == 6
+
+
+def test_tide_preflight_rejection_preserves_other_sources_and_locations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    del config["locations"][0]["tide"]
+    config["locations"][1]["tide"]["coastal_relationship"] = ""
+    fetched_tide_stations: list[str] = []
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_forecast",
+        lambda location, api_config: atmospheric_payload(location),
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        lambda location, wave_api_config: wave_payload(location),
+    )
+
+    def record_tide_fetch(
+        tide_api_config: dict[str, Any],
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_tide_stations.append(params["station"])
+        return tide_payload(params)
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_tide_predictions",
+        record_tide_fetch,
+    )
+
+    with pytest.raises(ValueError) as error:
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+        source_counts = {
+            table_name: connection.execute(
+                f"select count(*) from {table_name}"
+            ).fetchone()
+            for table_name in (
+                "forecast_hourly",
+                "wave_hourly",
+                "sst_hourly",
+                "tide_snapshots",
+                "tide_events",
+                "tide_phase_hourly",
+            )
+        }
+        failed_checks = connection.execute(
+            """
+            select check_name
+            from quality_results
+            where status = 'fail'
+            order by check_name
+            """
+        ).fetchall()
+
+    assert fetched_tide_stations == []
+    assert run is not None
+    assert run[0] == "failed"
+    assert run[1] == 1008
+    assert str(error.value) == run[2]
+    assert "tide quality checks failed for jennettes_pier" in run[2]
+    assert "tide:relationship_present" in run[2]
+    assert "tide quality checks failed for fort_fisher" in run[2]
+    assert "tide:relationship_metadata_usable" in run[2]
+    assert source_counts == {
+        "forecast_hourly": (336,),
+        "wave_hourly": (336,),
+        "sst_hourly": (336,),
+        "tide_snapshots": (0,),
+        "tide_events": (0,),
+        "tide_phase_hourly": (0,),
+    }
+    assert (
+        "jennettes_pier:tide:relationship_present",
+    ) in failed_checks
+    assert (
+        "fort_fisher:tide:relationship_metadata_usable",
+    ) in failed_checks
+    assert len(list((tmp_path / "raw").rglob("*.json"))) == 6
+
+
+def test_rejected_tide_payload_does_not_block_later_location(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    fetched_tide_stations: list[str] = []
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_forecast",
+        lambda location, api_config: atmospheric_payload(location),
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        lambda location, wave_api_config: wave_payload(location),
+    )
+
+    def fetch_tide_with_first_result_invalid(
+        tide_api_config: dict[str, Any],
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_tide_stations.append(params["station"])
+        payload = tide_payload(params)
+
+        if params["station"] == "8652226":
+            payload["predictions"][4]["type"] = "H"
+
+        return payload
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_tide_predictions",
+        fetch_tide_with_first_result_invalid,
+    )
+
+    with pytest.raises(ValueError) as error:
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+        tide_snapshots = connection.execute(
+            """
+            select snapshots.location_id, tide.station_id
+            from tide_snapshots as tide
+            inner join forecast_snapshots as snapshots
+                on tide.snapshot_id = snapshots.snapshot_id
+            """
+        ).fetchall()
+        tide_event_count = connection.execute(
+            "select count(*) from tide_events"
+        ).fetchone()
+        tide_phase_count = connection.execute(
+            "select count(*) from tide_phase_hourly"
+        ).fetchone()
+
+    assert fetched_tide_stations == ["8652226", "8658559"]
+    assert run is not None
+    assert run[0] == "failed"
+    assert run[1] == 1215
+    assert str(error.value) == run[2]
+    assert "tide quality checks failed for jennettes_pier" in run[2]
+    assert "tide:prediction_events_alternate" in run[2]
+    assert tide_snapshots == [("fort_fisher", "8658559")]
+    assert tide_event_count == (39,)
+    assert tide_phase_count == (168,)
+    assert len(list((tmp_path / "raw").rglob("*.json"))) == 7
 
 
 def test_api_failure_is_recorded_and_aborts(
@@ -1007,3 +1249,129 @@ def test_sst_persistence_failures_abort_immediately(
         ).fetchone()
 
     assert run == ("failed", 336, message)
+
+
+def test_tide_api_failure_is_recorded_and_aborts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    fetched_tide_stations: list[str] = []
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_forecast",
+        lambda location, api_config: atmospheric_payload(location),
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        lambda location, wave_api_config: wave_payload(location),
+    )
+
+    def fail_fetch_tide_predictions(
+        tide_api_config: dict[str, Any],
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        fetched_tide_stations.append(params["station"])
+        raise RuntimeError("tide api unavailable")
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_tide_predictions",
+        fail_fetch_tide_predictions,
+    )
+
+    with pytest.raises(RuntimeError, match="tide api unavailable"):
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+
+    assert fetched_tide_stations == ["8652226"]
+    assert run == ("failed", 504, "tide api unavailable")
+
+
+@pytest.mark.parametrize(
+    ("failure_point", "message"),
+    [
+        ("quality", "tide quality database unavailable"),
+        ("raw", "tide raw storage unavailable"),
+        ("snapshot", "tide snapshot database unavailable"),
+        ("events", "tide event storage unavailable"),
+        ("phase", "tide phase storage unavailable"),
+    ],
+)
+def test_tide_persistence_failures_abort_immediately(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_point: str,
+    message: str,
+) -> None:
+    config = pipeline_config(tmp_path)
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_forecast",
+        lambda location, api_config: atmospheric_payload(location),
+    )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        lambda location, wave_api_config: wave_payload(location),
+    )
+
+    if failure_point == "quality":
+        from forecast_ops.database import (
+            insert_quality_result as real_quality_insert,
+        )
+
+        def fail_tide_quality_insert(**kwargs: Any) -> None:
+            if ":tide:" in kwargs["check_name"]:
+                raise RuntimeError(message)
+            real_quality_insert(**kwargs)
+
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.insert_quality_result",
+            fail_tide_quality_insert,
+        )
+    elif failure_point == "raw":
+        from forecast_ops.storage import write_raw_snapshot as real_write
+
+        raw_write_count = 0
+
+        def fail_tide_raw_write(**kwargs: Any) -> dict[str, Any]:
+            nonlocal raw_write_count
+            raw_write_count += 1
+            if raw_write_count == 4:
+                raise OSError(message)
+            return real_write(**kwargs)
+
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.write_raw_snapshot",
+            fail_tide_raw_write,
+        )
+    elif failure_point == "snapshot":
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.insert_tide_snapshot",
+            lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
+        )
+    elif failure_point == "events":
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.insert_tide_events",
+            lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
+        )
+    else:
+        monkeypatch.setattr(
+            "forecast_ops.pipeline.insert_tide_phase_hourly",
+            lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
+        )
+
+    with pytest.raises((OSError, RuntimeError), match=message):
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+
+    assert run == ("failed", 504, message)

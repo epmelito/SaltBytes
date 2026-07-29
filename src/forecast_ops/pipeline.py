@@ -4,8 +4,10 @@ from pathlib import Path
 from typing import Any
 
 from forecast_ops.api import (
+    build_tide_params,
     fetch_forecast,
     fetch_sst_forecast,
+    fetch_tide_predictions,
     fetch_wave_forecast,
 )
 from forecast_ops.database import (
@@ -16,11 +18,19 @@ from forecast_ops.database import (
     insert_pipeline_run,
     insert_quality_result,
     insert_sst_hourly,
+    insert_tide_events,
+    insert_tide_phase_hourly,
+    insert_tide_snapshot,
     insert_wave_hourly,
 )
 from forecast_ops.quality import (
+    build_tide_forecast_times,
+    derive_tide_phases,
+    normalize_tide_events,
     run_payload_quality_checks,
     run_sst_preflight_checks,
+    run_tide_preflight_checks,
+    run_tide_quality_checks,
 )
 from forecast_ops.storage import create_run_id, write_raw_snapshot
 
@@ -33,6 +43,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     api_config = config["api"]
     wave_api_config = config["wave_api"]
     sst_api_config = config["sst_api"]
+    tide_api_config = config["tide_api"]
     storage_config = config["storage"]
 
     database_path = Path(storage_config["database_path"])
@@ -61,6 +72,11 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     )
 
     try:
+        tide_forecast_times = build_tide_forecast_times(
+            started_at,
+            tide_api_config["forecast_days"],
+        )
+
         for location in locations:
             weather_request_coordinate = location["weather"][
                 "request_coordinate"
@@ -327,27 +343,134 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     location["id"],
                     failed_check_names,
                 )
-                continue
+            else:
+                sst_config = location["sst"]
+                sst_request_coordinate = sst_config["request_coordinate"]
+                sst_payload = fetch_sst_forecast(
+                    location=location,
+                    sst_api_config=sst_api_config,
+                )
 
-            sst_config = location["sst"]
-            sst_request_coordinate = sst_config["request_coordinate"]
-            sst_payload = fetch_sst_forecast(
-                location=location,
-                sst_api_config=sst_api_config,
+                sst_quality_results = run_payload_quality_checks(
+                    payload=sst_payload,
+                    expected_hourly_fields=sst_api_config["hourly_fields"],
+                    model_selector=sst_api_config["model"],
+                    expected_returned_coordinate=sst_config[
+                        "expected_returned_coordinate"
+                    ],
+                    expected_model_selector="meteofrance_currents",
+                    source_label="sst",
+                )
+
+                for quality_result in sst_quality_results:
+                    insert_quality_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        check_name=(
+                            f"{location['id']}:"
+                            f"{quality_result['check_name']}"
+                        ),
+                        status=str(quality_result["status"]),
+                        observed_value=str(
+                            quality_result["observed_value"]
+                        ),
+                        expected_value=str(
+                            quality_result["expected_value"]
+                        ),
+                        checked_at=quality_result["checked_at"],
+                    )
+
+                failed_sst_checks = [
+                    quality_result
+                    for quality_result in sst_quality_results
+                    if quality_result["status"] == "fail"
+                ]
+
+                if failed_sst_checks:
+                    failed_check_names = ", ".join(
+                        str(quality_result["check_name"])
+                        for quality_result in failed_sst_checks
+                    )
+                    location_failure = (
+                        f"sst quality checks failed for {location['id']}: "
+                        f"{failed_check_names}"
+                    )
+                    location_failures.append(location_failure)
+                    logger.error(
+                        "sst quality checks failed run_id=%s location=%s "
+                        "checks=%s",
+                        run_id,
+                        location["id"],
+                        failed_check_names,
+                    )
+                else:
+                    logger.info(
+                        "sst quality checks passed run_id=%s location=%s "
+                        "checks=%s",
+                        run_id,
+                        location["id"],
+                        len(sst_quality_results),
+                    )
+
+                    sst_metadata = write_raw_snapshot(
+                        payload=sst_payload,
+                        location_id=location["id"],
+                        raw_data_path=raw_data_path,
+                        run_id=run_id,
+                    )
+                    sst_metadata.update(
+                        {
+                            "model_selector": sst_api_config["model"],
+                            "request_latitude": sst_request_coordinate[
+                                "latitude"
+                            ],
+                            "request_longitude": sst_request_coordinate[
+                                "longitude"
+                            ],
+                            "returned_latitude": sst_payload["latitude"],
+                            "returned_longitude": sst_payload["longitude"],
+                            "response_timezone": sst_payload["timezone"],
+                            "response_utc_offset_seconds": sst_payload[
+                                "utc_offset_seconds"
+                            ],
+                        }
+                    )
+
+                    insert_forecast_snapshot(
+                        database_path=database_path,
+                        metadata=sst_metadata,
+                    )
+
+                    sst_rows_loaded = insert_sst_hourly(
+                        database_path=database_path,
+                        snapshot_id=sst_metadata["snapshot_id"],
+                        location_id=location["id"],
+                        payload=sst_payload,
+                    )
+
+                    rows_loaded += sst_rows_loaded
+                    snapshots_written += 1
+
+                    logger.info(
+                        "sst processing completed run_id=%s location=%s "
+                        "rows=%s",
+                        run_id,
+                        location["id"],
+                        sst_rows_loaded,
+                    )
+
+            logger.info(
+                "tide processing started run_id=%s location=%s",
+                run_id,
+                location["id"],
             )
 
-            sst_quality_results = run_payload_quality_checks(
-                payload=sst_payload,
-                expected_hourly_fields=sst_api_config["hourly_fields"],
-                model_selector=sst_api_config["model"],
-                expected_returned_coordinate=sst_config[
-                    "expected_returned_coordinate"
-                ],
-                expected_model_selector="meteofrance_currents",
-                source_label="sst",
+            tide_preflight_results = run_tide_preflight_checks(
+                location,
+                tide_api_config,
             )
 
-            for quality_result in sst_quality_results:
+            for quality_result in tide_preflight_results:
                 insert_quality_result(
                     database_path=database_path,
                     run_id=run_id,
@@ -358,77 +481,134 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     checked_at=quality_result["checked_at"],
                 )
 
-            failed_sst_checks = [
+            failed_tide_preflight_checks = [
                 quality_result
-                for quality_result in sst_quality_results
+                for quality_result in tide_preflight_results
                 if quality_result["status"] == "fail"
             ]
 
-            if failed_sst_checks:
+            if failed_tide_preflight_checks:
                 failed_check_names = ", ".join(
                     str(quality_result["check_name"])
-                    for quality_result in failed_sst_checks
+                    for quality_result in failed_tide_preflight_checks
                 )
                 location_failure = (
-                    f"sst quality checks failed for {location['id']}: "
+                    f"tide quality checks failed for {location['id']}: "
                     f"{failed_check_names}"
                 )
                 location_failures.append(location_failure)
                 logger.error(
-                    "sst quality checks failed run_id=%s location=%s checks=%s",
+                    "tide preflight quality checks failed run_id=%s "
+                    "location=%s checks=%s",
                     run_id,
                     location["id"],
                     failed_check_names,
                 )
             else:
-                logger.info(
-                    "sst quality checks passed run_id=%s location=%s checks=%s",
-                    run_id,
-                    location["id"],
-                    len(sst_quality_results),
+                captured_at = datetime.now(timezone.utc)
+                tide_params = build_tide_params(
+                    location=location,
+                    tide_api_config=tide_api_config,
+                    forecast_start=tide_forecast_times[0],
+                )
+                request_provenance = {
+                    **tide_params,
+                    "captured_at": captured_at,
+                }
+                tide_payload = fetch_tide_predictions(
+                    tide_api_config=tide_api_config,
+                    params=tide_params,
+                )
+                tide_quality_results = run_tide_quality_checks(
+                    payload=tide_payload,
+                    request_provenance=request_provenance,
+                    forecast_times=tide_forecast_times,
                 )
 
-                sst_metadata = write_raw_snapshot(
-                    payload=sst_payload,
-                    location_id=location["id"],
-                    raw_data_path=raw_data_path,
-                    run_id=run_id,
-                )
-                sst_metadata.update(
-                    {
-                        "model_selector": sst_api_config["model"],
-                        "request_latitude": sst_request_coordinate["latitude"],
-                        "request_longitude": sst_request_coordinate["longitude"],
-                        "returned_latitude": sst_payload["latitude"],
-                        "returned_longitude": sst_payload["longitude"],
-                        "response_timezone": sst_payload["timezone"],
-                        "response_utc_offset_seconds": sst_payload[
-                            "utc_offset_seconds"
-                        ],
-                    }
-                )
+                for quality_result in tide_quality_results:
+                    insert_quality_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        check_name=(
+                            f"{location['id']}:"
+                            f"{quality_result['check_name']}"
+                        ),
+                        status=str(quality_result["status"]),
+                        observed_value=str(
+                            quality_result["observed_value"]
+                        ),
+                        expected_value=str(
+                            quality_result["expected_value"]
+                        ),
+                        checked_at=quality_result["checked_at"],
+                    )
 
-                insert_forecast_snapshot(
-                    database_path=database_path,
-                    metadata=sst_metadata,
-                )
+                failed_tide_checks = [
+                    quality_result
+                    for quality_result in tide_quality_results
+                    if quality_result["status"] == "fail"
+                ]
 
-                sst_rows_loaded = insert_sst_hourly(
-                    database_path=database_path,
-                    snapshot_id=sst_metadata["snapshot_id"],
-                    location_id=location["id"],
-                    payload=sst_payload,
-                )
+                if failed_tide_checks:
+                    failed_check_names = ", ".join(
+                        str(quality_result["check_name"])
+                        for quality_result in failed_tide_checks
+                    )
+                    location_failure = (
+                        f"tide quality checks failed for {location['id']}: "
+                        f"{failed_check_names}"
+                    )
+                    location_failures.append(location_failure)
+                    logger.error(
+                        "tide quality checks failed run_id=%s location=%s "
+                        "checks=%s",
+                        run_id,
+                        location["id"],
+                        failed_check_names,
+                    )
+                else:
+                    tide_events = normalize_tide_events(tide_payload)
+                    tide_phases = derive_tide_phases(
+                        tide_events,
+                        tide_forecast_times,
+                    )
+                    tide_metadata = write_raw_snapshot(
+                        payload=tide_payload,
+                        location_id=location["id"],
+                        raw_data_path=raw_data_path,
+                        run_id=run_id,
+                        captured_at=captured_at,
+                    )
+                    insert_tide_snapshot(
+                        database_path=database_path,
+                        metadata=tide_metadata,
+                        request_provenance=request_provenance,
+                        relationship=location["tide"],
+                    )
+                    tide_event_rows = insert_tide_events(
+                        database_path=database_path,
+                        snapshot_id=tide_metadata["snapshot_id"],
+                        location_id=location["id"],
+                        events=tide_events,
+                    )
+                    tide_phase_rows = insert_tide_phase_hourly(
+                        database_path=database_path,
+                        snapshot_id=tide_metadata["snapshot_id"],
+                        location_id=location["id"],
+                        phases=tide_phases,
+                    )
 
-                rows_loaded += sst_rows_loaded
-                snapshots_written += 1
+                    rows_loaded += tide_event_rows + tide_phase_rows
+                    snapshots_written += 1
 
-                logger.info(
-                    "sst processing completed run_id=%s location=%s rows=%s",
-                    run_id,
-                    location["id"],
-                    sst_rows_loaded,
-                )
+                    logger.info(
+                        "tide processing completed run_id=%s location=%s "
+                        "events=%s phases=%s",
+                        run_id,
+                        location["id"],
+                        tide_event_rows,
+                        tide_phase_rows,
+                    )
 
         if location_failures:
             raise ValueError("; ".join(location_failures))

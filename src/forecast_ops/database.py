@@ -66,6 +66,49 @@ create table if not exists sst_hourly (
     foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
 );
 
+create table if not exists tide_snapshots (
+    snapshot_id varchar primary key,
+    station_id varchar not null,
+    prediction_location varchar not null,
+    relationship_type varchar not null,
+    reference_station varchar,
+    product varchar not null,
+    interval varchar not null,
+    datum varchar not null,
+    time_zone varchar not null,
+    units varchar not null,
+    response_format varchar not null,
+    request_begin_date date not null,
+    request_end_date date not null,
+    high_time_offset_minutes integer,
+    low_time_offset_minutes integer,
+    high_multiplier double,
+    low_multiplier double,
+    distance_km double not null,
+    coastal_relationship varchar not null,
+    known_limitation varchar not null,
+    foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
+);
+
+create table if not exists tide_events (
+    snapshot_id varchar not null,
+    location_id varchar not null,
+    event_time timestamptz not null,
+    event_type varchar not null,
+    predicted_water_level double not null,
+    primary key (snapshot_id, location_id, event_time),
+    foreign key (snapshot_id) references tide_snapshots(snapshot_id)
+);
+
+create table if not exists tide_phase_hourly (
+    snapshot_id varchar not null,
+    location_id varchar not null,
+    forecast_time timestamptz not null,
+    phase varchar not null,
+    primary key (snapshot_id, location_id, forecast_time),
+    foreign key (snapshot_id) references tide_snapshots(snapshot_id)
+);
+
 create table if not exists quality_results (
     run_id varchar not null,
     check_name varchar not null,
@@ -300,6 +343,59 @@ select
         - previous_sea_surface_temperature
         as sea_surface_temperature_change
 from ordered_sst_forecasts
+where previous_snapshot_id is not null;
+
+create or replace view tide_revision_changes as
+with ordered_tide_phases as (
+    select
+        hourly.location_id,
+        tide.station_id,
+        tide.product,
+        tide.datum,
+        hourly.forecast_time,
+        snapshots.captured_at,
+        hourly.snapshot_id,
+        hourly.phase,
+        lag(hourly.snapshot_id) over (
+            partition by
+                hourly.location_id,
+                tide.station_id,
+                tide.product,
+                tide.datum,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_snapshot_id,
+        lag(hourly.phase) over (
+            partition by
+                hourly.location_id,
+                tide.station_id,
+                tide.product,
+                tide.datum,
+                hourly.forecast_time
+            order by
+                snapshots.captured_at,
+                hourly.snapshot_id
+        ) as previous_phase
+    from tide_phase_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on hourly.snapshot_id = snapshots.snapshot_id
+    inner join tide_snapshots as tide
+        on hourly.snapshot_id = tide.snapshot_id
+)
+select
+    location_id,
+    station_id,
+    product,
+    datum,
+    forecast_time,
+    captured_at,
+    snapshot_id,
+    previous_snapshot_id,
+    phase,
+    previous_phase
+from ordered_tide_phases
 where previous_snapshot_id is not null;
 """
 
@@ -667,6 +763,173 @@ def insert_sst_hourly(
                 location_id,
                 forecast_time,
                 sea_surface_temperature
+            )
+            values (?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+    return len(rows)
+
+
+# insert one tide raw snapshot and its distinct NOAA request provenance
+def insert_tide_snapshot(
+    database_path: Path | str,
+    metadata: dict[str, Any],
+    request_provenance: dict[str, Any],
+    relationship: dict[str, Any],
+) -> None:
+    request_begin_date = datetime.strptime(
+        request_provenance["begin_date"],
+        "%Y%m%d",
+    ).date()
+    request_end_date = datetime.strptime(
+        request_provenance["end_date"],
+        "%Y%m%d",
+    ).date()
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("begin transaction")
+
+        try:
+            connection.execute(
+                """
+                insert into forecast_snapshots (
+                    snapshot_id,
+                    run_id,
+                    location_id,
+                    captured_at,
+                    raw_file_path
+                )
+                values (?, ?, ?, ?, ?)
+                """,
+                [
+                    metadata["snapshot_id"],
+                    metadata["run_id"],
+                    metadata["location_id"],
+                    metadata["captured_at"],
+                    metadata["raw_file_path"],
+                ],
+            )
+            connection.execute(
+                """
+                insert into tide_snapshots (
+                    snapshot_id,
+                    station_id,
+                    prediction_location,
+                    relationship_type,
+                    reference_station,
+                    product,
+                    interval,
+                    datum,
+                    time_zone,
+                    units,
+                    response_format,
+                    request_begin_date,
+                    request_end_date,
+                    high_time_offset_minutes,
+                    low_time_offset_minutes,
+                    high_multiplier,
+                    low_multiplier,
+                    distance_km,
+                    coastal_relationship,
+                    known_limitation
+                )
+                values (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                [
+                    metadata["snapshot_id"],
+                    request_provenance["station"],
+                    relationship["prediction_location"],
+                    relationship["relationship_type"],
+                    relationship["reference_station"],
+                    request_provenance["product"],
+                    request_provenance["interval"],
+                    request_provenance["datum"],
+                    request_provenance["time_zone"],
+                    request_provenance["units"],
+                    request_provenance["format"],
+                    request_begin_date,
+                    request_end_date,
+                    relationship["high_time_offset_minutes"],
+                    relationship["low_time_offset_minutes"],
+                    relationship["high_multiplier"],
+                    relationship["low_multiplier"],
+                    relationship["distance_km"],
+                    relationship["coastal_relationship"],
+                    relationship["known_limitation"],
+                ],
+            )
+        except Exception:
+            connection.execute("rollback")
+            raise
+        else:
+            connection.execute("commit")
+
+
+# insert normalized NOAA high and low events for one tide snapshot
+def insert_tide_events(
+    database_path: Path | str,
+    snapshot_id: str,
+    location_id: str,
+    events: list[dict[str, Any]],
+) -> int:
+    rows = [
+        (
+            snapshot_id,
+            location_id,
+            event["event_time"],
+            event["event_type"],
+            event["predicted_water_level"],
+        )
+        for event in events
+    ]
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.executemany(
+            """
+            insert into tide_events (
+                snapshot_id,
+                location_id,
+                event_time,
+                event_type,
+                predicted_water_level
+            )
+            values (?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+    return len(rows)
+
+
+# insert the accepted binary tide phase for each forecast valid time
+def insert_tide_phase_hourly(
+    database_path: Path | str,
+    snapshot_id: str,
+    location_id: str,
+    phases: list[dict[str, Any]],
+) -> int:
+    rows = [
+        (
+            snapshot_id,
+            location_id,
+            phase["forecast_time"],
+            phase["phase"],
+        )
+        for phase in phases
+    ]
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.executemany(
+            """
+            insert into tide_phase_hourly (
+                snapshot_id,
+                location_id,
+                forecast_time,
+                phase
             )
             values (?, ?, ?, ?)
             """,

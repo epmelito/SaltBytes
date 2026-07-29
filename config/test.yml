@@ -30,6 +30,18 @@ locations:
         latitude: 35.875
         longitude: -75.54166
       coastal_regime: Atlantic-facing marine grid
+    tide:
+      prediction_location: Jennettes Pier, Nags Head (ocean)
+      station_id: "8652226"
+      relationship_type: direct
+      reference_station: "8651370"
+      high_time_offset_minutes: -5
+      low_time_offset_minutes: 1
+      high_multiplier: 1.04
+      low_multiplier: 1.43
+      distance_km: 0.448
+      coastal_relationship: Direct use at the Atlantic-facing pier
+      known_limitation: Prediction behavior remains distinct from observed water levels
 
   - id: ocracoke_ramp_72
     name: Beach Access Ramp 72, Ocracoke Island
@@ -60,6 +72,18 @@ locations:
         latitude: 35.125
         longitude: -75.95833
       coastal_regime: Ocean-side Atlantic grid
+    tide:
+      prediction_location: Ocracoke Inlet
+      station_id: TEC2793
+      relationship_type: transfer
+      reference_station: "8654400"
+      high_time_offset_minutes: 9
+      low_time_offset_minutes: 11
+      high_multiplier: 0.63
+      low_multiplier: 0.83
+      distance_km: 3.697
+      coastal_relationship: Explicit transfer to the southern ocean-side surf location
+      known_limitation: Transfer does not authorize inlet-current interpretation
 
   - id: fort_macon_ocean
     name: Fort Macon State Park, ocean side
@@ -90,6 +114,18 @@ locations:
         latitude: 34.625
         longitude: -76.70833
       coastal_regime: Atlantic-facing marine grid
+    tide:
+      prediction_location: Atlantic Beach
+      station_id: "8656590"
+      relationship_type: transfer
+      reference_station: null
+      high_time_offset_minutes: null
+      low_time_offset_minutes: null
+      high_multiplier: null
+      low_multiplier: null
+      distance_km: 1.321
+      coastal_relationship: Explicit transfer to the nearby Atlantic-facing beach
+      known_limitation: It is not a prediction location at the park destination
 
   - id: bogue_inlet_pier
     name: Bogue Inlet Pier
@@ -120,6 +156,18 @@ locations:
         latitude: 34.625
         longitude: -77.04166
       coastal_regime: Atlantic-facing marine grid
+    tide:
+      prediction_location: Bogue Inlet
+      station_id: TEC2837
+      relationship_type: transfer
+      reference_station: "8654400"
+      high_time_offset_minutes: 13
+      low_time_offset_minutes: 15
+      high_multiplier: 0.73
+      low_multiplier: 0.83
+      distance_km: 6.164
+      coastal_relationship: Explicit transfer for tide phase at the pier
+      known_limitation: Transfer does not authorize inlet-current interpretation
 
   - id: fort_fisher
     name: Fort Fisher State Recreation Area
@@ -150,6 +198,18 @@ locations:
         latitude: 33.958336
         longitude: -77.87499
       coastal_regime: Atlantic-facing marine grid distinct from wave grid
+    tide:
+      prediction_location: Wilmington Beach
+      station_id: "8658559"
+      relationship_type: transfer
+      reference_station: "8654400"
+      high_time_offset_minutes: 18
+      low_time_offset_minutes: 10
+      high_multiplier: 1.40
+      low_multiplier: 1.25
+      distance_km: 9.308
+      coastal_relationship: Explicit transfer from the nearest reviewed ocean-facing relationship
+      known_limitation: The prediction relationship is materially north of the destination
 
 api:
   base_url: https://api.open-meteo.com/v1/forecast
@@ -177,6 +237,16 @@ sst_api:
   forecast_days: 7
   hourly_fields:
     - sea_surface_temperature
+
+tide_api:
+  base_url: https://api.tidesandcurrents.noaa.gov/api/prod/datagetter
+  product: predictions
+  interval: hilo
+  datum: MLLW
+  time_zone: gmt
+  units: metric
+  format: json
+  forecast_days: 7
 
 storage:
   raw_data_path: data/test/raw

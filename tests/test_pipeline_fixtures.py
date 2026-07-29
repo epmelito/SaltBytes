@@ -88,6 +88,28 @@ def sst_payload(
     }
 
 
+def tide_payload(
+    params: dict[str, Any],
+    value_offset: float,
+) -> dict[str, Any]:
+    start = datetime.strptime(params["begin_date"], "%Y%m%d")
+
+    return {
+        "predictions": [
+            {
+                "t": (
+                    start + timedelta(hours=index * 6)
+                ).strftime("%Y-%m-%d %H:%M"),
+                "v": str(
+                    (0.1 if index % 2 == 0 else 1.2) + value_offset
+                ),
+                "type": "L" if index % 2 == 0 else "H",
+            }
+            for index in range(39)
+        ]
+    }
+
+
 def test_run_pipeline_ingests_all_five_coastal_locations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -100,6 +122,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     weather_payloads: dict[str, dict[str, Any]] = {}
     wave_payloads: dict[str, dict[str, Any]] = {}
     sst_payloads: dict[str, dict[str, Any]] = {}
+    tide_payloads: dict[str, dict[str, Any]] = {}
 
     def fake_fetch_forecast(
         location: dict[str, Any],
@@ -165,11 +188,30 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         fake_fetch_sst_forecast,
     )
 
+    def fake_fetch_tide_predictions(
+        tide_api_config: dict[str, Any],
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        location = next(
+            location
+            for location in config["locations"]
+            if location["tide"]["station_id"] == params["station"]
+        )
+        value_offset = float(config["locations"].index(location))
+        payload = tide_payload(params, value_offset)
+        tide_payloads[location["id"]] = payload
+        return payload
+
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_tide_predictions",
+        fake_fetch_tide_predictions,
+    )
+
     result = run_pipeline(config)
 
     assert result["status"] == "success"
-    assert result["snapshots_written"] == 15
-    assert result["rows_loaded"] == 2520
+    assert result["snapshots_written"] == 20
+    assert result["rows_loaded"] == 3555
 
     database_path = Path(config["storage"]["database_path"])
 
@@ -220,6 +262,34 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             from sst_hourly
             group by location_id
             order by location_id
+            """
+        ).fetchall()
+        tide_event_counts = connection.execute(
+            """
+            select location_id, count(*)
+            from tide_events
+            group by location_id
+            order by location_id
+            """
+        ).fetchall()
+        tide_phase_counts = connection.execute(
+            """
+            select location_id, count(*)
+            from tide_phase_hourly
+            group by location_id
+            order by location_id
+            """
+        ).fetchall()
+        tide_relationships = connection.execute(
+            """
+            select
+                snapshots.location_id,
+                tide.station_id,
+                tide.relationship_type
+            from tide_snapshots as tide
+            inner join forecast_snapshots as snapshots
+                on tide.snapshot_id = snapshots.snapshot_id
+            order by snapshots.location_id
             """
         ).fetchall()
         first_weather_rows = connection.execute(
@@ -280,7 +350,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         for location in config["locations"]
     }
 
-    assert run == ("success", 2520, None)
+    assert run == ("success", 3555, None)
     assert weather_hourly_counts == [
         ("bogue_inlet_pier", 168),
         ("fort_fisher", 168),
@@ -290,6 +360,21 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     ]
     assert wave_hourly_counts == weather_hourly_counts
     assert sst_hourly_counts == weather_hourly_counts
+    assert tide_event_counts == [
+        ("bogue_inlet_pier", 39),
+        ("fort_fisher", 39),
+        ("fort_macon_ocean", 39),
+        ("jennettes_pier", 39),
+        ("ocracoke_ramp_72", 39),
+    ]
+    assert tide_phase_counts == weather_hourly_counts
+    assert tide_relationships == [
+        ("bogue_inlet_pier", "TEC2837", "transfer"),
+        ("fort_fisher", "8658559", "transfer"),
+        ("fort_macon_ocean", "8656590", "transfer"),
+        ("jennettes_pier", "8652226", "direct"),
+        ("ocracoke_ramp_72", "TEC2793", "transfer"),
+    ]
     assert len(first_weather_rows) == 5
     assert all(row[1] is None for row in first_weather_rows)
     assert all(
@@ -303,12 +388,12 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     )
     assert len(first_sst_rows) == 5
     assert all(row[1] is not None for row in first_sst_rows)
-    assert len(quality_results) == 365
+    assert len(quality_results) == 485
     assert all(status == "pass" for _, status in quality_results)
     assert {
         check_name.split(":", maxsplit=2)[1]
         for check_name, _ in quality_results
-    } == {"weather", "wave", "sst"}
+    } == {"weather", "wave", "sst", "tide"}
 
     for snapshot in snapshots:
         location_id = snapshot[0]
@@ -321,9 +406,17 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         elif model_selector == "meteofrance_wave":
             source_relationship = location["wave"]
             expected_payload = wave_payloads[location_id]
-        else:
+        elif model_selector == "meteofrance_currents":
             source_relationship = location["sst"]
             expected_payload = sst_payloads[location_id]
+        else:
+            assert snapshot[3:] == (None, None, None, None, None, None)
+            expected_payload = tide_payloads[location_id]
+            assert raw_file_path.exists()
+            assert json.loads(
+                raw_file_path.read_text(encoding="utf-8")
+            ) == expected_payload
+            continue
         request_coordinate = source_relationship["request_coordinate"]
         returned_coordinate = source_relationship[
             "expected_returned_coordinate"
@@ -342,7 +435,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             raw_file_path.read_text(encoding="utf-8")
         ) == expected_payload
 
-    assert len(snapshots) == 15
+    assert len(snapshots) == 20
     assert {
         snapshot[2]
         for snapshot in snapshots
@@ -350,5 +443,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         "ncep_nbm_conus",
         "meteofrance_wave",
         "meteofrance_currents",
+        None,
     }
-    assert len({snapshot[1] for snapshot in snapshots}) == 15
+    assert len({snapshot[1] for snapshot in snapshots}) == 20

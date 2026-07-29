@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -6,9 +7,11 @@ import pytest
 from forecast_ops.api import (
     build_forecast_params,
     build_sst_params,
+    build_tide_params,
     build_wave_params,
     fetch_forecast,
     fetch_sst_forecast,
+    fetch_tide_predictions,
     fetch_wave_forecast,
 )
 
@@ -54,6 +57,9 @@ def coastal_location() -> dict[str, Any]:
             },
             "coastal_regime": "Atlantic-facing marine grid",
         },
+        "tide": {
+            "station_id": "8656590",
+        },
     }
 
 
@@ -91,6 +97,21 @@ def sst_api_config() -> dict[str, Any]:
         "model": "meteofrance_currents",
         "forecast_days": 7,
         "hourly_fields": ["sea_surface_temperature"],
+    }
+
+
+def tide_api_config() -> dict[str, Any]:
+    return {
+        "base_url": (
+            "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+        ),
+        "product": "predictions",
+        "interval": "hilo",
+        "datum": "MLLW",
+        "time_zone": "gmt",
+        "units": "metric",
+        "format": "json",
+        "forecast_days": 7,
     }
 
 
@@ -142,6 +163,26 @@ def test_build_sst_params_uses_product_specific_relationship() -> None:
         "forecast_days": 7,
         "hourly": "sea_surface_temperature",
         "timezone": "auto",
+    }
+
+
+def test_build_tide_params_uses_accepted_noaa_contract_and_padding() -> None:
+    params = build_tide_params(
+        coastal_location(),
+        tide_api_config(),
+        datetime(2026, 7, 28, 10, tzinfo=timezone.utc),
+    )
+
+    assert params == {
+        "station": "8656590",
+        "begin_date": "20260727",
+        "end_date": "20260805",
+        "product": "predictions",
+        "interval": "hilo",
+        "datum": "MLLW",
+        "time_zone": "gmt",
+        "units": "metric",
+        "format": "json",
     }
 
 
@@ -514,3 +555,91 @@ def test_fetch_sst_forecast_rejects_non_object_json(
             coastal_location(),
             sst_api_config(),
         )
+
+
+def test_fetch_tide_predictions_returns_json_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "predictions": [
+            {"t": "2026-07-27 18:00", "v": "0.1", "type": "L"},
+            {"t": "2026-07-28 00:00", "v": "1.2", "type": "H"},
+        ]
+    }
+    params = build_tide_params(
+        coastal_location(),
+        tide_api_config(),
+        datetime(2026, 7, 28, tzinfo=timezone.utc),
+    )
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return payload
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> FakeResponse:
+            assert url == tide_api_config()["base_url"]
+            assert params == build_tide_params(
+                coastal_location(),
+                tide_api_config(),
+                datetime(2026, 7, 28, tzinfo=timezone.utc),
+            )
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+
+    result = fetch_tide_predictions(tide_api_config(), params)
+
+    assert result == payload
+
+
+def test_fetch_tide_predictions_rejects_non_object_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[str]:
+            return ["unexpected"]
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+
+    with pytest.raises(
+        ValueError,
+        match="tide prediction api response must contain a json object",
+    ):
+        fetch_tide_predictions(tide_api_config(), {})
