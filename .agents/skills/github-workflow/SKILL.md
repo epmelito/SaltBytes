@@ -31,6 +31,22 @@ Do not ask for confirmation before routine inspection, issue comments, applying
 an existing appropriate label, assigning the repository owner, pushing the
 authorized branch, or creating a requested pull request.
 
+## Startup reconciliation
+
+Before starting a new work package or another mutation-based GitHub workflow,
+reconcile the working tree, current local branch, remote branch, pull request,
+and linked issue state without requiring a separate user request.
+
+When the current branch belongs to a merged pull request, verify the merge and
+expected issue closure, switch to and synchronize the target branch, confirm
+the merged change is present, delete the merged local branch when safe, and
+verify the working tree is clean before starting new work.
+
+Stop when reconciliation would discard local changes, delete an unmerged
+branch, conflict with repository policy, or require a genuine decision.
+Read-only GitHub tasks do not mutate the local repository unless their result
+depends on local state.
+
 ## Dynamic labels
 
 - Inspect the available repository labels and the active work package.
@@ -72,7 +88,8 @@ authorized branch, or creating a requested pull request.
 - Do not include unrelated working tree changes.
 - Confirm the commit contains the intended paths before pushing.
 - Do not force push.
-- Do not delete branches unless explicitly requested.
+- Delete a local branch only through safe startup reconciliation or when
+  explicitly requested.
 
 ## Human decision gates
 
