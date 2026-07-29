@@ -1,66 +1,41 @@
 # Environments
 
-ForecastOps uses `dev`, `test`, and `prod` as local environment configurations.
-They do not represent deployed cloud environments.
+ForecastOps uses three local YAML configurations:
 
-## Shared source contracts
+```text
+config/dev.yml
+config/test.yml
+config/prod.yml
+```
 
-Every environment configures:
+They are complete local configuration variants, not deployed cloud
+environments.
 
-- the five approved North Carolina coastal locations
-- Open-Meteo model `ncep_nbm_conus`
-- seven forecast days
-- `timezone=auto` request behavior
-- the same five atmospheric fields
-- Open-Meteo Marine model `meteofrance_wave`
-- seven forecast days for wave requests
-- the same three wave fields
-- Open-Meteo Marine model `meteofrance_currents`
-- seven forecast days for SST requests
-- `sea_surface_temperature` as the only SST field
-- NOAA CO-OPS tide predictions
-- product `predictions`, interval `hilo`, datum `MLLW`, time zone `gmt`, and
-  units `metric`
-- the five accepted direct or transfer prediction-location relationships
-- display and source-specific request and expected returned coordinates
-- fishing context and static coastal regime
+## `dev`
 
-The locations are:
+Use for normal local execution and MVP work:
 
-- Jennette's Pier
-- Beach Access Ramp 72, Ocracoke Island
-- Fort Macon State Park, ocean side
-- Bogue Inlet Pier
-- Fort Fisher State Recreation Area
+```powershell
+forecast-ops --environment dev
+```
 
-## Environment differences
+## `test`
 
-| Environment | Storage | Logging | Purpose |
-| --- | --- | --- | --- |
-| `dev` | Local development raw and DuckDB paths | `DEBUG` | Development and manual validation |
-| `test` | Local test paths | `INFO` | Test configuration |
-| `prod` | Separate local production-style paths | `INFO` | Local production-style execution |
+Use for automated tests and isolated validation behavior. Tests may replace
+clients, paths, or configured values with temporary equivalents.
 
-The same application and transformation behavior run in each environment.
+## `prod`
 
-Automated tests do not depend on the live endpoints in `config/test.yml`. They
-replace atmospheric, wave, SST, and tide fetching with deterministic responses
-and use temporary storage through the test harness.
+A separate local configuration with its own data paths. Its name does not mean
+the project is deployed, scheduled, monitored, or production ready.
 
-## Promotion flow
+## Separation
 
-1. Create one focused feature branch.
-2. implement and validate the authorized change.
-3. Open a pull request.
-4. Run automated checks.
-5. Merge reviewed changes into `main`.
-6. Run production-style local workflows from the tested version when
-   authorized.
+Each environment writes to its own raw-data path and DuckDB database beneath
+`data/`. Runtime data is excluded from Git.
 
-The repository does not maintain separate long-lived environment branches.
+Configuration includes provider settings, requested fields, forecast horizon,
+approved locations, source coordinates, and NOAA tide relationships.
 
-## Configuration boundary
-
-Configuration supplies source, field, location, spatial and tide relationship,
-storage, and logging values. It does not select alternate implementations,
-fallbacks, quality thresholds, scheduling, or cloud deployment.
+The current providers do not require committed credentials. Do not place
+passwords, API keys, tokens, or connection strings in YAML or source code.

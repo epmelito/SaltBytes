@@ -1,132 +1,95 @@
 # ForecastOps agent guidance
 
-## Purpose
+## Goal
 
-This file defines the minimum working rules for contributors and AI agents.
+Build the smallest safe MVP that works end to end.
 
-ForecastOps is currently focused on reaching a working coastal-conditions proof
-of concept using the existing atmospheric, wave, sea-surface-temperature, and
-tide pipeline.
+The active delivery sequence is owned by `docs/roadmap.md`. Do not expand scope
+unless explicitly approved.
 
 ## Default context
 
-For normal implementation work, read only:
+For normal work, read only:
 
-- the active issue or task
+- the active task
 - this file
-- the affected code and tests
-- the selected skill, when applicable
-- directly relevant documentation or ADRs
+- affected code and focused tests
+- directly relevant configuration or documentation
 
-Do not read the full charter, roadmap, scope register, handoff, decision index,
-or unrelated ADRs unless the task requires product, scope, architecture, or
-historical context.
-
-If sources conflict, stop and identify the conflict rather than silently
-choosing one.
+Do not load the full documentation set, research, requirements, decision index,
+or unrelated ADRs by default.
 
 ## Working rules
 
-- Implement the smallest complete change that satisfies the active task.
-- Inspect only the repository context needed to understand the affected
-  behavior and risks.
-- Do not modify unrelated files or absorb unrelated pre-existing problems.
-- Do not invent providers, locations, scoring rules, architecture, fallbacks,
-  schedules, retention policies, or product behavior.
-- Preserve secrets, data integrity, provenance, source identity, safe reruns,
-  and required failure isolation.
+- Implement the smallest complete change.
+- Preserve working ingestion behavior unless the task requires a change.
+- Fix observed problems, not hypothetical future problems.
+- Do not refactor stable code solely to remove duplication.
+- Do not add frameworks, abstractions, dependencies, providers, locations,
+  scoring, fallbacks, scheduling, or deployment work without a current need.
+- Preserve secrets, immutable accepted raw data, provenance, stable location
+  identity, UTC persistence, visible source failures, and required source
+  isolation.
+- Do not modify unrelated files.
 - Do not describe planned behavior as implemented.
-- Prefer existing project patterns and dependencies.
-- Add abstractions or dependencies only when the current task demonstrates a
-  real need.
-- Do not optimize, generalize, or future-proof beyond what is required for a
-  working proof of concept.
-- Use an issue and branch for meaningful code changes. Small manual
-  documentation or instruction edits may be committed directly when reviewed
-  and low risk.
 
-## Implementation
+For the MVP, safe means avoiding exposed secrets, destructive persistence,
+silent data corruption, hidden source failures, and unreadable failures. It
+does not mean solving every future production concern.
+
+## Implementation and validation
 
 For code, configuration, test, script, or CI changes:
 
-1. Read the active task and affected code.
-2. Implement the smallest complete solution.
-3. Add or update focused tests for changed behavior.
-4. Use focused checks while developing.
-5. Run the repository-required broad checks once when the change is stable.
-6. Inspect the final diff for scope and correctness.
+1. inspect the affected behavior and focused tests
+2. implement the smallest complete solution
+3. add or update tests only for changed behavior
+4. use focused checks while developing
+5. run the full repository checks once when stable
+6. inspect the final affected diff
 
-Fix failures introduced by the change or required for task conformance. Report
-unrelated failures separately.
-
-## Validation
-
-The standard broad checks are:
+Full checks:
 
 ```powershell
 python -m pytest
 python -m ruff check .
 ```
 
-Run them once after a meaningful code change stabilizes.
+Rerun them only when later changes could invalidate the result.
 
-Do not rerun unchanged broad checks merely to reconfirm them. Rerun affected
-checks after corrections, and rerun broad checks only when later changes could
-invalidate the recorded result.
+For documentation-only changes, inspect the changed files and run:
 
-For documentation-only changes:
-
-- inspect the changed paths and complete diff
-- run `git diff --check`
-- verify links or commands only when the change affects them
-
-Application tests are not required for isolated documentation or instruction
-changes.
+```powershell
+git diff --check
+```
 
 ## Documentation and decisions
 
-Update documentation only when the task changes documented behavior or leaves
-current instructions incorrect.
+Update documentation only when current instructions or behavior would otherwise
+be wrong.
 
-Read or update:
+Use an ADR only for a durable blocking decision that cannot be resolved from
+existing behavior and evidence. Do not create ADRs for routine implementation,
+reversible local choices, speculative architecture, or deferred features.
 
-- the charter only for durable product intent
-- the roadmap only for delivery sequencing
-- the scope register only for active, deferred, or excluded scope
-- an ADR only for a durable decision or when its accepted contract applies
-- the handoff only for genuinely interrupted work that cannot be reconstructed
-  cheaply
+Documents under `docs/decisions`, `docs/research`, and `docs/requirements` are
+supporting references, not default context.
 
-Do not repeat issue, ADR, roadmap, scope, or skill content in prompts or other
-documents.
+## Review and GitHub
 
-## Review
+Self-review the complete affected diff.
 
-Self-review the complete affected diff before finalization.
+Use `work-package-review` only for high-risk or genuinely uncertain changes,
+such as destructive persistence, major schema changes, security-sensitive work,
+or complex source-failure isolation.
 
-Use `work-package-review` only for high-risk, uncertain, or suspicious work,
-including security-sensitive changes, destructive persistence changes,
-migrations, major schema changes, or complex failure isolation.
+Use an issue and branch for meaningful code changes. Small low-risk manual
+documentation edits may be committed directly after review.
 
-Routine work does not require an independent review stage.
-
-## GitHub workflow
-
-When finalizing approved work:
-
-- stage only authorized files
-- commit, push, create or update the pull request, apply metadata, and verify the
-  result in one workflow
-- reuse recorded validation evidence
-- do not rerun application checks unless evidence is missing, stale,
-  contradictory, or invalidated
-- do not merge unless explicitly requested
-- safely reconcile merged local and remote feature branches before starting new
-  mutation-based work
+Reuse recorded validation evidence. Do not rerun unchanged checks during
+finalization. Do not merge unless explicitly requested.
 
 ## Handoffs
 
-Do not update `docs/handoffs/current.md` for routine completed work.
-
-Use it only when work is interrupted, blocked, or must continue in another
-session and the state cannot be reconstructed cheaply from Git and GitHub.
+Update `docs/handoffs/current.md` only when work is interrupted, blocked, or
+cannot be reconstructed cheaply from Git and GitHub.

@@ -5,14 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "forecast-ops"
 version = "0.1.0"
-description = "A configuration driven weather forecast snapshot pipeline"
+description = "A local coastal conditions data pipeline"
 readme = "readme.md"
 requires-python = ">=3.11"
 dependencies = [
     "duckdb>=1.5,<1.6",
     "httpx>=0.28,<0.29",
     "PyYAML>=6.0,<7",
-    "pytz>=2024.1,<2027",
     "tzdata>=2025.2,<2027",
 ]
 authors = [

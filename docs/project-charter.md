@@ -1,117 +1,46 @@
 # Project charter
 
-## Status
+## Purpose
 
-This charter records the approved product direction for ForecastOps. It
-describes durable intent, not detailed architecture or current implementation
-claims.
+ForecastOps is a lightweight portfolio project for exploring upcoming coastal
+conditions at a small set of North Carolina fishing locations.
 
-## Product purpose
+The immediate objective is to prove the idea end to end with a system that can
+be run locally, understood from the repository, and extended later if the MVP
+demonstrates value.
 
-ForecastOps is evolving into a North Carolina coastal fishing conditions data
-platform. It should help identify and compare upcoming coastal fishing windows
-using explainable environmental data.
+## Product direction
 
-The platform is intended first as a portfolio data engineering platform, not as
-a commercial fishing product. It should demonstrate practical platform
-engineering, orchestration, data modeling, data quality, publication, and
-AI-assisted engineering workflows.
+ForecastOps should:
 
-## Current foundation
+- collect a focused set of coastal environmental data
+- combine it into a deterministic and inspectable result
+- make missing or rejected source data visible
+- demonstrate practical ingestion, validation, persistence, and modeling
+- remain simple enough to maintain
 
-The repository currently contains a local, configuration-driven coastal
-conditions pipeline for five North Carolina locations.
+The project should reach a working local MVP before pursuing production
+architecture or broad feature coverage.
 
-It ingests atmospheric conditions, wave conditions, sea-surface temperature,
-and NOAA tide predictions. It preserves passing raw data, normalized UTC data,
-quality results, provenance, run metadata, and revision history.
+## Boundaries
 
-This implementation is the technical foundation for the proof of concept. It
-does not yet provide one integrated coastal-conditions result or usable
-consumer-facing output.
-
-The current `dev`, `test`, and `prod` environments are local configurations
-rather than deployed cloud environments.
-
-## Approved long-term capabilities
-
-The platform should eventually:
-
-- collect weather, marine, tide, and related coastal condition data
-- cover a representative set of North Carolina coastal fishing locations
-- retain source data and forecast history
-- model how forecasts and recommendations change over time
-- calculate deterministic and explainable fishing condition scores
-- rank upcoming fishing windows
-- publish consumer-ready datasets
-- run on a reusable personal Azure data platform
-- expose a public portfolio display
-- demonstrate bounded AI-assisted planning, implementation, review,
-  diagnostics, and handoff
-
-These capabilities describe approved direction, not current behavior or a
-detailed implementation commitment.
-
-## Architecture principles
-
-Future work should favor:
-
-- the simplest evidence-based design that fully satisfies confirmed
-  requirements without weakening integrity, validation, or reliable operation
-- reusable ingestion and orchestration patterns
-- environment-aware configuration
-- immutable raw data
-- normalized and curated data layers
-- traceable forecast revisions
-- deterministic transformations
-- explainable scores
-- automated quality checks
-- observable pipeline runs
-- consumer-ready published datasets
-- infrastructure that can support later portfolio projects
-
-Azure is the approved future cloud direction. Exact services and deployment
-architecture remain undecided.
-
-## Product boundaries
-
-ForecastOps is not intended to:
+ForecastOps does not:
 
 - guarantee fishing success
-- replace marine safety guidance or official forecasts
-- use opaque AI-generated fishing scores
-- begin as a real-time commercial service
-- support every North Carolina fishing location in its first release
-- implement every possible weather, marine, tide, biological, or fishing
-  variable
+- provide catch probabilities
+- replace official marine or safety guidance
+- provide navigation or emergency information
+- use opaque AI-generated fishing recommendations
+- claim production readiness
 
-## AI-assisted engineering
+The first MVP presents environmental conditions. Scoring, ranking,
+recommendations, additional coverage, scheduling, cloud deployment, APIs,
+authentication, and production operations are later decisions.
 
-AI assistance should be bounded, reviewable, and evidence-based. It may support
-planning, implementation, review, diagnostics, and handoff. It must not turn
-unsupported assumptions into product requirements, obscure deterministic
-scoring logic, or bypass scope and decision controls.
+## Principles
 
-AI-assisted engineering is distinct from adding AI-generated product outputs.
-AI-generated product outputs require explicit future scope approval and defined
-evidence and review boundaries.
-
-## Product progress
-
-Near-term progress is measured against the proof-of-concept outcomes in the
-roadmap. Final product success metrics remain deferred.
-
-## Deferred decisions
-
-Specific product, source, scoring, publication, scheduling, cloud architecture,
-retention, service-level, cost, and success-metric choices remain open. They are
-tracked in the [scope register](scope-register.md) and should be resolved
-through the [decision process](decisions/README.md) when required.
-
-## Related governance
-
-- [Roadmap](roadmap.md) sequences delivery outcomes.
-- [Scope register](scope-register.md) controls current and deferred scope.
-- [Decision process](decisions/README.md) governs durable choices.
-- [Agent guidance](../AGENTS.md) governs repository working behavior.
-- [Current handoff](handoffs/current.md) reports transient work state.
+- Prefer a simple working result over speculative refinement.
+- Preserve deterministic, traceable behavior.
+- Address real defects and immediate risks.
+- Defer architecture that the current milestone does not require.
+- Use AI to accelerate reviewed work, not to invent requirements or process.

@@ -1,117 +1,61 @@
 # Roadmap
 
-## Purpose
+## MVP milestone
 
-This roadmap defines the shortest approved path from the current repository
-state to a working ForecastOps proof of concept.
+The MVP is complete when another person can install the project, run the
+pipeline for the five configured locations, inspect one integrated hourly
+coastal-conditions result, and reproduce one readable local output.
 
-The long-term product direction remains documented in the project charter.
-This file controls near-term delivery order only.
+Missing or rejected source data must remain visible, and repository validation
+must pass.
 
-## Current state
+## 1. Validate live ingestion
 
-ForecastOps already implements local ingestion for:
+Run:
 
-- atmospheric conditions
-- wave conditions
-- sea-surface temperature
-- NOAA tide predictions and tide phase
+```powershell
+forecast-ops --environment dev
+```
 
-The pipeline supports five approved North Carolina coastal locations and
-preserves normalized data, quality results, provenance, run metadata, immutable
-passing raw snapshots, and revision history.
+Confirm that atmospheric, wave, sea-surface-temperature, and tide processing
+produce usable normalized data for the configured locations.
 
-The ingestion foundation is complete enough to begin proof-of-concept work.
+Fix only observed problems that block execution, produce incorrect or unusable
+data, hide source failures, break required source isolation, or risk
+destructive persistence.
 
-## Proof-of-concept sequence
+## 2. Build the integrated hourly result
 
-### 1. Validate the existing pipeline live
+Create one downstream DuckDB query, view, or small model using the existing
+normalized tables.
 
-Run the complete four-source pipeline for all five configured locations.
+It should:
 
-Fix only defects that:
+- use stable location identity
+- align data by UTC forecast hour
+- include values from the four existing source families
+- use left joins so unavailable source data remains visible
+- remain deterministic and inspectable
 
-- prevent reliable execution
-- produce incorrect data
-- prevent source failures from remaining isolated
-- make the resulting data unusable
+Do not add scoring, ranking, recommendations, interpolation, carry-forward, or
+source substitution.
 
-Do not add new providers, locations, fallback logic, or generalized
-infrastructure during this stage.
+## 3. Expose one readable local output
 
-### 2. Build one integrated coastal-conditions dataset
+Present the integrated result through the smallest useful local interface, such
+as a CLI table, text report, or generated HTML report.
 
-Create the smallest useful integrated result from the existing atmospheric,
-wave, sea-surface-temperature, and tide data.
+Choose based on implementation cost and readability. Public hosting, APIs,
+authentication, dashboards, and cloud infrastructure are not part of this
+milestone.
 
-The result should:
+## 4. Stabilize the MVP
 
-- retain location and fishing-context identity
-- align source values to a common forecast time
-- preserve source and quality context
-- avoid unsupported scoring or ranking
-- remain inspectable and deterministic
+- add or update only tests needed to protect the new behavior
+- document the supported run and output commands
+- remove temporary debugging artifacts
+- run the full tests and Ruff once
+- confirm a clean local setup can reproduce the result
 
-Do not build a generalized semantic layer or broad modeling framework.
-
-### 3. Expose one usable output
-
-Present the integrated result through the simplest useful interface.
-
-Acceptable proof-of-concept outputs include:
-
-- a CLI report
-- a generated HTML report
-- a small local application
-
-Choose the simplest option that demonstrates the data clearly.
-
-Do not add cloud deployment, authentication, a public API, or production service
-architecture at this stage.
-
-### 4. Confirm proof-of-concept viability
-
-The proof of concept is complete when:
-
-- the existing pipeline runs successfully for the five configured locations
-- the four source families are represented in one integrated result
-- source or quality failures remain visible
-- a user can inspect upcoming coastal conditions in a usable output
-- repository validation passes
-
-## Deferred until after the proof of concept
-
-Defer:
-
-- additional data sources
-- additional locations
-- deterministic scoring and ranking
-- species-specific recommendations
-- observation and bias validation
-- source fallback and precedence
-- scheduling changes
-- retention policy design
-- Azure infrastructure
-- public deployment
-- API design
-- authentication
-- production monitoring and service levels
-- generalized platform abstractions
-- further agent or skill development
-
-## Later direction
-
-After the proof of concept works, evaluate the next step based on demonstrated
-value.
-
-Possible later work includes:
-
-- deterministic and explainable scoring
-- fishing-window ranking
-- consumer-ready datasets
-- scheduled execution
-- Azure deployment
-- a public portfolio display
-- broader coastal coverage
-
-Do not begin later work until the proof of concept is complete and reviewed.
+After this checkpoint, choose the next milestone from demonstrated needs rather
+than speculative future requirements.
