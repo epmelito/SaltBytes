@@ -619,6 +619,167 @@ def test_initialize_database_upgrades_legacy_schema_and_preserves_rows(
     assert "phase_change" not in tide_revision_columns
 
 
+def test_initialize_database_preserves_populated_coastal_database(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("drop view tide_revision_changes")
+        connection.execute("drop table tide_phase_hourly")
+        connection.execute("drop table tide_events")
+        connection.execute("drop table tide_snapshots")
+
+    capture_times = (
+        datetime(2026, 7, 28, 10, tzinfo=timezone.utc),
+        datetime(2026, 7, 28, 12, tzinfo=timezone.utc),
+    )
+
+    for index, captured_at in enumerate(capture_times, start=1):
+        run_id = f"existing-run-{index}"
+        insert_run(
+            database_path,
+            run_id=run_id,
+            started_at=captured_at,
+        )
+
+        atmospheric_snapshot_id = f"existing-atmospheric-{index}"
+        wave_snapshot_id = f"existing-wave-{index}"
+        sst_snapshot_id = f"existing-sst-{index}"
+
+        insert_forecast_snapshot(
+            database_path,
+            snapshot_metadata(
+                snapshot_id=atmospheric_snapshot_id,
+                run_id=run_id,
+                captured_at=captured_at,
+            ),
+        )
+        insert_forecast_snapshot(
+            database_path,
+            wave_snapshot_metadata(
+                snapshot_id=wave_snapshot_id,
+                run_id=run_id,
+                captured_at=captured_at,
+            ),
+        )
+        insert_forecast_snapshot(
+            database_path,
+            sst_snapshot_metadata(
+                snapshot_id=sst_snapshot_id,
+                run_id=run_id,
+                captured_at=captured_at,
+            ),
+        )
+
+        insert_forecast_hourly(
+            database_path,
+            atmospheric_snapshot_id,
+            "jennettes_pier",
+            atmospheric_payload(wind_speed=10.0 + index),
+        )
+        insert_wave_hourly(
+            database_path,
+            wave_snapshot_id,
+            "fort_macon_ocean",
+            wave_payload(wave_height=1.0 + index),
+        )
+        insert_sst_hourly(
+            database_path,
+            sst_snapshot_id,
+            "fort_fisher",
+            sst_payload(sea_surface_temperature=24.0 + index),
+        )
+        insert_quality_result(
+            database_path=database_path,
+            run_id=run_id,
+            check_name=f"existing-{index}:weather:hourly_length",
+            status="pass",
+            observed_value="168",
+            expected_value="168",
+            checked_at=captured_at,
+        )
+        complete_pipeline_run(
+            database_path=database_path,
+            run_id=run_id,
+            completed_at=captured_at,
+            status="success",
+            rows_loaded=3,
+        )
+
+    seeded_queries = {
+        "pipeline_runs": "select * from pipeline_runs order by run_id",
+        "forecast_snapshots": (
+            "select * from forecast_snapshots order by snapshot_id"
+        ),
+        "forecast_hourly": (
+            "select * from forecast_hourly order by snapshot_id, forecast_time"
+        ),
+        "wave_hourly": (
+            "select * from wave_hourly order by snapshot_id, forecast_time"
+        ),
+        "sst_hourly": (
+            "select * from sst_hourly order by snapshot_id, forecast_time"
+        ),
+        "quality_results": (
+            "select * from quality_results order by run_id, check_name"
+        ),
+    }
+    revision_queries = {
+        "forecast_revision_changes": (
+            "select snapshot_id, previous_snapshot_id "
+            "from forecast_revision_changes order by snapshot_id"
+        ),
+        "wave_revision_changes": (
+            "select snapshot_id, previous_snapshot_id "
+            "from wave_revision_changes order by snapshot_id"
+        ),
+        "sst_revision_changes": (
+            "select snapshot_id, previous_snapshot_id "
+            "from sst_revision_changes order by snapshot_id"
+        ),
+    }
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        seeded_rows = {
+            name: connection.execute(query).fetchall()
+            for name, query in seeded_queries.items()
+        }
+        revision_rows = {
+            name: connection.execute(query).fetchall()
+            for name, query in revision_queries.items()
+        }
+
+    assert revision_rows == {
+        "forecast_revision_changes": [
+            ("existing-atmospheric-2", "existing-atmospheric-1")
+        ],
+        "wave_revision_changes": [
+            ("existing-wave-2", "existing-wave-1")
+        ],
+        "sst_revision_changes": [
+            ("existing-sst-2", "existing-sst-1")
+        ],
+    }
+
+    initialize_database(database_path)
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        preserved_rows = {
+            name: connection.execute(query).fetchall()
+            for name, query in seeded_queries.items()
+        }
+        preserved_revision_rows = {
+            name: connection.execute(query).fetchall()
+            for name, query in revision_queries.items()
+        }
+
+    assert preserved_rows == seeded_rows
+    assert preserved_revision_rows == revision_rows
+
+
 def test_forecast_hourly_rejects_duplicate_business_key(
     tmp_path: Path,
 ) -> None:

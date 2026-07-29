@@ -208,70 +208,96 @@ def test_repository_config_matches_approved_tide_relationships(
 ) -> None:
     config = load_config(environment)
     relationships = {
-        location["id"]: (
-            location["tide"]["station_id"],
-            location["tide"]["relationship_type"],
-            location["tide"]["reference_station"],
-            location["tide"]["high_time_offset_minutes"],
-            location["tide"]["low_time_offset_minutes"],
-            location["tide"]["high_multiplier"],
-            location["tide"]["low_multiplier"],
-            location["tide"]["distance_km"],
-        )
+        location["id"]: location["tide"]
         for location in config["locations"]
     }
 
     assert relationships == {
-        "jennettes_pier": (
-            "8652226",
-            "direct",
-            "8651370",
-            -5,
-            1,
-            1.04,
-            1.43,
-            0.448,
-        ),
-        "ocracoke_ramp_72": (
-            "TEC2793",
-            "transfer",
-            "8654400",
-            9,
-            11,
-            0.63,
-            0.83,
-            3.697,
-        ),
-        "fort_macon_ocean": (
-            "8656590",
-            "transfer",
-            None,
-            None,
-            None,
-            None,
-            None,
-            1.321,
-        ),
-        "bogue_inlet_pier": (
-            "TEC2837",
-            "transfer",
-            "8654400",
-            13,
-            15,
-            0.73,
-            0.83,
-            6.164,
-        ),
-        "fort_fisher": (
-            "8658559",
-            "transfer",
-            "8654400",
-            18,
-            10,
-            1.4,
-            1.25,
-            9.308,
-        ),
+        "jennettes_pier": {
+            "prediction_location": "Jennettes Pier, Nags Head (ocean)",
+            "station_id": "8652226",
+            "relationship_type": "direct",
+            "reference_station": "8651370",
+            "high_time_offset_minutes": -5,
+            "low_time_offset_minutes": 1,
+            "high_multiplier": 1.04,
+            "low_multiplier": 1.43,
+            "distance_km": 0.448,
+            "coastal_relationship": "Direct use at the Atlantic-facing pier",
+            "known_limitation": (
+                "Prediction behavior remains distinct from observed water levels"
+            ),
+        },
+        "ocracoke_ramp_72": {
+            "prediction_location": "Ocracoke Inlet",
+            "station_id": "TEC2793",
+            "relationship_type": "transfer",
+            "reference_station": "8654400",
+            "high_time_offset_minutes": 9,
+            "low_time_offset_minutes": 11,
+            "high_multiplier": 0.63,
+            "low_multiplier": 0.83,
+            "distance_km": 3.697,
+            "coastal_relationship": (
+                "Explicit transfer to the southern ocean-side surf location"
+            ),
+            "known_limitation": (
+                "Transfer does not authorize inlet-current interpretation"
+            ),
+        },
+        "fort_macon_ocean": {
+            "prediction_location": "Atlantic Beach",
+            "station_id": "8656590",
+            "relationship_type": "transfer",
+            "reference_station": None,
+            "high_time_offset_minutes": None,
+            "low_time_offset_minutes": None,
+            "high_multiplier": None,
+            "low_multiplier": None,
+            "distance_km": 1.321,
+            "coastal_relationship": (
+                "Explicit transfer to the nearby Atlantic-facing beach"
+            ),
+            "known_limitation": (
+                "It is not a prediction location at the park destination"
+            ),
+        },
+        "bogue_inlet_pier": {
+            "prediction_location": "Bogue Inlet",
+            "station_id": "TEC2837",
+            "relationship_type": "transfer",
+            "reference_station": "8654400",
+            "high_time_offset_minutes": 13,
+            "low_time_offset_minutes": 15,
+            "high_multiplier": 0.73,
+            "low_multiplier": 0.83,
+            "distance_km": 6.164,
+            "coastal_relationship": (
+                "Explicit transfer for tide phase at the pier"
+            ),
+            "known_limitation": (
+                "Transfer does not authorize inlet-current interpretation"
+            ),
+        },
+        "fort_fisher": {
+            "prediction_location": "Wilmington Beach",
+            "station_id": "8658559",
+            "relationship_type": "transfer",
+            "reference_station": "8654400",
+            "high_time_offset_minutes": 18,
+            "low_time_offset_minutes": 10,
+            "high_multiplier": 1.4,
+            "low_multiplier": 1.25,
+            "distance_km": 9.308,
+            "coastal_relationship": (
+                "Explicit transfer from the nearest reviewed ocean-facing "
+                "relationship"
+            ),
+            "known_limitation": (
+                "The prediction relationship is materially north of the "
+                "destination"
+            ),
+        },
     }
 
 
