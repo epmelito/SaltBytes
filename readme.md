@@ -1,8 +1,8 @@
 # ForecastOps
 
 ForecastOps is evolving into a North Carolina coastal fishing conditions data
-platform. The current repository implements a local atmospheric forecast slice
-for five approved coastal fishing locations.
+platform. The current repository implements local atmospheric and wave forecast
+ingestion for five approved coastal fishing locations.
 
 The implementation demonstrates configuration-driven API ingestion, spatial
 source relationships, immutable raw storage, normalized DuckDB models,
@@ -13,7 +13,7 @@ direction. The [roadmap](docs/roadmap.md) and
 [scope register](docs/scope-register.md) distinguish current implementation
 from approved future and deferred work.
 
-## Current atmospheric scope
+## Current source scope
 
 Every environment configures:
 
@@ -23,9 +23,9 @@ Every environment configures:
 - Bogue Inlet Pier
 - Fort Fisher State Recreation Area
 
-Each location retains a display coordinate, an Open-Meteo weather request
-coordinate, an expected returned NBM grid coordinate, its fishing context, and
-a static coastal-regime classification.
+Each location retains a display coordinate, source-specific request and
+expected returned grid coordinates, its fishing context, and a static
+coastal-regime classification.
 
 The Open-Meteo Weather API request uses:
 
@@ -38,26 +38,39 @@ The Open-Meteo Weather API request uses:
 - `precipitation_probability`
 - `precipitation`
 
-Marine, sea-surface-temperature, and tide ingestion are not implemented.
+The Open-Meteo Marine API request uses:
+
+- model selector `meteofrance_wave`
+- seven forecast days
+- `timezone=auto`
+- `wave_height`
+- `wave_direction`
+- `wave_period`
+
+Sea-surface-temperature and tide ingestion are not implemented.
 
 ## Data flow
 
 1. Load and validate the selected local environment configuration.
 2. Initialize DuckDB and record the running pipeline execution.
-3. Request one atmospheric result for each configured location.
-4. Validate and persist the result's quality checks.
-5. Reject an invalid location result without writing raw or normalized data.
-6. Continue after a quality rejection so unrelated locations can succeed.
-7. Write a passing response unchanged as an immutable raw JSON snapshot.
-8. Store request and response provenance with the snapshot metadata.
-9. Normalize 168 hourly valid times to UTC and store the five atmospheric
-   fields in DuckDB.
+3. Request independent atmospheric and wave results for each configured
+   location.
+4. Validate and persist source-qualified quality checks for each result.
+5. Reject an invalid source result without writing its raw or normalized data.
+6. Continue after a quality rejection so the other source and later locations
+   can succeed.
+7. Write each passing response unchanged as a separate immutable raw JSON
+   snapshot.
+8. Store source-specific request and response provenance with each snapshot.
+9. Normalize 168 hourly valid times to UTC and store atmospheric and wave
+   values in separate DuckDB tables.
 10. Record the final run status and actual number of rows loaded.
-11. Expose changes between consecutive forecasts through a SQL view.
+11. Expose atmospheric and wave forecast changes through separate SQL views.
 
 API, raw-storage, and database failures abort the run immediately. If one or
-more locations fail quality validation, the run is failed after all locations
-have been evaluated. Passing unrelated location data remains stored.
+more source results fail quality validation, the run is failed after all
+locations have been evaluated. Passing results from the other source and
+unrelated locations remain stored.
 
 ## Repository structure
 
@@ -81,7 +94,7 @@ forecast-ops/
 
 ## Data model
 
-ForecastOps uses four DuckDB tables:
+ForecastOps uses five DuckDB tables:
 
 - `pipeline_runs` records execution status, row counts, and failure details.
 - `forecast_snapshots` relates passing raw responses to their run, location,
@@ -89,12 +102,16 @@ ForecastOps uses four DuckDB tables:
 - `forecast_hourly` stores normalized UTC forecast rows for the five
   atmospheric fields. Its nullable `temperature_2m` column is retained only
   for compatibility with existing local history.
-- `quality_results` stores location-prefixed validation results.
+- `wave_hourly` stores normalized UTC wave height, direction, and period.
+- `quality_results` stores location- and source-qualified validation results.
 
 The `forecast_revision_changes` view compares consecutive snapshots for the
 same stable location and normalized forecast time. It provides current,
 previous, and difference values for scalar atmospheric fields. Wind direction
 retains current and previous values without defining a directional delta.
+
+The `wave_revision_changes` view provides equivalent revision history for wave
+height, direction, and period. Wave direction also has no directional delta.
 
 See [Data model](docs/data-model.md) for the column-level contract.
 
@@ -149,8 +166,8 @@ Run the production-style local configuration:
 forecast-ops --environment prod
 ```
 
-A successful run writes five snapshots and 840 normalized rows when every
-configured result passes.
+A fully passing run writes ten snapshots and 1,680 normalized rows: 840
+atmospheric rows and 840 wave rows.
 
 ## Manual validation
 
@@ -195,7 +212,7 @@ GitHub Actions runs both commands for pull requests and pushes to `main`.
 
 The repository does not currently implement:
 
-- marine, sea-surface-temperature, or tide ingestion
+- sea-surface-temperature, ocean-current, sea-level-height, or tide ingestion
 - fishing-condition scoring or window ranking
 - scheduled or cloud execution
 - publication, API, or dashboard features

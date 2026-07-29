@@ -12,6 +12,7 @@ from forecast_ops.database import (
     insert_forecast_snapshot,
     insert_pipeline_run,
     insert_quality_result,
+    insert_wave_hourly,
 )
 
 EXPECTED_TABLES = {
@@ -19,8 +20,12 @@ EXPECTED_TABLES = {
     "forecast_snapshots",
     "pipeline_runs",
     "quality_results",
+    "wave_hourly",
 }
-EXPECTED_VIEWS = {"forecast_revision_changes"}
+EXPECTED_VIEWS = {
+    "forecast_revision_changes",
+    "wave_revision_changes",
+}
 EXPECTED_SNAPSHOT_COLUMNS = {
     "snapshot_id",
     "run_id",
@@ -46,6 +51,14 @@ EXPECTED_HOURLY_COLUMNS = {
     "precipitation_probability",
     "precipitation",
 }
+EXPECTED_WAVE_COLUMNS = {
+    "snapshot_id",
+    "location_id",
+    "forecast_time",
+    "wave_height",
+    "wave_direction",
+    "wave_period",
+}
 
 
 def snapshot_metadata(
@@ -70,6 +83,28 @@ def snapshot_metadata(
     }
 
 
+def wave_snapshot_metadata(
+    snapshot_id: str = "wave-snapshot123",
+    run_id: str = "run123",
+    captured_at: datetime | None = None,
+) -> dict[str, Any]:
+    return {
+        "snapshot_id": snapshot_id,
+        "run_id": run_id,
+        "location_id": "fort_macon_ocean",
+        "captured_at": captured_at
+        or datetime(2026, 7, 28, 10, 6, tzinfo=timezone.utc),
+        "raw_file_path": f"data/test/raw/{snapshot_id}.json",
+        "model_selector": "meteofrance_wave",
+        "request_latitude": 34.65,
+        "request_longitude": -76.697,
+        "returned_latitude": 34.625,
+        "returned_longitude": -76.70833,
+        "response_timezone": "America/New_York",
+        "response_utc_offset_seconds": -14400,
+    }
+
+
 def atmospheric_payload(
     wind_speed: float = 10.0,
     wind_direction: float = 180.0,
@@ -86,6 +121,22 @@ def atmospheric_payload(
             "wind_gusts_10m": [wind_gust],
             "precipitation_probability": [precipitation_probability],
             "precipitation": [precipitation],
+        },
+    }
+
+
+def wave_payload(
+    wave_height: float = 1.2,
+    wave_direction: float = 135.0,
+    wave_period: float = 8.0,
+) -> dict[str, Any]:
+    return {
+        "timezone": "America/New_York",
+        "hourly": {
+            "time": ["2026-07-29T12:00"],
+            "wave_height": [wave_height],
+            "wave_direction": [wave_direction],
+            "wave_period": [wave_period],
         },
     }
 
@@ -156,11 +207,22 @@ def test_initialize_database_creates_required_schema(
                 """
             ).fetchall()
         }
+        wave_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'wave_hourly'
+                """
+            ).fetchall()
+        }
 
     assert tables == EXPECTED_TABLES
     assert views == EXPECTED_VIEWS
     assert snapshot_columns == EXPECTED_SNAPSHOT_COLUMNS
     assert hourly_columns == EXPECTED_HOURLY_COLUMNS
+    assert wave_columns == EXPECTED_WAVE_COLUMNS
 
 
 def test_initialize_database_can_run_more_than_once(
@@ -292,12 +354,33 @@ def test_initialize_database_upgrades_legacy_schema_and_preserves_rows(
                 """
             ).fetchall()
         }
+        wave_table_count = connection.execute(
+            """
+            select count(*)
+            from information_schema.tables
+            where table_name = 'wave_hourly'
+                and table_type = 'BASE TABLE'
+            """
+        ).fetchone()
+        wave_revision_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'wave_revision_changes'
+                """
+            ).fetchall()
+        }
 
     assert snapshot == ("legacy-snapshot", None, None, None)
     assert hourly == (18.2, 8.4, None, None, 20.0, None)
     assert "wind_direction_10m" in revision_columns
     assert "previous_wind_direction_10m" in revision_columns
     assert "wind_direction_10m_change" not in revision_columns
+    assert wave_table_count == (1,)
+    assert "wave_height_change" in wave_revision_columns
+    assert "wave_direction_change" not in wave_revision_columns
 
 
 def test_forecast_hourly_rejects_duplicate_business_key(
@@ -483,6 +566,107 @@ def test_insert_forecast_hourly_stores_coastal_fields_in_utc(
             16.0,
             30.0,
             0.4,
+        ),
+    ]
+
+
+def test_atmospheric_and_wave_snapshot_provenance_remain_distinct(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_forecast_snapshot(database_path, snapshot_metadata())
+    insert_forecast_snapshot(database_path, wave_snapshot_metadata())
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        snapshots = connection.execute(
+            """
+            select
+                snapshot_id,
+                model_selector,
+                request_latitude,
+                request_longitude,
+                returned_latitude,
+                returned_longitude
+            from forecast_snapshots
+            order by snapshot_id
+            """
+        ).fetchall()
+
+    assert snapshots == [
+        (
+            "snapshot123",
+            "ncep_nbm_conus",
+            35.9096355,
+            -75.5966537,
+            35.89557,
+            -75.5936,
+        ),
+        (
+            "wave-snapshot123",
+            "meteofrance_wave",
+            34.65,
+            -76.697,
+            34.625,
+            -76.70833,
+        ),
+    ]
+
+
+def test_insert_wave_hourly_stores_fields_in_utc(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_forecast_snapshot(database_path, wave_snapshot_metadata())
+    payload = {
+        "timezone": "America/New_York",
+        "hourly": {
+            "time": [
+                "2026-07-29T12:00",
+                "2026-07-29T13:00",
+            ],
+            "wave_height": [1.2, 1.4],
+            "wave_direction": [135.0, 145.0],
+            "wave_period": [8.0, 9.0],
+        },
+    }
+
+    rows_loaded = insert_wave_hourly(
+        database_path=database_path,
+        snapshot_id="wave-snapshot123",
+        location_id="fort_macon_ocean",
+        payload=payload,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            """
+            select
+                forecast_time,
+                wave_height,
+                wave_direction,
+                wave_period
+            from wave_hourly
+            order by forecast_time
+            """
+        ).fetchall()
+
+    assert rows_loaded == 2
+    assert rows == [
+        (
+            datetime(2026, 7, 29, 16, 0, tzinfo=timezone.utc),
+            1.2,
+            135.0,
+            8.0,
+        ),
+        (
+            datetime(2026, 7, 29, 17, 0, tzinfo=timezone.utc),
+            1.4,
+            145.0,
+            9.0,
         ),
     ]
 
@@ -679,3 +863,151 @@ def test_forecast_revision_view_compares_coastal_fields(
         0.4,
     )
     assert "wind_direction_10m_change" not in revision_columns
+
+
+def test_wave_revision_view_compares_only_meteofrance_wave_captures(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+
+    for run_id, started_hour in (
+        ("run001", 8),
+        ("run002", 9),
+        ("run003", 10),
+    ):
+        insert_run(
+            database_path,
+            run_id=run_id,
+            started_at=datetime(
+                2026,
+                7,
+                28,
+                started_hour,
+                0,
+                tzinfo=timezone.utc,
+            ),
+        )
+
+    insert_forecast_snapshot(
+        database_path,
+        wave_snapshot_metadata(
+            snapshot_id="wave-snapshot001",
+            run_id="run001",
+            captured_at=datetime(
+                2026,
+                7,
+                28,
+                8,
+                5,
+                tzinfo=timezone.utc,
+            ),
+        ),
+    )
+
+    wrong_model_metadata = wave_snapshot_metadata(
+        snapshot_id="wrong-model-snapshot",
+        run_id="run002",
+        captured_at=datetime(
+            2026,
+            7,
+            28,
+            9,
+            5,
+            tzinfo=timezone.utc,
+        ),
+    )
+    wrong_model_metadata["model_selector"] = "ncep_nbm_conus"
+    insert_forecast_snapshot(database_path, wrong_model_metadata)
+
+    insert_forecast_snapshot(
+        database_path,
+        wave_snapshot_metadata(
+            snapshot_id="wave-snapshot002",
+            run_id="run003",
+            captured_at=datetime(
+                2026,
+                7,
+                28,
+                10,
+                5,
+                tzinfo=timezone.utc,
+            ),
+        ),
+    )
+
+    insert_wave_hourly(
+        database_path,
+        "wave-snapshot001",
+        "fort_macon_ocean",
+        wave_payload(
+            wave_height=1.2,
+            wave_direction=350.0,
+            wave_period=8.0,
+        ),
+    )
+    insert_wave_hourly(
+        database_path,
+        "wrong-model-snapshot",
+        "fort_macon_ocean",
+        wave_payload(
+            wave_height=99.0,
+            wave_direction=180.0,
+            wave_period=99.0,
+        ),
+    )
+    insert_wave_hourly(
+        database_path,
+        "wave-snapshot002",
+        "fort_macon_ocean",
+        wave_payload(
+            wave_height=1.7,
+            wave_direction=10.0,
+            wave_period=9.5,
+        ),
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        revisions = connection.execute(
+            """
+            select
+                snapshot_id,
+                previous_snapshot_id,
+                wave_height,
+                previous_wave_height,
+                wave_height_change,
+                wave_direction,
+                previous_wave_direction,
+                wave_period,
+                previous_wave_period,
+                wave_period_change
+            from wave_revision_changes
+            where location_id = 'fort_macon_ocean'
+            """
+        ).fetchall()
+        revision_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'wave_revision_changes'
+                """
+            ).fetchall()
+        }
+
+    assert revisions == [
+        (
+            "wave-snapshot002",
+            "wave-snapshot001",
+            1.7,
+            1.2,
+            0.5,
+            10.0,
+            350.0,
+            9.5,
+            8.0,
+            1.5,
+        )
+    ]
+    assert "wave_direction_change" not in revision_columns
