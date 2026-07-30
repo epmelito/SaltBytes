@@ -731,7 +731,7 @@ def test_rejected_tide_payload_does_not_block_later_location(
     assert len(list((tmp_path / "raw").rglob("*.json"))) == 7
 
 
-def test_api_failure_is_recorded_and_aborts(
+def test_weather_api_failure_is_isolated_and_recorded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -749,11 +749,12 @@ def test_api_failure_is_recorded_and_aborts(
         "forecast_ops.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
+    monkeypatch.setattr(
+        "forecast_ops.pipeline.fetch_wave_forecast",
+        lambda location, wave_api_config: wave_payload(location),
+    )
 
-    with pytest.raises(
-        RuntimeError,
-        match="forecast api unavailable",
-    ):
+    with pytest.raises(ValueError) as error:
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
@@ -766,11 +767,18 @@ def test_api_failure_is_recorded_and_aborts(
             """
         ).fetchone()
 
-    assert fetched_locations == ["jennettes_pier"]
-    assert run == ("failed", 0, "forecast api unavailable")
+    expected_error = (
+        "weather API fetch failed for jennettes_pier: "
+        "forecast api unavailable; "
+        "weather API fetch failed for fort_fisher: "
+        "forecast api unavailable"
+    )
+    assert fetched_locations == ["jennettes_pier", "fort_fisher"]
+    assert str(error.value) == expected_error
+    assert run == ("failed", 1086, expected_error)
 
 
-def test_wave_api_failure_is_recorded_and_aborts(
+def test_wave_api_failure_is_isolated_and_recorded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -799,7 +807,7 @@ def test_wave_api_failure_is_recorded_and_aborts(
         fail_fetch_wave_forecast,
     )
 
-    with pytest.raises(RuntimeError, match="wave api unavailable"):
+    with pytest.raises(ValueError) as error:
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
@@ -808,8 +816,13 @@ def test_wave_api_failure_is_recorded_and_aborts(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
 
-    assert fetched_wave_locations == ["jennettes_pier"]
-    assert run == ("failed", 168, "wave api unavailable")
+    expected_error = (
+        "wave API fetch failed for jennettes_pier: wave api unavailable; "
+        "wave API fetch failed for fort_fisher: wave api unavailable"
+    )
+    assert fetched_wave_locations == ["jennettes_pier", "fort_fisher"]
+    assert str(error.value) == expected_error
+    assert run == ("failed", 1086, expected_error)
 
 
 def test_quality_persistence_failure_aborts_immediately(
@@ -1093,7 +1106,7 @@ def test_wave_normalized_failure_aborts_immediately(
         run_pipeline(config)
 
 
-def test_sst_api_failure_is_recorded_and_aborts(
+def test_sst_api_failure_is_isolated_and_recorded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1132,7 +1145,7 @@ def test_sst_api_failure_is_recorded_and_aborts(
         fail_fetch_sst_forecast,
     )
 
-    with pytest.raises(RuntimeError, match="sst api unavailable"):
+    with pytest.raises(ValueError) as error:
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
@@ -1141,8 +1154,13 @@ def test_sst_api_failure_is_recorded_and_aborts(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
 
-    assert fetched_sst_locations == ["jennettes_pier"]
-    assert run == ("failed", 336, "sst api unavailable")
+    expected_error = (
+        "sst API fetch failed for jennettes_pier: sst api unavailable; "
+        "sst API fetch failed for fort_fisher: sst api unavailable"
+    )
+    assert fetched_sst_locations == ["jennettes_pier", "fort_fisher"]
+    assert str(error.value) == expected_error
+    assert run == ("failed", 1086, expected_error)
 
 
 @pytest.mark.parametrize(
@@ -1251,7 +1269,7 @@ def test_sst_persistence_failures_abort_immediately(
     assert run == ("failed", 336, message)
 
 
-def test_tide_api_failure_is_recorded_and_aborts(
+def test_tide_api_failure_is_isolated_and_recorded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1279,7 +1297,7 @@ def test_tide_api_failure_is_recorded_and_aborts(
         fail_fetch_tide_predictions,
     )
 
-    with pytest.raises(RuntimeError, match="tide api unavailable"):
+    with pytest.raises(ValueError) as error:
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
@@ -1288,8 +1306,13 @@ def test_tide_api_failure_is_recorded_and_aborts(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
 
-    assert fetched_tide_stations == ["8652226"]
-    assert run == ("failed", 504, "tide api unavailable")
+    expected_error = (
+        "tide API fetch failed for jennettes_pier: tide api unavailable; "
+        "tide API fetch failed for fort_fisher: tide api unavailable"
+    )
+    assert fetched_tide_stations == ["8652226", "8658559"]
+    assert str(error.value) == expected_error
+    assert run == ("failed", 1008, expected_error)
 
 
 @pytest.mark.parametrize(
