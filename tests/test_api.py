@@ -130,7 +130,7 @@ def test_build_forecast_params_uses_weather_request_relationship() -> None:
             "wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
             "precipitation_probability,precipitation"
         ),
-        "timezone": "auto",
+        "timezone": "GMT",
     }
 
 
@@ -146,7 +146,7 @@ def test_build_wave_params_uses_marine_request_relationship() -> None:
         "models": "meteofrance_wave",
         "forecast_days": 7,
         "hourly": "wave_height,wave_direction,wave_period",
-        "timezone": "auto",
+        "timezone": "GMT",
     }
 
 
@@ -162,7 +162,7 @@ def test_build_sst_params_uses_product_specific_relationship() -> None:
         "models": "meteofrance_currents",
         "forecast_days": 7,
         "hourly": "sea_surface_temperature",
-        "timezone": "auto",
+        "timezone": "GMT",
     }
 
 
@@ -192,7 +192,7 @@ def test_fetch_forecast_returns_json_object(
     payload = {
         "latitude": 34.68586,
         "longitude": -76.717896,
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": ["2026-07-28T00:00"],
             "wind_speed_10m": [18.2],
@@ -332,7 +332,7 @@ def test_fetch_wave_forecast_returns_json_object(
     payload = {
         "latitude": 34.625,
         "longitude": -76.70833,
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": ["2026-07-28T00:00"],
             "wave_height": [1.2],
@@ -472,7 +472,7 @@ def test_fetch_sst_forecast_returns_json_object(
     payload = {
         "latitude": 34.625,
         "longitude": -76.70833,
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": ["2026-07-28T00:00"],
             "sea_surface_temperature": [25.1],

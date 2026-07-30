@@ -202,8 +202,8 @@ def atmospheric_payload(
     return {
         "latitude": returned_coordinate["latitude"],
         "longitude": returned_coordinate["longitude"],
-        "timezone": "America/New_York",
-        "utc_offset_seconds": -14400,
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "wind_speed_10m": [10.0] * 168,
@@ -226,8 +226,8 @@ def wave_payload(location: dict[str, Any]) -> dict[str, Any]:
     return {
         "latitude": returned_coordinate["latitude"],
         "longitude": returned_coordinate["longitude"],
-        "timezone": "America/New_York",
-        "utc_offset_seconds": -14400,
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "wave_height": [1.2] * 168,
@@ -248,8 +248,8 @@ def sst_payload(location: dict[str, Any]) -> dict[str, Any]:
     return {
         "latitude": returned_coordinate["latitude"],
         "longitude": returned_coordinate["longitude"],
-        "timezone": "America/New_York",
-        "utc_offset_seconds": -14400,
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "sea_surface_temperature": [25.1] * 168,

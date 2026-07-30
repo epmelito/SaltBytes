@@ -17,7 +17,7 @@ def build_forecast_params(
         "models": api_config["model"],
         "forecast_days": api_config["forecast_days"],
         "hourly": ",".join(api_config["hourly_fields"]),
-        "timezone": "auto",
+        "timezone": "GMT",
     }
 
 
@@ -53,7 +53,7 @@ def build_wave_params(
         "models": wave_api_config["model"],
         "forecast_days": wave_api_config["forecast_days"],
         "hourly": ",".join(wave_api_config["hourly_fields"]),
-        "timezone": "auto",
+        "timezone": "GMT",
     }
 
 
@@ -94,7 +94,7 @@ def build_sst_params(
         "models": sst_api_config["model"],
         "forecast_days": sst_api_config["forecast_days"],
         "hourly": ",".join(sst_api_config["hourly_fields"]),
-        "timezone": "auto",
+        "timezone": "GMT",
     }
 
 

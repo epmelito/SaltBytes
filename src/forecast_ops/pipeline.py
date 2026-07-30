@@ -191,10 +191,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         ],
                         "returned_latitude": weather_payload["latitude"],
                         "returned_longitude": weather_payload["longitude"],
-                        "response_timezone": weather_payload["timezone"],
-                        "response_utc_offset_seconds": weather_payload[
-                            "utc_offset_seconds"
-                        ],
                     }
                 )
 
@@ -330,10 +326,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         ],
                         "returned_latitude": wave_payload["latitude"],
                         "returned_longitude": wave_payload["longitude"],
-                        "response_timezone": wave_payload["timezone"],
-                        "response_utc_offset_seconds": wave_payload[
-                            "utc_offset_seconds"
-                        ],
                     }
                 )
 
@@ -474,10 +466,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                             ],
                             "returned_latitude": sst_payload["latitude"],
                             "returned_longitude": sst_payload["longitude"],
-                            "response_timezone": sst_payload["timezone"],
-                            "response_utc_offset_seconds": sst_payload[
-                                "utc_offset_seconds"
-                            ],
                         }
                     )
 

@@ -1,7 +1,6 @@
 import math
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 EXPECTED_HOURLY_INSTANTS = 168
 VALID_SOURCE_LABELS = {"weather", "wave", "sst"}
@@ -640,22 +639,26 @@ def run_payload_quality_checks(
             )
         )
 
-    timezone_name = payload.get("timezone")
-    response_timezone: ZoneInfo | None = None
-
-    if isinstance(timezone_name, str) and timezone_name:
-        try:
-            response_timezone = ZoneInfo(timezone_name)
-        except (ValueError, ZoneInfoNotFoundError):
-            pass
-
     results.append(
         _quality_result(
             source_label,
-            "response_timezone_valid",
-            response_timezone is not None,
-            timezone_name,
-            "recognized IANA timezone",
+            "response_timezone_is_gmt",
+            payload.get("timezone") == "GMT",
+            payload.get("timezone"),
+            "GMT",
+            checked_at,
+        )
+    )
+    utc_offset_seconds = payload.get("utc_offset_seconds")
+    results.append(
+        _quality_result(
+            source_label,
+            "response_utc_offset_seconds_is_zero",
+            isinstance(utc_offset_seconds, int | float)
+            and not isinstance(utc_offset_seconds, bool)
+            and utc_offset_seconds == 0,
+            utc_offset_seconds,
+            0,
             checked_at,
         )
     )
@@ -715,41 +718,27 @@ def run_payload_quality_checks(
         )
     )
 
-    normalized_times: list[datetime] = []
-    times_normalized = times_parseable and response_timezone is not None
-
-    if times_normalized:
-        try:
-            for parsed_time in parsed_times:
-                if parsed_time.tzinfo is None:
-                    parsed_time = parsed_time.replace(
-                        tzinfo=response_timezone
-                    )
-
-                normalized_times.append(
-                    parsed_time.astimezone(timezone.utc)
-                )
-        except (OverflowError, ValueError):
-            times_normalized = False
-            normalized_times = []
+    times_are_utc = times_parseable and all(
+        parsed_time.tzinfo is None for parsed_time in parsed_times
+    )
 
     results.append(
         _quality_result(
             source_label,
-            "hourly_times_normalized_to_utc",
-            times_normalized,
-            len(normalized_times),
-            len(time_values),
+            "hourly_times_are_utc",
+            times_are_utc,
+            times_are_utc,
+            True,
             checked_at,
         )
     )
 
-    unique_time_count = len(set(normalized_times))
+    unique_time_count = len(set(parsed_times))
     results.append(
         _quality_result(
             source_label,
             "hourly_utc_time_count",
-            times_normalized
+            times_are_utc
             and unique_time_count == EXPECTED_HOURLY_INSTANTS,
             unique_time_count,
             EXPECTED_HOURLY_INSTANTS,
@@ -758,13 +747,13 @@ def run_payload_quality_checks(
     )
 
     strictly_ascending = (
-        times_normalized
-        and len(normalized_times) == EXPECTED_HOURLY_INSTANTS
+        times_are_utc
+        and len(parsed_times) == EXPECTED_HOURLY_INSTANTS
         and all(
             earlier < later
             for earlier, later in zip(
-                normalized_times,
-                normalized_times[1:],
+                parsed_times,
+                parsed_times[1:],
                 strict=False,
             )
         )
@@ -785,8 +774,8 @@ def run_payload_quality_checks(
         and all(
             later - earlier == timedelta(hours=1)
             for earlier, later in zip(
-                normalized_times,
-                normalized_times[1:],
+                parsed_times,
+                parsed_times[1:],
                 strict=False,
             )
         )

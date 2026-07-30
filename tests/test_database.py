@@ -41,8 +41,6 @@ EXPECTED_SNAPSHOT_COLUMNS = {
     "request_longitude",
     "returned_latitude",
     "returned_longitude",
-    "response_timezone",
-    "response_utc_offset_seconds",
 }
 EXPECTED_HOURLY_COLUMNS = {
     "snapshot_id",
@@ -130,8 +128,6 @@ def snapshot_metadata(
         "request_longitude": -75.5966537,
         "returned_latitude": 35.89557,
         "returned_longitude": -75.5936,
-        "response_timezone": "America/New_York",
-        "response_utc_offset_seconds": -14400,
     }
 
 
@@ -152,8 +148,6 @@ def wave_snapshot_metadata(
         "request_longitude": -76.697,
         "returned_latitude": 34.625,
         "returned_longitude": -76.70833,
-        "response_timezone": "America/New_York",
-        "response_utc_offset_seconds": -14400,
     }
 
 
@@ -174,8 +168,6 @@ def sst_snapshot_metadata(
         "request_longitude": -77.9,
         "returned_latitude": 33.958336,
         "returned_longitude": -77.87499,
-        "response_timezone": "America/New_York",
-        "response_utc_offset_seconds": -14400,
     }
 
 
@@ -242,7 +234,7 @@ def atmospheric_payload(
     precipitation: float = 0.0,
 ) -> dict[str, Any]:
     return {
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": ["2026-07-29T12:00"],
             "wind_speed_10m": [wind_speed],
@@ -260,7 +252,7 @@ def wave_payload(
     wave_period: float = 8.0,
 ) -> dict[str, Any]:
     return {
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": ["2026-07-29T12:00"],
             "wave_height": [wave_height],
@@ -274,7 +266,7 @@ def sst_payload(
     sea_surface_temperature: float = 25.1,
 ) -> dict[str, Any]:
     return {
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": ["2026-07-29T12:00"],
             "sea_surface_temperature": [sea_surface_temperature],
@@ -483,9 +475,7 @@ def test_insert_pipeline_run_and_snapshot_provenance(
                 request_latitude,
                 request_longitude,
                 returned_latitude,
-                returned_longitude,
-                response_timezone,
-                response_utc_offset_seconds
+                returned_longitude
             from forecast_snapshots
             where snapshot_id = 'snapshot123'
             """
@@ -501,8 +491,6 @@ def test_insert_pipeline_run_and_snapshot_provenance(
         -75.5966537,
         35.89557,
         -75.5936,
-        "America/New_York",
-        -14400,
     )
 
 
@@ -557,7 +545,7 @@ def test_insert_forecast_hourly_stores_coastal_fields_in_utc(
     insert_forecast_snapshot(database_path, snapshot_metadata())
 
     payload = {
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": [
                 "2026-07-29T12:00",
@@ -596,7 +584,7 @@ def test_insert_forecast_hourly_stores_coastal_fields_in_utc(
     assert rows_loaded == 2
     assert rows == [
         (
-            datetime(2026, 7, 29, 16, 0, tzinfo=timezone.utc),
+            datetime(2026, 7, 29, 12, 0, tzinfo=timezone.utc),
             10.0,
             180.0,
             15.0,
@@ -604,7 +592,7 @@ def test_insert_forecast_hourly_stores_coastal_fields_in_utc(
             0.0,
         ),
         (
-            datetime(2026, 7, 29, 17, 0, tzinfo=timezone.utc),
+            datetime(2026, 7, 29, 13, 0, tzinfo=timezone.utc),
             11.0,
             190.0,
             16.0,
@@ -675,7 +663,7 @@ def test_insert_sst_hourly_stores_values_in_utc(
     insert_run(database_path)
     insert_forecast_snapshot(database_path, sst_snapshot_metadata())
     payload = {
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": [
                 "2026-07-29T12:00",
@@ -706,11 +694,11 @@ def test_insert_sst_hourly_stores_values_in_utc(
     assert rows_loaded == 2
     assert rows == [
         (
-            datetime(2026, 7, 29, 16, 0, tzinfo=timezone.utc),
+            datetime(2026, 7, 29, 12, 0, tzinfo=timezone.utc),
             25.1,
         ),
         (
-            datetime(2026, 7, 29, 17, 0, tzinfo=timezone.utc),
+            datetime(2026, 7, 29, 13, 0, tzinfo=timezone.utc),
             25.4,
         ),
     ]
@@ -724,7 +712,7 @@ def test_insert_wave_hourly_stores_fields_in_utc(
     insert_run(database_path)
     insert_forecast_snapshot(database_path, wave_snapshot_metadata())
     payload = {
-        "timezone": "America/New_York",
+        "timezone": "GMT",
         "hourly": {
             "time": [
                 "2026-07-29T12:00",
@@ -759,13 +747,13 @@ def test_insert_wave_hourly_stores_fields_in_utc(
     assert rows_loaded == 2
     assert rows == [
         (
-            datetime(2026, 7, 29, 16, 0, tzinfo=timezone.utc),
+            datetime(2026, 7, 29, 12, 0, tzinfo=timezone.utc),
             1.2,
             135.0,
             8.0,
         ),
         (
-            datetime(2026, 7, 29, 17, 0, tzinfo=timezone.utc),
+            datetime(2026, 7, 29, 13, 0, tzinfo=timezone.utc),
             1.4,
             145.0,
             9.0,
@@ -806,15 +794,15 @@ def test_insert_forecast_hourly_requires_hourly_mapping(
         )
 
 
-def test_insert_forecast_hourly_requires_timezone(
+def test_insert_forecast_hourly_rejects_offset_aware_timestamps(
     tmp_path: Path,
 ) -> None:
     payload = atmospheric_payload()
-    del payload["timezone"]
+    payload["hourly"]["time"] = ["2026-07-29T12:00+00:00"]
 
     with pytest.raises(
         ValueError,
-        match="forecast payload must contain a timezone",
+        match="forecast payload hourly timestamps must be UTC-naive",
     ):
         insert_forecast_hourly(
             database_path=tmp_path / "forecast_ops.duckdb",

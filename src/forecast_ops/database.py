@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import duckdb
 
@@ -27,8 +26,6 @@ create table if not exists forecast_snapshots (
     request_longitude double,
     returned_latitude double,
     returned_longitude double,
-    response_timezone varchar,
-    response_utc_offset_seconds integer,
     foreign key (run_id) references pipeline_runs(run_id)
 );
 
@@ -180,11 +177,9 @@ def insert_forecast_snapshot(
                 request_latitude,
                 request_longitude,
                 returned_latitude,
-                returned_longitude,
-                response_timezone,
-                response_utc_offset_seconds
+                returned_longitude
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 metadata["snapshot_id"],
@@ -197,8 +192,6 @@ def insert_forecast_snapshot(
                 metadata["request_longitude"],
                 metadata["returned_latitude"],
                 metadata["returned_longitude"],
-                metadata["response_timezone"],
-                metadata["response_utc_offset_seconds"],
             ],
         )
 
@@ -258,16 +251,6 @@ def insert_forecast_hourly(
     if not isinstance(forecast_times, list):
         raise ValueError("forecast payload must contain an hourly time list")
 
-    timezone_name = payload.get("timezone")
-
-    if not isinstance(timezone_name, str):
-        raise ValueError("forecast payload must contain a timezone")
-
-    try:
-        forecast_timezone = ZoneInfo(timezone_name)
-    except Exception as error:
-        raise ValueError(f"invalid forecast timezone: {timezone_name}") from error
-
     metric_names = (
         "wind_speed_10m",
         "wind_direction_10m",
@@ -292,10 +275,12 @@ def insert_forecast_hourly(
     for forecast_time in forecast_times:
         parsed_time = datetime.fromisoformat(forecast_time)
 
-        if parsed_time.tzinfo is None:
-            parsed_time = parsed_time.replace(tzinfo=forecast_timezone)
+        if parsed_time.tzinfo is not None:
+            raise ValueError(
+                "forecast payload hourly timestamps must be UTC-naive"
+            )
 
-        normalized_times.append(parsed_time.astimezone(timezone.utc))
+        normalized_times.append(parsed_time.replace(tzinfo=timezone.utc))
 
     rows = [
         (
@@ -349,16 +334,6 @@ def insert_wave_hourly(
     if not isinstance(forecast_times, list):
         raise ValueError("wave payload must contain an hourly time list")
 
-    timezone_name = payload.get("timezone")
-
-    if not isinstance(timezone_name, str):
-        raise ValueError("wave payload must contain a timezone")
-
-    try:
-        forecast_timezone = ZoneInfo(timezone_name)
-    except Exception as error:
-        raise ValueError(f"invalid wave timezone: {timezone_name}") from error
-
     metric_names = (
         "wave_height",
         "wave_direction",
@@ -383,10 +358,10 @@ def insert_wave_hourly(
     for forecast_time in forecast_times:
         parsed_time = datetime.fromisoformat(forecast_time)
 
-        if parsed_time.tzinfo is None:
-            parsed_time = parsed_time.replace(tzinfo=forecast_timezone)
+        if parsed_time.tzinfo is not None:
+            raise ValueError("wave payload hourly timestamps must be UTC-naive")
 
-        normalized_times.append(parsed_time.astimezone(timezone.utc))
+        normalized_times.append(parsed_time.replace(tzinfo=timezone.utc))
 
     rows = [
         (
@@ -436,16 +411,6 @@ def insert_sst_hourly(
     if not isinstance(forecast_times, list):
         raise ValueError("sst payload must contain an hourly time list")
 
-    timezone_name = payload.get("timezone")
-
-    if not isinstance(timezone_name, str):
-        raise ValueError("sst payload must contain a timezone")
-
-    try:
-        forecast_timezone = ZoneInfo(timezone_name)
-    except Exception as error:
-        raise ValueError(f"invalid sst timezone: {timezone_name}") from error
-
     sst_values = hourly.get("sea_surface_temperature")
 
     if not isinstance(sst_values, list):
@@ -464,10 +429,10 @@ def insert_sst_hourly(
     for forecast_time in forecast_times:
         parsed_time = datetime.fromisoformat(forecast_time)
 
-        if parsed_time.tzinfo is None:
-            parsed_time = parsed_time.replace(tzinfo=forecast_timezone)
+        if parsed_time.tzinfo is not None:
+            raise ValueError("sst payload hourly timestamps must be UTC-naive")
 
-        normalized_times.append(parsed_time.astimezone(timezone.utc))
+        normalized_times.append(parsed_time.replace(tzinfo=timezone.utc))
 
     rows = [
         (
