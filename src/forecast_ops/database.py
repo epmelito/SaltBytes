@@ -116,6 +116,142 @@ create table if not exists source_results (
     primary key (run_id, location_id, source),
     foreign key (run_id) references pipeline_runs(run_id)
 );
+
+create or replace view coastal_conditions_hourly as
+with hourly_keys as (
+    select snapshots.run_id, hourly.location_id, hourly.forecast_time
+    from forecast_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+    union
+    select snapshots.run_id, hourly.location_id, hourly.forecast_time
+    from wave_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+    union
+    select snapshots.run_id, hourly.location_id, hourly.forecast_time
+    from sst_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+    union
+    select snapshots.run_id, hourly.location_id, hourly.forecast_time
+    from tide_phase_hourly as hourly
+    inner join tide_snapshots as tide_snapshots
+        on tide_snapshots.snapshot_id = hourly.snapshot_id
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = tide_snapshots.snapshot_id
+),
+weather_rows as (
+    select
+        snapshots.run_id,
+        hourly.location_id,
+        hourly.forecast_time,
+        hourly.snapshot_id,
+        hourly.precipitation_probability,
+        hourly.wind_speed_10m,
+        hourly.wind_direction_10m,
+        hourly.wind_gusts_10m,
+        hourly.precipitation
+    from forecast_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+),
+wave_rows as (
+    select
+        snapshots.run_id,
+        hourly.location_id,
+        hourly.forecast_time,
+        hourly.snapshot_id,
+        hourly.wave_height,
+        hourly.wave_direction,
+        hourly.wave_period
+    from wave_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+),
+sst_rows as (
+    select
+        snapshots.run_id,
+        hourly.location_id,
+        hourly.forecast_time,
+        hourly.snapshot_id,
+        hourly.sea_surface_temperature
+    from sst_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+),
+tide_rows as (
+    select
+        snapshots.run_id,
+        hourly.location_id,
+        hourly.forecast_time,
+        hourly.snapshot_id,
+        hourly.phase
+    from tide_phase_hourly as hourly
+    inner join tide_snapshots as tide_snapshots
+        on tide_snapshots.snapshot_id = hourly.snapshot_id
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = tide_snapshots.snapshot_id
+)
+select
+    hourly_keys.run_id,
+    runs.started_at as run_started_at,
+    runs.status as run_status,
+    hourly_keys.location_id,
+    hourly_keys.forecast_time,
+    weather_rows.snapshot_id as weather_snapshot_id,
+    weather_rows.precipitation_probability,
+    weather_rows.wind_speed_10m,
+    weather_rows.wind_direction_10m,
+    weather_rows.wind_gusts_10m,
+    weather_rows.precipitation,
+    weather_results.status as weather_status,
+    wave_rows.snapshot_id as wave_snapshot_id,
+    wave_rows.wave_height,
+    wave_rows.wave_direction,
+    wave_rows.wave_period,
+    wave_results.status as wave_status,
+    sst_rows.snapshot_id as sst_snapshot_id,
+    sst_rows.sea_surface_temperature,
+    sst_results.status as sst_status,
+    tide_rows.snapshot_id as tide_snapshot_id,
+    tide_rows.phase as tide_phase,
+    tide_results.status as tide_status
+from hourly_keys
+inner join pipeline_runs as runs
+    on runs.run_id = hourly_keys.run_id
+left join weather_rows
+    on weather_rows.run_id = hourly_keys.run_id
+    and weather_rows.location_id = hourly_keys.location_id
+    and weather_rows.forecast_time = hourly_keys.forecast_time
+left join wave_rows
+    on wave_rows.run_id = hourly_keys.run_id
+    and wave_rows.location_id = hourly_keys.location_id
+    and wave_rows.forecast_time = hourly_keys.forecast_time
+left join sst_rows
+    on sst_rows.run_id = hourly_keys.run_id
+    and sst_rows.location_id = hourly_keys.location_id
+    and sst_rows.forecast_time = hourly_keys.forecast_time
+left join tide_rows
+    on tide_rows.run_id = hourly_keys.run_id
+    and tide_rows.location_id = hourly_keys.location_id
+    and tide_rows.forecast_time = hourly_keys.forecast_time
+left join source_results as weather_results
+    on weather_results.run_id = hourly_keys.run_id
+    and weather_results.location_id = hourly_keys.location_id
+    and weather_results.source = 'weather'
+left join source_results as wave_results
+    on wave_results.run_id = hourly_keys.run_id
+    and wave_results.location_id = hourly_keys.location_id
+    and wave_results.source = 'wave'
+left join source_results as sst_results
+    on sst_results.run_id = hourly_keys.run_id
+    and sst_results.location_id = hourly_keys.location_id
+    and sst_results.source = 'sst'
+left join source_results as tide_results
+    on tide_results.run_id = hourly_keys.run_id
+    and tide_results.location_id = hourly_keys.location_id
+    and tide_results.source = 'tide';
 """
 
 # create the database file and required tables

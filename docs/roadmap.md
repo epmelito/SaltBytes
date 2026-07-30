@@ -26,15 +26,14 @@ destructive persistence.
 
 ## 2. Build the integrated hourly result
 
-Create one downstream DuckDB query, view, or small model using the existing
+Create the downstream DuckDB view `coastal_conditions_hourly` using the existing
 normalized tables.
 
 It should:
 
-- use stable location identity
-- align data by UTC forecast hour
+- use exact run, stable location identity, and UTC forecast-hour keys
 - include values from the four existing source families
-- use left joins so unavailable source data remains visible
+- retain source status and snapshot provenance while unavailable values remain null
 - remain deterministic and inspectable
 
 Do not add scoring, ranking, recommendations, interpolation, carry-forward, or

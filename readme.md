@@ -20,14 +20,15 @@ replace official marine guidance, or operate as a production service.
 
 The ingestion pipeline is implemented. It loads YAML configuration, requests
 each source independently, validates results, preserves accepted raw responses,
-and stores normalized UTC data in DuckDB with quality and provenance metadata.
+and stores normalized UTC data in DuckDB. The downstream
+`coastal_conditions_hourly` view aligns available source values by exact run,
+location, and UTC hour.
 
 The remaining MVP work is:
 
 1. validate the full pipeline with live data
 2. fix observed blocking or correctness defects
-3. build one integrated hourly coastal-conditions result
-4. expose one readable local output
+3. expose one readable local output
 
 See [the roadmap](docs/roadmap.md) for the delivery sequence.
 

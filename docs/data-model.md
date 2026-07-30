@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This document describes the persisted DuckDB model and the intended integrated
-MVP result.
+This document describes the persisted DuckDB model and its integrated hourly
+view.
 
 ## Persisted entities
 
@@ -65,31 +65,30 @@ Source-specific coordinates and NOAA station identifiers are provenance and
 configuration details. Cross-source integration should use the stable location
 identifier rather than comparing raw coordinates.
 
-## Integrated MVP result
-
-Create one downstream hourly result, provisionally named:
+## Integrated hourly view
 
 ```text
 coastal_conditions_hourly
 ```
 
-It should include:
+`coastal_conditions_hourly` is a DuckDB view at grain `run_id`, `location_id`,
+and UTC `forecast_time`. Its spine is the distinct union of normalized weather,
+wave, SST, and tide-phase keys. It joins each source only on that exact grain,
+so it retains all runs without cross-run mixing or latest-snapshot selection.
+
+It includes:
 
 - location identifier
-- location name
-- fishing context
 - UTC forecast hour
 - selected atmospheric values
 - selected wave values
 - sea-surface temperature
 - tide phase
-- enough availability or quality context to explain missing values
+- source status and source snapshot provenance for each source family
 
-Use atmospheric forecast hours as the initial time spine unless live validation
-shows that this creates an incorrect result.
-
-Join wave, SST, and tide phase by stable location identity and UTC forecast hour.
-Use left joins so unavailable or rejected sources remain visible as null values.
+Failure detail remains in `source_results`; it is not repeated in the hourly
+view. Missing normalized values remain null. The view does not interpolate,
+round, tolerate, or generate timestamps.
 
 Do not interpolate, carry values forward, substitute sources, or add fishing
 scores or recommendations in the MVP.

@@ -206,6 +206,14 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         "forecast_ops.pipeline.fetch_tide_predictions",
         fake_fetch_tide_predictions,
     )
+    fixed_now = datetime(2026, 7, 28)
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz: object = None) -> datetime:
+            return fixed_now.replace(tzinfo=tz)
+
+    monkeypatch.setattr("forecast_ops.pipeline.datetime", FixedDatetime)
 
     result = run_pipeline(config)
 
@@ -342,6 +350,35 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             order by location_id, source
             """
         ).fetchall()
+        integrated_row_count = connection.execute(
+            "select count(*) from coastal_conditions_hourly"
+        ).fetchone()
+        integrated_location_counts = connection.execute(
+            """
+            select location_id, count(*)
+            from coastal_conditions_hourly
+            group by location_id
+            order by location_id
+            """
+        ).fetchall()
+        integrated_complete_rows = connection.execute(
+            """
+            select count(*)
+            from coastal_conditions_hourly
+            where weather_status = 'success'
+                and wave_status = 'success'
+                and sst_status = 'success'
+                and tide_status = 'success'
+                and weather_snapshot_id is not null
+                and wave_snapshot_id is not null
+                and sst_snapshot_id is not null
+                and tide_snapshot_id is not null
+                and wind_speed_10m is not null
+                and wave_height is not null
+                and sea_surface_temperature is not null
+                and tide_phase is not null
+            """
+        ).fetchone()
 
     locations_by_id = {
         location["id"]: location
@@ -394,6 +431,9 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         "tide",
     }
     assert all(detail is None for _, _, _, detail in source_results)
+    assert integrated_row_count == (840,)
+    assert integrated_location_counts == weather_hourly_counts
+    assert integrated_complete_rows == (840,)
 
     for snapshot in snapshots:
         location_id = snapshot[0]
