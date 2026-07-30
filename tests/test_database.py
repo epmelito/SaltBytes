@@ -1056,3 +1056,128 @@ def test_tide_snapshot_events_and_phase_preserve_distinct_provenance(
             "rising",
         )
     ]
+
+
+def test_coastal_conditions_hourly_keeps_exact_run_and_hour_boundaries(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    hour = datetime(2026, 7, 29, 12, tzinfo=timezone.utc)
+    later_hour = datetime(2026, 7, 29, 13, tzinfo=timezone.utc)
+    sst_hour = datetime(2026, 7, 29, 14, tzinfo=timezone.utc)
+    tide_hour = datetime(2026, 7, 29, 15, tzinfo=timezone.utc)
+    initialize_database(database_path)
+    insert_run(database_path, "run-one")
+    insert_run(database_path, "run-two")
+
+    for snapshot_id, model_selector in (
+        ("weather-one", "ncep_nbm_conus"),
+        ("wave-one", "meteofrance_wave"),
+        ("sst-one", "meteofrance_currents"),
+        ("weather-two", "ncep_nbm_conus"),
+    ):
+        metadata = snapshot_metadata(snapshot_id=snapshot_id, run_id="run-one")
+        if snapshot_id == "weather-two":
+            metadata["run_id"] = "run-two"
+        metadata["model_selector"] = model_selector
+        insert_forecast_snapshot(database_path, metadata)
+
+    tide_metadata = tide_snapshot_metadata(
+        snapshot_id="tide-one",
+        run_id="run-one",
+    )
+    insert_tide_snapshot(
+        database_path,
+        tide_metadata,
+        tide_request_provenance(),
+        tide_relationship(),
+    )
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.executemany(
+            """
+            insert into forecast_hourly values (?, 'jennettes_pier', ?, 20, 10, 180, 15, 0)
+            """,
+            [("weather-one", hour), ("weather-two", hour)],
+        )
+        connection.executemany(
+            """
+            insert into wave_hourly values (?, 'jennettes_pier', ?, 1.2, 135, 8)
+            """,
+            [("wave-one", hour), ("wave-one", later_hour)],
+        )
+        connection.executemany(
+            """
+            insert into sst_hourly values (?, 'jennettes_pier', ?, 25.1)
+            """,
+            [("sst-one", hour), ("sst-one", sst_hour)],
+        )
+        connection.executemany(
+            """
+            insert into tide_phase_hourly values (?, 'jennettes_pier', ?, 'rising')
+            """,
+            [("tide-one", hour), ("tide-one", tide_hour)],
+        )
+        connection.executemany(
+            """
+            insert into source_results values (?, 'jennettes_pier', ?, ?, null, ?)
+            """,
+            [
+                ("run-one", source, "success", hour)
+                for source in ("weather", "wave", "sst", "tide")
+            ]
+            + [
+                ("run-two", "weather", "success", hour),
+                ("run-two", "wave", "fetch_failed", hour),
+                ("run-two", "sst", "validation_failed", hour),
+                ("run-two", "tide", "fetch_failed", hour),
+            ],
+        )
+
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            """
+            select
+                run_id,
+                forecast_time,
+                weather_snapshot_id,
+                wave_snapshot_id,
+                sst_snapshot_id,
+                tide_snapshot_id,
+                wind_speed_10m,
+                wave_height,
+                sea_surface_temperature,
+                tide_phase,
+                weather_status,
+                wave_status,
+                sst_status,
+                tide_status
+            from coastal_conditions_hourly
+            order by run_id, forecast_time
+            """
+        ).fetchall()
+
+    assert rows == [
+        (
+            "run-one", hour, "weather-one", "wave-one", "sst-one", "tide-one",
+            10.0, 1.2, 25.1, "rising", "success", "success", "success", "success",
+        ),
+        (
+            "run-one", later_hour, None, "wave-one", None, None,
+            None, 1.2, None, None, "success", "success", "success", "success",
+        ),
+        (
+            "run-one", sst_hour, None, None, "sst-one", None,
+            None, None, 25.1, None, "success", "success", "success", "success",
+        ),
+        (
+            "run-one", tide_hour, None, None, None, "tide-one",
+            None, None, None, "rising", "success", "success", "success", "success",
+        ),
+        (
+            "run-two", hour, "weather-two", None, None, None,
+            10.0, None, None, None, "success", "fetch_failed", "validation_failed", "fetch_failed",
+        ),
+    ]

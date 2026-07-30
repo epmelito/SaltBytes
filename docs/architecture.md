@@ -15,7 +15,8 @@ The pipeline:
 3. validates each source result
 4. stores accepted raw responses as immutable JSON
 5. normalizes accepted data into DuckDB
-6. records run, quality, request, and provenance metadata
+6. records run, source-result, request, and provenance metadata
+7. exposes the downstream `coastal_conditions_hourly` view
 
 ## Data flow
 
@@ -36,7 +37,7 @@ The MVP adds:
 ```text
 normalized DuckDB tables
     ↓
-integrated hourly coastal-conditions result
+coastal_conditions_hourly view
     ↓
 readable local output
 ```
@@ -71,9 +72,8 @@ See [data-model.md](data-model.md) for the persisted model.
 
 ## MVP extension boundary
 
-The integrated result should remain downstream from the existing ingestion
-pipeline. It should use existing normalized tables, stable location identity,
-and UTC forecast hours.
+The integrated view remains downstream from ingestion. It uses the distinct
+union of normalized source keys and exact run, location, and UTC-hour joins.
 
 Do not redesign the ingestion control flow unless live validation proves a
 change is required.
