@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 from typing import Any
 
@@ -131,6 +132,18 @@ def _validate_location(
         wave_config.get("expected_returned_coordinate"),
         f"locations[{index}].wave.expected_returned_coordinate",
     )
+    sst_config = _require_mapping(
+        location_config.get("sst"),
+        f"locations[{index}].sst",
+    )
+    sst_request_coordinate = _require_mapping(
+        sst_config.get("request_coordinate"),
+        f"locations[{index}].sst.request_coordinate",
+    )
+    sst_expected_returned_coordinate = _require_mapping(
+        sst_config.get("expected_returned_coordinate"),
+        f"locations[{index}].sst.expected_returned_coordinate",
+    )
     coordinates = (
         ("display_coordinate", display_coordinate),
         ("weather.request_coordinate", request_coordinate),
@@ -142,6 +155,11 @@ def _validate_location(
         (
             "wave.expected_returned_coordinate",
             wave_expected_returned_coordinate,
+        ),
+        ("sst.request_coordinate", sst_request_coordinate),
+        (
+            "sst.expected_returned_coordinate",
+            sst_expected_returned_coordinate,
         ),
     )
 
@@ -163,6 +181,92 @@ def _validate_location(
         weather_config.get("coastal_regime"),
         f"locations[{index}].weather.coastal_regime",
     )
+    _require_string(
+        sst_config.get("coastal_regime"),
+        f"locations[{index}].sst.coastal_regime",
+    )
+
+    tide_config = _require_mapping(
+        location_config.get("tide"),
+        f"locations[{index}].tide",
+    )
+    for field_name in (
+        "prediction_location",
+        "station_id",
+        "coastal_relationship",
+        "known_limitation",
+    ):
+        _require_string(
+            tide_config.get(field_name),
+            f"locations[{index}].tide.{field_name}",
+        )
+
+    relationship_type = _require_string(
+        tide_config.get("relationship_type"),
+        f"locations[{index}].tide.relationship_type",
+    )
+    if relationship_type not in {"direct", "transfer"}:
+        raise ValueError(
+            f"locations[{index}].tide.relationship_type must be direct or transfer"
+        )
+
+    distance_km = _require_number_in_range(
+        tide_config.get("distance_km"),
+        f"locations[{index}].tide.distance_km",
+        0,
+        float("inf"),
+    )
+    if not math.isfinite(distance_km):
+        raise ValueError(
+            f"locations[{index}].tide.distance_km must be finite"
+        )
+
+    subordinate_fields = (
+        "high_time_offset_minutes",
+        "low_time_offset_minutes",
+        "high_multiplier",
+        "low_multiplier",
+    )
+    required_nullable_fields = ("reference_station", *subordinate_fields)
+    missing_nullable_fields = [
+        field_name
+        for field_name in required_nullable_fields
+        if field_name not in tide_config
+    ]
+    if missing_nullable_fields:
+        raise ValueError(
+            f"locations[{index}].tide must contain "
+            f"{', '.join(missing_nullable_fields)}"
+        )
+
+    reference_station = tide_config["reference_station"]
+    subordinate_values = [
+        tide_config[field_name]
+        for field_name in subordinate_fields
+    ]
+    if reference_station is None:
+        if any(value is not None for value in subordinate_values):
+            raise ValueError(
+                f"locations[{index}].tide subordinate metadata must all be null"
+            )
+    else:
+        _require_string(
+            reference_station,
+            f"locations[{index}].tide.reference_station",
+        )
+        for field_name, value in zip(
+            subordinate_fields,
+            subordinate_values,
+            strict=True,
+        ):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int | float)
+                or not math.isfinite(float(value))
+            ):
+                raise ValueError(
+                    f"locations[{index}].tide.{field_name} must be a finite number"
+                )
 
 
 # validate all required pipeline configuration

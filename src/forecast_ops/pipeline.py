@@ -28,8 +28,6 @@ from forecast_ops.quality import (
     derive_tide_phases,
     normalize_tide_events,
     run_payload_quality_checks,
-    run_sst_preflight_checks,
-    run_tide_preflight_checks,
     run_tide_quality_checks,
 )
 from forecast_ops.storage import create_run_id, write_raw_snapshot
@@ -335,43 +333,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 location["id"],
             )
 
-            sst_preflight_results = run_sst_preflight_checks(location)
-
-            for quality_result in sst_preflight_results:
-                insert_quality_result(
-                    database_path=database_path,
-                    run_id=run_id,
-                    check_name=f"{location['id']}:{quality_result['check_name']}",
-                    status=str(quality_result["status"]),
-                    observed_value=str(quality_result["observed_value"]),
-                    expected_value=str(quality_result["expected_value"]),
-                    checked_at=quality_result["checked_at"],
-                )
-
-            failed_sst_preflight_checks = [
-                quality_result
-                for quality_result in sst_preflight_results
-                if quality_result["status"] == "fail"
-            ]
-
-            if failed_sst_preflight_checks:
-                failed_check_names = ", ".join(
-                    str(quality_result["check_name"])
-                    for quality_result in failed_sst_preflight_checks
-                )
-                location_failure = (
-                    f"sst quality checks failed for {location['id']}: "
-                    f"{failed_check_names}"
-                )
-                location_failures.append(location_failure)
-                logger.error(
-                    "sst preflight quality checks failed run_id=%s "
-                    "location=%s checks=%s",
-                    run_id,
-                    location["id"],
-                    failed_check_names,
-                )
-            else:
+            if location["sst"]:
                 sst_config = location["sst"]
                 sst_request_coordinate = sst_config["request_coordinate"]
                 sst_payload = None
@@ -507,46 +469,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 location["id"],
             )
 
-            tide_preflight_results = run_tide_preflight_checks(
-                location,
-                tide_api_config,
-            )
-
-            for quality_result in tide_preflight_results:
-                insert_quality_result(
-                    database_path=database_path,
-                    run_id=run_id,
-                    check_name=f"{location['id']}:{quality_result['check_name']}",
-                    status=str(quality_result["status"]),
-                    observed_value=str(quality_result["observed_value"]),
-                    expected_value=str(quality_result["expected_value"]),
-                    checked_at=quality_result["checked_at"],
-                )
-
-            failed_tide_preflight_checks = [
-                quality_result
-                for quality_result in tide_preflight_results
-                if quality_result["status"] == "fail"
-            ]
-
-            if failed_tide_preflight_checks:
-                failed_check_names = ", ".join(
-                    str(quality_result["check_name"])
-                    for quality_result in failed_tide_preflight_checks
-                )
-                location_failure = (
-                    f"tide quality checks failed for {location['id']}: "
-                    f"{failed_check_names}"
-                )
-                location_failures.append(location_failure)
-                logger.error(
-                    "tide preflight quality checks failed run_id=%s "
-                    "location=%s checks=%s",
-                    run_id,
-                    location["id"],
-                    failed_check_names,
-                )
-            else:
+            if location["tide"]:
                 captured_at = datetime.now(timezone.utc)
                 tide_params = build_tide_params(
                     location=location,

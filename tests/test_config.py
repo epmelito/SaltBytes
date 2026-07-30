@@ -566,7 +566,7 @@ def test_load_config_requires_complete_spatial_relationships(
     "field_path",
     [("sst",)],
 )
-def test_load_config_defers_incomplete_sst_relationships_to_pipeline(
+def test_load_config_rejects_incomplete_sst_relationships(
     tmp_path: Path,
     field_path: tuple[str, ...],
 ) -> None:
@@ -579,16 +579,15 @@ def test_load_config_defers_incomplete_sst_relationships_to_pipeline(
     del target[field_path[-1]]
     write_config(tmp_path, config)
 
-    loaded_config = load_config("dev", config_dir=tmp_path)
-
-    assert loaded_config["locations"][0]["id"] == "jennettes_pier"
+    with pytest.raises(ValueError, match=r"locations\[0\].sst"):
+        load_config("dev", config_dir=tmp_path)
 
 
 @pytest.mark.parametrize(
     "field_path",
     [("tide",)],
 )
-def test_load_config_defers_incomplete_tide_relationships_to_pipeline(
+def test_load_config_rejects_incomplete_tide_relationships(
     tmp_path: Path,
     field_path: tuple[str, ...],
 ) -> None:
@@ -601,9 +600,8 @@ def test_load_config_defers_incomplete_tide_relationships_to_pipeline(
     del target[field_path[-1]]
     write_config(tmp_path, config)
 
-    loaded_config = load_config("dev", config_dir=tmp_path)
-
-    assert loaded_config["locations"][0]["id"] == "jennettes_pier"
+    with pytest.raises(ValueError, match=r"locations\[0\].tide"):
+        load_config("dev", config_dir=tmp_path)
 
 
 @pytest.mark.parametrize("fishing_context", ["boat"])
@@ -659,7 +657,7 @@ def test_load_config_rejects_invalid_wave_coordinates(
         ("request_coordinate", "latitude", 91),
     ],
 )
-def test_load_config_defers_invalid_sst_coordinates_to_pipeline(
+def test_load_config_rejects_invalid_sst_coordinates(
     tmp_path: Path,
     coordinate_name: str,
     field_name: str,
@@ -670,14 +668,11 @@ def test_load_config_defers_invalid_sst_coordinates_to_pipeline(
     coordinate[field_name] = field_value
     write_config(tmp_path, config)
 
-    loaded_config = load_config("dev", config_dir=tmp_path)
-
-    assert loaded_config["locations"][0]["sst"][coordinate_name][
-        field_name
-    ] == field_value
+    with pytest.raises(ValueError, match=field_name):
+        load_config("dev", config_dir=tmp_path)
 
 @pytest.mark.parametrize("coastal_regime", [""])
-def test_load_config_defers_empty_sst_coastal_regime_to_pipeline(
+def test_load_config_rejects_empty_sst_coastal_regime(
     tmp_path: Path,
     coastal_regime: Any,
 ) -> None:
@@ -685,12 +680,8 @@ def test_load_config_defers_empty_sst_coastal_regime_to_pipeline(
     config["locations"][0]["sst"]["coastal_regime"] = coastal_regime
     write_config(tmp_path, config)
 
-    loaded_config = load_config("dev", config_dir=tmp_path)
-
-    assert (
-        loaded_config["locations"][0]["sst"]["coastal_regime"]
-        == coastal_regime
-    )
+    with pytest.raises(ValueError, match="coastal_regime"):
+        load_config("dev", config_dir=tmp_path)
 
 
 def test_load_config_requires_https_api_url(

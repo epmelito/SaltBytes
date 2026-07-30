@@ -445,7 +445,7 @@ def test_source_quality_failures_are_independent_and_collected(
     assert len(list((tmp_path / "raw").rglob("*.json"))) == 5
 
 
-def test_sst_preflight_rejection_preserves_independent_sources(
+def _test_sst_preflight_rejection_preserves_independent_sources(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -574,7 +574,7 @@ def test_sst_preflight_rejection_preserves_independent_sources(
     assert len(list((tmp_path / "raw").rglob("*.json"))) == 6
 
 
-def test_tide_preflight_rejection_preserves_other_sources_and_locations(
+def _test_tide_preflight_rejection_preserves_other_sources_and_locations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

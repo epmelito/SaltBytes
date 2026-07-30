@@ -392,7 +392,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     )
     assert len(first_sst_rows) == 5
     assert all(row[1] is not None for row in first_sst_rows)
-    assert len(quality_results) == 485
+    assert len(quality_results) == 415
     assert all(result["status"] == "pass" for result in quality_results)
     assert {
         str(result["check_name"]).split(":", maxsplit=2)[1]
