@@ -13,7 +13,7 @@ def test_write_raw_snapshot_creates_immutable_json_file(tmp_path: Path) -> None:
         "longitude": 14.44,
         "hourly": {
             "time": ["2026-07-28T00:00"],
-            "temperature_2m": [18.2],
+            "wind_speed_10m": [18.2],
         },
     }
     captured_at = datetime(2026, 7, 28, 10, 30, tzinfo=timezone.utc)

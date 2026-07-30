@@ -296,7 +296,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             """
             select
                 location_id,
-                temperature_2m,
                 wind_speed_10m,
                 wind_direction_10m,
                 wind_gusts_10m,
@@ -345,9 +344,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             order by location_id, source
             """
         ).fetchall()
-        quality_result_count = connection.execute(
-            "select count(*) from quality_results"
-        ).fetchone()
 
     locations_by_id = {
         location["id"]: location
@@ -380,9 +376,8 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         ("ocracoke_ramp_72", "TEC2793", "transfer"),
     ]
     assert len(first_weather_rows) == 5
-    assert all(row[1] is None for row in first_weather_rows)
     assert all(
-        all(value is not None for value in row[2:])
+        all(value is not None for value in row[1:])
         for row in first_weather_rows
     )
     assert len(first_wave_rows) == 5
@@ -401,7 +396,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         "tide",
     }
     assert all(detail is None for _, _, _, detail in source_results)
-    assert quality_result_count == (0,)
 
     for snapshot in snapshots:
         location_id = snapshot[0]

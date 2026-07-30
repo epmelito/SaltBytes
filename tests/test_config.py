@@ -739,7 +739,7 @@ def test_load_config_requires_exact_hourly_fields(
     if change == "missing":
         hourly_fields.remove("precipitation")
     elif change == "extra":
-        hourly_fields.append("temperature_2m")
+        hourly_fields.append("unexpected_field")
     else:
         hourly_fields[-1] = "wind_speed_10m"
 
