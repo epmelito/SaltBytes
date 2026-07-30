@@ -1,13 +1,39 @@
+import argparse
+
 from forecast_ops.config import load_config
 from forecast_ops.logging import configure_logging
 from forecast_ops.pipeline import run_pipeline
+from forecast_ops.report import render_report
+
+
+def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    report_parser = subparsers.add_parser("report")
+    report_parser.add_argument("--run-id")
+    report_parser.add_argument("--hours", type=int, default=24)
+    report_parser.add_argument("--location")
+
+    return parser.parse_args(argv)
 
 
 # load configuration and run the pipeline
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    arguments = _parse_arguments(argv)
     config = load_config()
 
     configure_logging(config)
+
+    if arguments.command == "report":
+        print(
+            render_report(
+                config=config,
+                run_id=arguments.run_id,
+                hours=arguments.hours,
+                location_id=arguments.location,
+            )
+        )
+        return
 
     result = run_pipeline(config)
 

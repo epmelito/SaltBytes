@@ -41,12 +41,11 @@ source substitution.
 
 ## 3. Expose one readable local output
 
-Present the integrated result through the smallest useful local interface, such
-as a CLI table, text report, or generated HTML report.
-
-Choose based on implementation cost and readability. Public hosting, APIs,
-authentication, dashboards, and cloud infrastructure are not part of this
-milestone.
+Present the integrated result with `forecast-ops report`. It selects the latest
+attempted run by default and supports run, location, and forecast-hour filters.
+It displays source failures alongside available hourly values using the local
+configured display timezone. Public hosting, APIs, authentication, dashboards,
+and cloud infrastructure are not part of this milestone.
 
 ## 4. Stabilize the MVP
 
