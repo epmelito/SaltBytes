@@ -108,7 +108,15 @@ Each attribute addition must:
 - integrate at the correct grain
 - avoid unnecessary refactoring
 
-The exact attributes remain undecided until the research registry is complete.
+The current leading candidates are:
+
+- predicted water level, time to tide extrema, and predicted tidal range
+- reviewed shoreline-orientation metadata
+- wind-to-shore and wave-to-shore relationships derived from existing
+  direction fields
+
+These candidates remain subject to final registry review and implementation
+scoping.
 
 ### Exit criteria
 
@@ -174,11 +182,12 @@ Do not create scoring weights in this milestone.
 
 ## Immediate sequence
 
-Hosted periodic ingestion
-→ forecast-history accumulation
-→ fishing-factor registry
-→ first 2 to 3 attribute additions
-→ prototype portfolio report
+Hosted periodic ingestion  
+→ complete fishing-factor registry  
+→ tidal-state completion  
+→ site-orientation metadata  
+→ wind and wave directional interactions  
+→ prototype portfolio report  
 → analysis-ready feature preparation
 
 The attribute additions and report may overlap once enough snapshots have
