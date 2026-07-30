@@ -39,7 +39,7 @@ does not mean solving every future production concern.
 
 ## Implementation and validation
 
-For code, configuration, test, script, or CI changes:
+For meaningful application, persistence, or schema behavior changes:
 
 1. inspect the affected behavior and focused tests
 2. implement the smallest complete solution
@@ -47,6 +47,15 @@ For code, configuration, test, script, or CI changes:
 4. use focused checks while developing
 5. run the full repository checks once when stable
 6. inspect the final affected diff
+
+For mechanical, dependency, documentation, formatting, configuration-only,
+and narrow test-only changes, run focused checks for the affected contract
+instead. GitHub Actions is the authoritative full-suite pull-request gate for
+those low-risk changes.
+
+Choose the smallest validation scope that still protects correctness, data
+integrity, and the affected contracts. Reuse recorded validation evidence; do
+not rerun broad checks redundantly after that evidence exists.
 
 Full checks:
 
