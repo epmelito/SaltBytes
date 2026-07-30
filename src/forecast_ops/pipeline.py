@@ -88,20 +88,34 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 location["id"],
             )
 
-            weather_payload = fetch_forecast(
-                location=location,
-                api_config=api_config,
-            )
+            weather_payload = None
+            weather_quality_results: list[dict[str, Any]] = []
+            try:
+                weather_payload = fetch_forecast(
+                    location=location,
+                    api_config=api_config,
+                )
+            except Exception as error:
+                location_failure = (
+                    f"weather API fetch failed for {location['id']}: {error}"
+                )
+                location_failures.append(location_failure)
+                logger.exception(
+                    "weather API fetch failed run_id=%s location=%s",
+                    run_id,
+                    location["id"],
+                )
 
-            weather_quality_results = run_payload_quality_checks(
-                payload=weather_payload,
-                expected_hourly_fields=api_config["hourly_fields"],
-                model_selector=api_config["model"],
-                expected_returned_coordinate=location["weather"][
-                    "expected_returned_coordinate"
-                ],
-                source_label="weather",
-            )
+            if weather_payload is not None:
+                weather_quality_results = run_payload_quality_checks(
+                    payload=weather_payload,
+                    expected_hourly_fields=api_config["hourly_fields"],
+                    model_selector=api_config["model"],
+                    expected_returned_coordinate=location["weather"][
+                        "expected_returned_coordinate"
+                    ],
+                    source_label="weather",
+                )
 
             for quality_result in weather_quality_results:
                 insert_quality_result(
@@ -120,7 +134,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 if quality_result["status"] == "fail"
             ]
 
-            if failed_weather_checks:
+            if weather_payload is not None and failed_weather_checks:
                 failed_check_names = ", ".join(
                     str(quality_result["check_name"])
                     for quality_result in failed_weather_checks
@@ -137,7 +151,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     location["id"],
                     failed_check_names,
                 )
-            else:
+            elif weather_payload is not None:
                 logger.info(
                     "weather quality checks passed run_id=%s location=%s "
                     "checks=%s",
@@ -200,21 +214,35 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
             )
 
             wave_request_coordinate = location["wave"]["request_coordinate"]
-            wave_payload = fetch_wave_forecast(
-                location=location,
-                wave_api_config=wave_api_config,
-            )
+            wave_payload = None
+            wave_quality_results: list[dict[str, Any]] = []
+            try:
+                wave_payload = fetch_wave_forecast(
+                    location=location,
+                    wave_api_config=wave_api_config,
+                )
+            except Exception as error:
+                location_failure = (
+                    f"wave API fetch failed for {location['id']}: {error}"
+                )
+                location_failures.append(location_failure)
+                logger.exception(
+                    "wave API fetch failed run_id=%s location=%s",
+                    run_id,
+                    location["id"],
+                )
 
-            wave_quality_results = run_payload_quality_checks(
-                payload=wave_payload,
-                expected_hourly_fields=wave_api_config["hourly_fields"],
-                model_selector=wave_api_config["model"],
-                expected_returned_coordinate=location["wave"][
-                    "expected_returned_coordinate"
-                ],
-                expected_model_selector="meteofrance_wave",
-                source_label="wave",
-            )
+            if wave_payload is not None:
+                wave_quality_results = run_payload_quality_checks(
+                    payload=wave_payload,
+                    expected_hourly_fields=wave_api_config["hourly_fields"],
+                    model_selector=wave_api_config["model"],
+                    expected_returned_coordinate=location["wave"][
+                        "expected_returned_coordinate"
+                    ],
+                    expected_model_selector="meteofrance_wave",
+                    source_label="wave",
+                )
 
             for quality_result in wave_quality_results:
                 insert_quality_result(
@@ -233,7 +261,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 if quality_result["status"] == "fail"
             ]
 
-            if failed_wave_checks:
+            if wave_payload is not None and failed_wave_checks:
                 failed_check_names = ", ".join(
                     str(quality_result["check_name"])
                     for quality_result in failed_wave_checks
@@ -249,7 +277,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     location["id"],
                     failed_check_names,
                 )
-            else:
+            elif wave_payload is not None:
                 logger.info(
                     "wave quality checks passed run_id=%s location=%s checks=%s",
                     run_id,
@@ -346,21 +374,35 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
             else:
                 sst_config = location["sst"]
                 sst_request_coordinate = sst_config["request_coordinate"]
-                sst_payload = fetch_sst_forecast(
-                    location=location,
-                    sst_api_config=sst_api_config,
-                )
+                sst_payload = None
+                sst_quality_results: list[dict[str, Any]] = []
+                try:
+                    sst_payload = fetch_sst_forecast(
+                        location=location,
+                        sst_api_config=sst_api_config,
+                    )
+                except Exception as error:
+                    location_failure = (
+                        f"sst API fetch failed for {location['id']}: {error}"
+                    )
+                    location_failures.append(location_failure)
+                    logger.exception(
+                        "sst API fetch failed run_id=%s location=%s",
+                        run_id,
+                        location["id"],
+                    )
 
-                sst_quality_results = run_payload_quality_checks(
-                    payload=sst_payload,
-                    expected_hourly_fields=sst_api_config["hourly_fields"],
-                    model_selector=sst_api_config["model"],
-                    expected_returned_coordinate=sst_config[
-                        "expected_returned_coordinate"
-                    ],
-                    expected_model_selector="meteofrance_currents",
-                    source_label="sst",
-                )
+                if sst_payload is not None:
+                    sst_quality_results = run_payload_quality_checks(
+                        payload=sst_payload,
+                        expected_hourly_fields=sst_api_config["hourly_fields"],
+                        model_selector=sst_api_config["model"],
+                        expected_returned_coordinate=sst_config[
+                            "expected_returned_coordinate"
+                        ],
+                        expected_model_selector="meteofrance_currents",
+                        source_label="sst",
+                    )
 
                 for quality_result in sst_quality_results:
                     insert_quality_result(
@@ -386,7 +428,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     if quality_result["status"] == "fail"
                 ]
 
-                if failed_sst_checks:
+                if sst_payload is not None and failed_sst_checks:
                     failed_check_names = ", ".join(
                         str(quality_result["check_name"])
                         for quality_result in failed_sst_checks
@@ -403,7 +445,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         location["id"],
                         failed_check_names,
                     )
-                else:
+                elif sst_payload is not None:
                     logger.info(
                         "sst quality checks passed run_id=%s location=%s "
                         "checks=%s",
@@ -515,15 +557,30 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     **tide_params,
                     "captured_at": captured_at,
                 }
-                tide_payload = fetch_tide_predictions(
-                    tide_api_config=tide_api_config,
-                    params=tide_params,
-                )
-                tide_quality_results = run_tide_quality_checks(
-                    payload=tide_payload,
-                    request_provenance=request_provenance,
-                    forecast_times=tide_forecast_times,
-                )
+                tide_payload = None
+                tide_quality_results: list[dict[str, Any]] = []
+                try:
+                    tide_payload = fetch_tide_predictions(
+                        tide_api_config=tide_api_config,
+                        params=tide_params,
+                    )
+                except Exception as error:
+                    location_failure = (
+                        f"tide API fetch failed for {location['id']}: {error}"
+                    )
+                    location_failures.append(location_failure)
+                    logger.exception(
+                        "tide API fetch failed run_id=%s location=%s",
+                        run_id,
+                        location["id"],
+                    )
+
+                if tide_payload is not None:
+                    tide_quality_results = run_tide_quality_checks(
+                        payload=tide_payload,
+                        request_provenance=request_provenance,
+                        forecast_times=tide_forecast_times,
+                    )
 
                 for quality_result in tide_quality_results:
                     insert_quality_result(
@@ -549,7 +606,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     if quality_result["status"] == "fail"
                 ]
 
-                if failed_tide_checks:
+                if tide_payload is not None and failed_tide_checks:
                     failed_check_names = ", ".join(
                         str(quality_result["check_name"])
                         for quality_result in failed_tide_checks
@@ -566,7 +623,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         location["id"],
                         failed_check_names,
                     )
-                else:
+                elif tide_payload is not None:
                     tide_events = normalize_tide_events(tide_payload)
                     tide_phases = derive_tide_phases(
                         tide_events,
