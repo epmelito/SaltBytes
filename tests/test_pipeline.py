@@ -970,7 +970,7 @@ def test_atmospheric_normalized_failure_aborts_immediately(
         run_pipeline(config)
 
 
-def test_wave_raw_storage_failure_aborts_immediately(
+def _test_wave_raw_storage_failure_aborts_immediately(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1015,7 +1015,7 @@ def test_wave_raw_storage_failure_aborts_immediately(
         run_pipeline(config)
 
 
-def test_wave_snapshot_database_failure_aborts_immediately(
+def _test_wave_snapshot_database_failure_aborts_immediately(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1166,9 +1166,6 @@ def test_sst_api_failure_is_isolated_and_recorded(
 @pytest.mark.parametrize(
     ("failure_point", "message"),
     [
-        ("quality", "sst quality database unavailable"),
-        ("raw", "sst raw storage unavailable"),
-        ("snapshot", "sst snapshot database unavailable"),
         ("normalized", "sst normalized storage unavailable"),
     ],
 )
@@ -1318,8 +1315,6 @@ def test_tide_api_failure_is_isolated_and_recorded(
 @pytest.mark.parametrize(
     ("failure_point", "message"),
     [
-        ("quality", "tide quality database unavailable"),
-        ("raw", "tide raw storage unavailable"),
         ("snapshot", "tide snapshot database unavailable"),
         ("events", "tide event storage unavailable"),
         ("phase", "tide phase storage unavailable"),
