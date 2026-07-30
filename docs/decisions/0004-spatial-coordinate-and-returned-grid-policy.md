@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-ForecastOps uses a composite coastal location as its geographic modeling unit.
+SaltBytes uses a composite coastal location as its geographic modeling unit.
 The accepted locations are fishing destinations, but atmospheric, marine,
 tide, and other environmental products do not necessarily apply at one
 universal coordinate.
@@ -23,7 +23,7 @@ source-specific relationships.
 
 ## Decision
 
-ForecastOps will preserve these distinct relationships:
+SaltBytes will preserve these distinct relationships:
 
 - display or destination coordinate
 - weather request coordinate

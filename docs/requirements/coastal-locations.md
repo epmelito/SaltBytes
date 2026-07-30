@@ -10,7 +10,7 @@ Roadmap stage 3 remains in progress until its completion evidence is satisfied.
 
 ## Purpose
 
-ForecastOps needs a representative and bounded set of North Carolina coastal
+SaltBytes needs a representative and bounded set of North Carolina coastal
 locations for comparing upcoming fishing windows.
 
 The first release is intended for general recreational coastal anglers. It
@@ -67,7 +67,7 @@ The first-release set should:
 
 | Location | Region | Context | Inclusion rationale |
 | --- | --- | --- | --- |
-| Jennette’s Pier | Northern | Pier | An identifiable Atlantic fishing pier representing the northern Outer Banks |
+| Jennetteâ€™s Pier | Northern | Pier | An identifiable Atlantic fishing pier representing the northern Outer Banks |
 | Beach Access Ramp 72, Ocracoke Island | Northern | Surf | A named National Park Service location at the southern end of Ocracoke Island representing an ocean-side surf context |
 | Fort Macon State Park, ocean side | Central | Surf | An identifiable ocean-side fishing location representing the central coast |
 | Bogue Inlet Pier | Central | Pier | An identifiable publicly accessible fixed fishing pier representing the central coast |
@@ -83,11 +83,11 @@ the sound shoreline.
 
 ## Location evidence
 
-### Jennette’s Pier
+### Jennetteâ€™s Pier
 
 Direct evidence:
 
-- The North Carolina Aquariums describes Jennette’s Pier as a 1,000-foot
+- The North Carolina Aquariums describes Jennetteâ€™s Pier as a 1,000-foot
   concrete fishing pier extending over the Atlantic Ocean.
 
 Inference:
@@ -102,7 +102,7 @@ Known limitations:
 
 Sources:
 
-- [Jennette’s Pier visit information](https://www.ncaquariums.com/visit-jennettes-pier),
+- [Jennetteâ€™s Pier visit information](https://www.ncaquariums.com/visit-jennettes-pier),
   publication or update date not shown, accessed 2026-07-28
 
 ### Beach Access Ramp 72, Ocracoke Island
@@ -211,7 +211,7 @@ Sources:
 
 The initial set provides:
 
-- northern pier representation at Jennette’s Pier
+- northern pier representation at Jennetteâ€™s Pier
 - northern surf representation on Ocracoke Island
 - central surf representation at Fort Macon
 - central pier representation at Bogue Inlet Pier
@@ -222,7 +222,7 @@ They are not official North Carolina coastal-region designations.
 
 ## Comparison boundary
 
-ForecastOps may compare upcoming windows only between locations with the same
+SaltBytes may compare upcoming windows only between locations with the same
 fishing context:
 
 - surf with surf

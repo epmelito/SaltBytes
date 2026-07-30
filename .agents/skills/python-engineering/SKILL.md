@@ -1,6 +1,6 @@
 ---
 name: python-engineering
-description: Implement Python changes in ForecastOps involving application code, external data access, configuration, validation, persistence, orchestration, operational scripts, or tests. Use for bounded implementation that must preserve interfaces, data integrity, reliability, security, and maintainability.
+description: Implement Python changes in SaltBytes involving application code, external data access, configuration, validation, persistence, orchestration, operational scripts, or tests. Use for bounded implementation that must preserve interfaces, data integrity, reliability, security, and maintainability.
 ---
 
 # Python engineering

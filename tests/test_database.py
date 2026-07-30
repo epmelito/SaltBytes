@@ -5,7 +5,7 @@ from typing import Any
 import duckdb
 import pytest
 
-from forecast_ops.database import (
+from saltbytes.database import (
     complete_pipeline_run,
     initialize_database,
     insert_forecast_hourly,
@@ -290,7 +290,7 @@ def insert_run(
 def test_initialize_database_creates_required_schema(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "nested" / "forecast_ops.duckdb"
+    database_path = tmp_path / "nested" / "saltbytes.duckdb"
 
     initialize_database(database_path)
 
@@ -403,7 +403,7 @@ def test_initialize_database_creates_required_schema(
 def test_initialize_database_can_run_more_than_once(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
 
     initialize_database(database_path)
     initialize_database(database_path)
@@ -424,7 +424,7 @@ def test_initialize_database_can_run_more_than_once(
 def test_forecast_hourly_rejects_duplicate_business_key(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
     insert_forecast_snapshot(database_path, snapshot_metadata())
@@ -449,7 +449,7 @@ def test_forecast_hourly_rejects_duplicate_business_key(
 def test_insert_pipeline_run_and_snapshot_provenance(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
 
@@ -494,7 +494,7 @@ def test_insert_pipeline_run_and_snapshot_provenance(
 
 
 def test_complete_pipeline_run_updates_status(tmp_path: Path) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
 
@@ -521,7 +521,7 @@ def test_complete_pipeline_run_updates_status(tmp_path: Path) -> None:
 def test_complete_pipeline_run_requires_existing_run(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
 
     with pytest.raises(ValueError, match="pipeline run not found"):
@@ -538,7 +538,7 @@ def test_complete_pipeline_run_requires_existing_run(
 def test_insert_forecast_hourly_stores_coastal_fields_in_utc(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
     insert_forecast_snapshot(database_path, snapshot_metadata())
@@ -604,7 +604,7 @@ def test_insert_forecast_hourly_stores_coastal_fields_in_utc(
 def test_atmospheric_wave_and_sst_snapshot_provenance_remain_distinct(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
     insert_forecast_snapshot(database_path, snapshot_metadata())
@@ -657,7 +657,7 @@ def test_atmospheric_wave_and_sst_snapshot_provenance_remain_distinct(
 def test_insert_sst_hourly_stores_values_in_utc(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
     insert_forecast_snapshot(database_path, sst_snapshot_metadata())
@@ -706,7 +706,7 @@ def test_insert_sst_hourly_stores_values_in_utc(
 def test_insert_wave_hourly_stores_fields_in_utc(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
     insert_forecast_snapshot(database_path, wave_snapshot_metadata())
@@ -771,7 +771,7 @@ def test_insert_forecast_hourly_rejects_mismatched_lengths(
         match="hourly precipitation length must match hourly time length",
     ):
         insert_forecast_hourly(
-            database_path=tmp_path / "forecast_ops.duckdb",
+            database_path=tmp_path / "saltbytes.duckdb",
             snapshot_id="snapshot123",
             location_id="jennettes_pier",
             payload=payload,
@@ -786,7 +786,7 @@ def test_insert_forecast_hourly_requires_hourly_mapping(
         match="forecast payload must contain an hourly mapping",
     ):
         insert_forecast_hourly(
-            database_path=tmp_path / "forecast_ops.duckdb",
+            database_path=tmp_path / "saltbytes.duckdb",
             snapshot_id="snapshot123",
             location_id="jennettes_pier",
             payload={},
@@ -804,7 +804,7 @@ def test_insert_forecast_hourly_rejects_offset_aware_timestamps(
         match="forecast payload hourly timestamps must be UTC-naive",
     ):
         insert_forecast_hourly(
-            database_path=tmp_path / "forecast_ops.duckdb",
+            database_path=tmp_path / "saltbytes.duckdb",
             snapshot_id="snapshot123",
             location_id="jennettes_pier",
             payload=payload,
@@ -825,7 +825,7 @@ def test_insert_source_result(
     status: str,
     detail: str | None,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     recorded_at = datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc)
     initialize_database(database_path)
     insert_run(database_path)
@@ -855,7 +855,7 @@ def test_insert_source_result(
 def test_insert_source_result_rejects_unsupported_status(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
 
@@ -874,7 +874,7 @@ def test_insert_source_result_rejects_unsupported_status(
 def test_source_results_enforce_one_result_per_run_location_and_source(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
     result = {
@@ -896,7 +896,7 @@ def test_source_results_enforce_one_result_per_run_location_and_source(
 def test_initialize_database_preserves_source_results(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
     insert_source_result(
@@ -926,7 +926,7 @@ def test_initialize_database_preserves_source_results(
 def test_tide_snapshot_events_and_phase_preserve_distinct_provenance(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     insert_run(database_path)
     insert_tide_snapshot(
@@ -1061,7 +1061,7 @@ def test_tide_snapshot_events_and_phase_preserve_distinct_provenance(
 def test_coastal_conditions_hourly_keeps_exact_run_and_hour_boundaries(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     hour = datetime(2026, 7, 29, 12, tzinfo=timezone.utc)
     later_hour = datetime(2026, 7, 29, 13, tzinfo=timezone.utc)
     sst_hour = datetime(2026, 7, 29, 14, tzinfo=timezone.utc)

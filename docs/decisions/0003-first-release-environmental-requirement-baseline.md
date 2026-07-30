@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-ForecastOps needs an environmental requirement baseline before evaluating
+SaltBytes needs an environmental requirement baseline before evaluating
 coastal sources or implementing ingestion.
 
 The current pipeline implements air temperature, precipitation probability,

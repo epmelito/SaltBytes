@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 import yaml
 
-from forecast_ops.config import load_config
+from saltbytes.config import load_config
 
 
 def write_config(path: Path, config: Any) -> None:
@@ -26,7 +26,7 @@ def test_local_config_contains_approved_locations_and_variable_settings() -> Non
     assert config["display_timezone"] == "America/New_York"
     assert config["storage"] == {
         "raw_data_path": "data/local/raw",
-        "database_path": "data/local/forecast_ops.duckdb",
+        "database_path": "data/local/saltbytes.duckdb",
     }
 
 

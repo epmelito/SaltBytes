@@ -1,13 +1,13 @@
 ---
 name: github-workflow
-description: Create, update, and finalize ForecastOps GitHub issues, branches, commits, pushes, and pull requests. Use when repository work requires labels, assignees, issue comments, branch setup, commits, pull request creation, issue linking, metadata verification, or other routine GitHub workflow actions.
+description: Create, update, and finalize SaltBytes GitHub issues, branches, commits, pushes, and pull requests. Use when repository work requires labels, assignees, issue comments, branch setup, commits, pull request creation, issue linking, metadata verification, or other routine GitHub workflow actions.
 ---
 
 # GitHub workflow
 
 ## Responsibility
 
-Complete authorized ForecastOps GitHub workflow actions accurately and with
+Complete authorized SaltBytes GitHub workflow actions accurately and with
 minimal user interaction.
 
 Discover the repository and GitHub state, perform the complete bounded workflow,

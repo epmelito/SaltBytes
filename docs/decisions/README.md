@@ -3,7 +3,7 @@
 ## Purpose
 
 Decision records preserve the context, choice, rationale, and consequences of
-durable ForecastOps product, data, and architecture decisions.
+durable SaltBytes product, data, and architecture decisions.
 
 No decision records are created by the initial governance package.
 

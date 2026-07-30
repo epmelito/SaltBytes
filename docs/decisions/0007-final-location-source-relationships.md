@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-ForecastOps represents each approved fishing location as a composite coastal
+SaltBytes represents each approved fishing location as a composite coastal
 location. ADR 0004 requires display, request, and returned-grid coordinates to
 remain distinct and associates returned coordinates with the model or product
 that produced them.
@@ -24,7 +24,7 @@ boundary.
 
 ## Decision
 
-ForecastOps will use these first-release location-to-source relationships.
+SaltBytes will use these first-release location-to-source relationships.
 
 | Location | Relationship | Request or display coordinate | Expected returned coordinate | Displacement | Evidence type | Coastal regime and limitation |
 | --- | --- | ---: | ---: | ---: | --- | --- |
@@ -58,7 +58,7 @@ decimal-string representation are not part of the comparison. No geographic
 tolerance is authorized.
 
 An unexpected returned coordinate rejects only the affected source result and
-requires relationship review. ForecastOps will not select a fallback coordinate
+requires relationship review. SaltBytes will not select a fallback coordinate
 or infer a replacement geographic relationship at runtime.
 
 Every approved relationship must include its static coastal-regime

@@ -20,7 +20,7 @@ the approved surf and publicly accessible fixed fishing pier contexts.
 
 ## Decision
 
-ForecastOps will use a composite coastal location as its geographic modeling
+SaltBytes will use a composite coastal location as its geographic modeling
 unit.
 
 A composite coastal location will identify:
@@ -42,7 +42,7 @@ The initial location set will be:
 
 | Location | Context |
 | --- | --- |
-| Jennette’s Pier | Pier |
+| Jennetteâ€™s Pier | Pier |
 | Beach Access Ramp 72, Ocracoke Island | Surf |
 | Fort Macon State Park, ocean side | Surf |
 | Bogue Inlet Pier | Pier |

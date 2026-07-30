@@ -4,7 +4,7 @@ from typing import Any
 import httpx
 import pytest
 
-from forecast_ops.api import (
+from saltbytes.api import (
     build_forecast_params,
     build_sst_params,
     build_tide_params,

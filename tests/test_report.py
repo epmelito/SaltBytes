@@ -4,8 +4,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from forecast_ops.database import initialize_database
-from forecast_ops.report import render_report
+from saltbytes.database import initialize_database
+from saltbytes.report import render_report
 
 
 def _config(database_path: Path) -> dict[str, object]:
@@ -165,7 +165,7 @@ def _insert_run_data(database_path: Path) -> None:
 def test_render_report_uses_latest_attempted_run_and_preserves_failures(
     tmp_path: Path,
 ) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     _insert_run_data(database_path)
 
@@ -182,7 +182,7 @@ def test_render_report_uses_latest_attempted_run_and_preserves_failures(
 
 
 def test_render_report_supports_run_and_location_filters(tmp_path: Path) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     _insert_run_data(database_path)
 
@@ -200,7 +200,7 @@ def test_render_report_supports_run_and_location_filters(tmp_path: Path) -> None
 
 
 def test_render_report_rejects_unknown_selection(tmp_path: Path) -> None:
-    database_path = tmp_path / "forecast_ops.duckdb"
+    database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
 
     with pytest.raises(ValueError, match="unknown location"):

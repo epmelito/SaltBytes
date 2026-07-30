@@ -22,7 +22,7 @@ Open-Meteo modeled mean-sea-level output as authoritative local tide.
 
 ## Decision
 
-ForecastOps will request NOAA CO-OPS tide predictions with:
+SaltBytes will request NOAA CO-OPS tide predictions with:
 
 - product `predictions`
 - interval `hilo`

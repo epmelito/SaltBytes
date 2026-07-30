@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from forecast_ops.storage import write_raw_snapshot
+from saltbytes.storage import write_raw_snapshot
 
 
 def test_write_raw_snapshot_creates_immutable_json_file(tmp_path: Path) -> None:

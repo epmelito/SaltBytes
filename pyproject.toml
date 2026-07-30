@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "forecast-ops"
+name = "saltbytes"
 version = "0.1.0"
 description = "A local coastal conditions data pipeline"
 readme = "readme.md"
@@ -19,7 +19,7 @@ authors = [
 ]
 
 [project.scripts]
-forecast-ops = "forecast_ops.cli:main"
+saltbytes = "saltbytes.cli:main"
 
 [project.optional-dependencies]
 dev = [

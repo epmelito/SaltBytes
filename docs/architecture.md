@@ -2,11 +2,11 @@
 
 ## Current system
 
-ForecastOps is a local Python application with pipeline and report commands:
+SaltBytes is a local Python application with pipeline and report commands:
 
 ```powershell
-forecast-ops
-forecast-ops report
+saltbytes
+saltbytes report
 ```
 
 The pipeline:
@@ -23,13 +23,13 @@ The pipeline:
 
 ```text
 YAML configuration
-    ↓
+    â†“
 source clients
-    ↓
+    â†“
 source-specific validation
-    ↓
+    â†“
 immutable raw JSON
-    ↓
+    â†“
 normalized DuckDB tables
 ```
 
@@ -37,9 +37,9 @@ The MVP adds:
 
 ```text
 normalized DuckDB tables
-    ↓
+    â†“
 coastal_conditions_hourly view
-    ↓
+    â†“
 readable local output
 ```
 
@@ -79,7 +79,7 @@ union of normalized source keys and exact run, location, and UTC-hour joins.
 Do not redesign the ingestion control flow unless live validation proves a
 change is required.
 
-The read-only `forecast-ops report` command selects the latest attempted run by
+The read-only `saltbytes report` command selects the latest attempted run by
 default, or a requested run ID. It renders the integrated hourly view and
 source-result failures for the configured locations; it converts UTC timestamps
 only while formatting output.

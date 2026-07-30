@@ -58,7 +58,7 @@ research evidence were reviewed on 2026-07-29.
 Official spatial sources and location evidence are recorded in
 [Coastal spatial relationships](coastal-spatial-relationships.md).
 
-## Current ForecastOps baseline
+## Current SaltBytes baseline
 
 The implemented weather pipeline currently requests:
 
@@ -173,7 +173,7 @@ The durable seven-day rule operates on normalized time:
 NOAA CO-OPS distinguishes tide predictions, observed water levels,
 tidal-current predictions, and station and datum metadata.
 
-ForecastOps will request the accepted prediction relationships with:
+SaltBytes will request the accepted prediction relationships with:
 
 - product `predictions`
 - interval `hilo`
@@ -282,7 +282,7 @@ model initialization time. Explicit selectors improve request provenance
 without providing complete run provenance.
 
 Open-Meteo documents weather Previous Runs and Single Runs APIs. Equivalent
-marine run-level reconstruction was not verified. ForecastOps can retain
+marine run-level reconstruction was not verified. SaltBytes can retain
 successive captured marine forecasts but must not claim run-level lineage until
 the source exposes or research establishes it.
 

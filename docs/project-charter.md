@@ -2,7 +2,7 @@
 
 ## Purpose
 
-ForecastOps is a lightweight portfolio project for exploring upcoming coastal
+SaltBytes is a lightweight portfolio project for exploring upcoming coastal
 conditions at a small set of North Carolina fishing locations.
 
 The immediate objective is to prove the idea end to end with a system that can
@@ -11,7 +11,7 @@ demonstrates value.
 
 ## Product direction
 
-ForecastOps should:
+SaltBytes should:
 
 - collect a focused set of coastal environmental data
 - combine it into a deterministic and inspectable result
@@ -24,7 +24,7 @@ architecture or broad feature coverage.
 
 ## Boundaries
 
-ForecastOps does not:
+SaltBytes does not:
 
 - guarantee fishing success
 - provide catch probabilities
