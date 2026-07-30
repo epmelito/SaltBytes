@@ -1,5 +1,3 @@
-environment: prod
-
 locations:
   - id: jennettes_pier
     name: Jennette's Pier
@@ -211,46 +209,9 @@ locations:
       coastal_relationship: Explicit transfer from the nearest reviewed ocean-facing relationship
       known_limitation: The prediction relationship is materially north of the destination
 
-api:
-  base_url: https://api.open-meteo.com/v1/forecast
-  model: ncep_nbm_conus
-  forecast_days: 7
-  hourly_fields:
-    - wind_speed_10m
-    - wind_direction_10m
-    - wind_gusts_10m
-    - precipitation_probability
-    - precipitation
-
-wave_api:
-  base_url: https://marine-api.open-meteo.com/v1/marine
-  model: meteofrance_wave
-  forecast_days: 7
-  hourly_fields:
-    - wave_height
-    - wave_direction
-    - wave_period
-
-sst_api:
-  base_url: https://marine-api.open-meteo.com/v1/marine
-  model: meteofrance_currents
-  forecast_days: 7
-  hourly_fields:
-    - sea_surface_temperature
-
-tide_api:
-  base_url: https://api.tidesandcurrents.noaa.gov/api/prod/datagetter
-  product: predictions
-  interval: hilo
-  datum: MLLW
-  time_zone: gmt
-  units: metric
-  format: json
-  forecast_days: 7
-
 storage:
-  raw_data_path: data/prod/raw
-  database_path: data/prod/forecast_ops.duckdb
+  raw_data_path: data/local/raw
+  database_path: data/local/forecast_ops.duckdb
 
 logging:
   level: INFO

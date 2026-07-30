@@ -5,12 +5,12 @@
 ForecastOps is a local Python application with one supported pipeline command:
 
 ```powershell
-forecast-ops --environment dev
+forecast-ops
 ```
 
 The pipeline:
 
-1. loads an environment-specific YAML configuration
+1. loads the local YAML configuration
 2. requests atmospheric, wave, sea-surface-temperature, and NOAA tide data
 3. validates each source result
 4. stores accepted raw responses as immutable JSON
@@ -45,7 +45,7 @@ readable local output
 
 Each source is processed independently for each configured location.
 
-A rejected source result records quality evidence but does not write an
+A rejected source result records an outcome but does not write an
 accepted snapshot or normalized rows for that result. Unrelated sources and
 locations continue processing.
 
@@ -53,9 +53,9 @@ Operational failures such as storage or database errors abort the run.
 
 ## Configuration
 
-`config/dev.yml`, `config/test.yml`, and `config/prod.yml` define local storage
-paths, database paths, logging, provider settings, locations, source
-coordinates, and NOAA station relationships.
+`config/local.yml` defines local storage paths, logging, locations, source
+coordinates, and NOAA station relationships. Fixed provider contracts are kept
+in the source clients.
 
 Source relationship details remain in configuration and accepted ADRs. They
 should be loaded only when a task changes those contracts.
@@ -64,8 +64,8 @@ should be loaded only when a task changes those contracts.
 
 Accepted raw responses are written unchanged as immutable JSON snapshots.
 
-DuckDB stores pipeline runs, accepted source snapshots, quality results,
-normalized source rows, tide events, hourly tide phase, and revision views.
+DuckDB stores pipeline runs, accepted source snapshots, source results,
+normalized source rows, tide events, and hourly tide phase.
 
 See [data-model.md](data-model.md) for the persisted model.
 

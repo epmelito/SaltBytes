@@ -50,7 +50,8 @@ def valid_payload(hour_count: int = 168) -> dict[str, Any]:
     return {
         "latitude": 35.89557,
         "longitude": -75.5936,
-        "timezone": "America/New_York",
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "wind_speed_10m": [10.0] * hour_count,
@@ -72,7 +73,8 @@ def valid_wave_payload(hour_count: int = 168) -> dict[str, Any]:
     return {
         "latitude": 34.625,
         "longitude": -76.70833,
-        "timezone": "America/New_York",
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "wave_height": [1.2] * hour_count,
@@ -92,7 +94,8 @@ def valid_sst_payload(hour_count: int = 168) -> dict[str, Any]:
     return {
         "latitude": 33.958336,
         "longitude": -77.87499,
-        "timezone": "America/New_York",
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "sea_surface_temperature": [25.1] * hour_count,
@@ -379,7 +382,7 @@ def test_required_field_length_mismatch_fails() -> None:
     )["status"] == "fail"
 
 
-def test_invalid_timezone_fails() -> None:
+def test_non_gmt_timezone_fails() -> None:
     payload = valid_payload()
     payload["timezone"] = "Not/A_Timezone"
 
@@ -387,11 +390,31 @@ def test_invalid_timezone_fails() -> None:
 
     assert result_for(
         results,
-        "response_timezone_valid",
+        "response_timezone_is_gmt",
     )["status"] == "fail"
+
+
+def test_nonzero_utc_offset_fails() -> None:
+    payload = valid_payload()
+    payload["utc_offset_seconds"] = 3600
+
+    results = run_checks(payload)
+
     assert result_for(
         results,
-        "hourly_times_normalized_to_utc",
+        "response_utc_offset_seconds_is_zero",
+    )["status"] == "fail"
+
+
+def test_offset_aware_hourly_timestamp_fails() -> None:
+    payload = valid_payload()
+    payload["hourly"]["time"][0] = "2026-07-28T00:00+00:00"
+
+    results = run_checks(payload)
+
+    assert result_for(
+        results,
+        "hourly_times_are_utc",
     )["status"] == "fail"
 
 
@@ -599,12 +622,7 @@ def _test_invalid_wave_timezone_fails() -> None:
 
     assert result_for(
         results,
-        "response_timezone_valid",
-        source_label="wave",
-    )["status"] == "fail"
-    assert result_for(
-        results,
-        "hourly_times_normalized_to_utc",
+        "response_timezone_is_gmt",
         source_label="wave",
     )["status"] == "fail"
 
@@ -832,7 +850,7 @@ def _test_invalid_sst_timezone_and_timeline_fail() -> None:
 
     assert result_for(
         results,
-        "response_timezone_valid",
+        "response_timezone_is_gmt",
         source_label="sst",
     )["status"] == "fail"
     assert result_for(

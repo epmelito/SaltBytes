@@ -55,14 +55,11 @@ python -m pip install -e ".[dev]"
 ## Run the pipeline
 
 ```powershell
-forecast-ops --environment dev
+forecast-ops
 ```
 
-The `dev`, `test`, and `prod` files are local configuration variants. They are
-not deployed cloud environments.
-
-Runtime data is written beneath environment-specific `data/` paths and is not
-committed to Git.
+The local configuration is `config/local.yml`. Runtime data is written beneath
+its configured `data/` paths and is not committed to Git.
 
 ## Validation
 
@@ -96,7 +93,6 @@ forecast-ops/
 - [Architecture](docs/architecture.md) describes the current system.
 - [Data model](docs/data-model.md) describes persisted data and the planned
   integrated result.
-- [Environments](docs/environments.md) describes local configuration behavior.
 - [Agent guidance](AGENTS.md) defines repository working rules.
 
 Documents under `docs/decisions`, `docs/research`, and `docs/requirements`

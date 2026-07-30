@@ -9,8 +9,8 @@ MVP result.
 
 ### `pipeline_runs`
 
-One row per pipeline execution, including environment, status, timestamps, and
-run-level counts.
+One row per pipeline execution, including status, timestamps, and run-level
+counts.
 
 ### `forecast_snapshots`
 
@@ -32,11 +32,6 @@ One outcome per attempted location and source: `success`, `fetch_failed`, or
 Fetch and validation failures do not create accepted snapshots or normalized
 rows, but do not prevent independent source attempts from continuing.
 
-### `quality_results`
-
-The legacy granular validation table remains dormant until the later schema
-reset package.
-
 ### Normalized hourly tables
 
 - `forecast_hourly` stores atmospheric forecast values
@@ -49,11 +44,6 @@ Rows use stable location identity and UTC forecast time.
 ### `tide_events`
 
 NOAA high and low tide predictions used to derive hourly tide phase.
-
-### Revision views
-
-Existing views expose changes in forecast values between accepted snapshots.
-Revision analysis remains available but is not required in the first MVP output.
 
 ## Relationships
 

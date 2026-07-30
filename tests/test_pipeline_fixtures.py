@@ -27,8 +27,8 @@ def atmospheric_payload(
     return {
         "latitude": returned_coordinate["latitude"],
         "longitude": returned_coordinate["longitude"],
-        "timezone": "America/New_York",
-        "utc_offset_seconds": -14400,
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "wind_speed_10m": [10.0 + value_offset] * 168,
@@ -54,8 +54,8 @@ def wave_payload(
     return {
         "latitude": returned_coordinate["latitude"],
         "longitude": returned_coordinate["longitude"],
-        "timezone": "America/New_York",
-        "utc_offset_seconds": -14400,
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "wave_height": [1.0 + value_offset] * 168,
@@ -79,8 +79,8 @@ def sst_payload(
     return {
         "latitude": returned_coordinate["latitude"],
         "longitude": returned_coordinate["longitude"],
-        "timezone": "America/New_York",
-        "utc_offset_seconds": -14400,
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
         "hourly": {
             "time": times,
             "sea_surface_temperature": [25.0 + value_offset] * 168,
@@ -114,7 +114,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = deepcopy(load_config("test"))
+    config = deepcopy(load_config())
     config["storage"] = {
         "raw_data_path": str(tmp_path / "raw"),
         "database_path": str(tmp_path / "forecast_ops.duckdb"),
@@ -233,9 +233,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
                 request_latitude,
                 request_longitude,
                 returned_latitude,
-                returned_longitude,
-                response_timezone,
-                response_utc_offset_seconds
+                returned_longitude
             from forecast_snapshots
             order by location_id, model_selector
             """
@@ -296,7 +294,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             """
             select
                 location_id,
-                temperature_2m,
                 wind_speed_10m,
                 wind_direction_10m,
                 wind_gusts_10m,
@@ -345,9 +342,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             order by location_id, source
             """
         ).fetchall()
-        quality_result_count = connection.execute(
-            "select count(*) from quality_results"
-        ).fetchone()
 
     locations_by_id = {
         location["id"]: location
@@ -380,9 +374,8 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         ("ocracoke_ramp_72", "TEC2793", "transfer"),
     ]
     assert len(first_weather_rows) == 5
-    assert all(row[1] is None for row in first_weather_rows)
     assert all(
-        all(value is not None for value in row[2:])
+        all(value is not None for value in row[1:])
         for row in first_weather_rows
     )
     assert len(first_wave_rows) == 5
@@ -401,7 +394,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         "tide",
     }
     assert all(detail is None for _, _, _, detail in source_results)
-    assert quality_result_count == (0,)
 
     for snapshot in snapshots:
         location_id = snapshot[0]
@@ -418,7 +410,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             source_relationship = location["sst"]
             expected_payload = sst_payloads[location_id]
         else:
-            assert snapshot[3:] == (None, None, None, None, None, None)
+            assert snapshot[3:] == (None, None, None, None)
             expected_payload = tide_payloads[location_id]
             assert raw_file_path.exists()
             assert json.loads(
@@ -435,8 +427,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             request_coordinate["longitude"],
             returned_coordinate["latitude"],
             returned_coordinate["longitude"],
-            "America/New_York",
-            -14400,
         )
         assert raw_file_path.exists()
         assert json.loads(

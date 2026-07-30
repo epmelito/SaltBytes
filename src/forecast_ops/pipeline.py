@@ -4,6 +4,10 @@ from pathlib import Path
 from typing import Any
 
 from forecast_ops.api import (
+    SST_API,
+    TIDE_API,
+    WAVE_API,
+    WEATHER_API,
     build_tide_params,
     fetch_forecast,
     fetch_sst_forecast,
@@ -36,12 +40,7 @@ logger = logging.getLogger(__name__)
 
 # run the configured forecast pipeline for every location
 def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
-    environment = config["environment"]
     locations = config["locations"]
-    api_config = config["api"]
-    wave_api_config = config["wave_api"]
-    sst_api_config = config["sst_api"]
-    tide_api_config = config["tide_api"]
     storage_config = config["storage"]
 
     database_path = Path(storage_config["database_path"])
@@ -54,9 +53,8 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     location_failures: list[str] = []
 
     logger.info(
-        "pipeline started run_id=%s environment=%s locations=%s",
+        "pipeline started run_id=%s locations=%s",
         run_id,
-        environment,
         len(locations),
     )
 
@@ -65,14 +63,13 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     insert_pipeline_run(
         database_path=database_path,
         run_id=run_id,
-        environment=environment,
         started_at=started_at,
     )
 
     try:
         tide_forecast_times = build_tide_forecast_times(
             started_at,
-            tide_api_config["forecast_days"],
+            TIDE_API["forecast_days"],
         )
 
         for location in locations:
@@ -91,7 +88,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
             try:
                 weather_payload = fetch_forecast(
                     location=location,
-                    api_config=api_config,
+                    api_config=WEATHER_API,
                 )
             except Exception as error:
                 location_failure = (
@@ -116,8 +113,8 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
             if weather_payload is not None:
                 weather_quality_results = run_payload_quality_checks(
                     payload=weather_payload,
-                    expected_hourly_fields=api_config["hourly_fields"],
-                    model_selector=api_config["model"],
+                    expected_hourly_fields=WEATHER_API["hourly_fields"],
+                    model_selector=WEATHER_API["model"],
                     expected_returned_coordinate=location["weather"][
                         "expected_returned_coordinate"
                     ],
@@ -182,7 +179,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 )
                 weather_metadata.update(
                     {
-                        "model_selector": api_config["model"],
+                        "model_selector": WEATHER_API["model"],
                         "request_latitude": weather_request_coordinate[
                             "latitude"
                         ],
@@ -191,10 +188,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         ],
                         "returned_latitude": weather_payload["latitude"],
                         "returned_longitude": weather_payload["longitude"],
-                        "response_timezone": weather_payload["timezone"],
-                        "response_utc_offset_seconds": weather_payload[
-                            "utc_offset_seconds"
-                        ],
                     }
                 )
 
@@ -233,7 +226,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
             try:
                 wave_payload = fetch_wave_forecast(
                     location=location,
-                    wave_api_config=wave_api_config,
+                    wave_api_config=WAVE_API,
                 )
             except Exception as error:
                 location_failure = (
@@ -258,8 +251,8 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
             if wave_payload is not None:
                 wave_quality_results = run_payload_quality_checks(
                     payload=wave_payload,
-                    expected_hourly_fields=wave_api_config["hourly_fields"],
-                    model_selector=wave_api_config["model"],
+                    expected_hourly_fields=WAVE_API["hourly_fields"],
+                    model_selector=WAVE_API["model"],
                     expected_returned_coordinate=location["wave"][
                         "expected_returned_coordinate"
                     ],
@@ -323,17 +316,13 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 )
                 wave_metadata.update(
                     {
-                        "model_selector": wave_api_config["model"],
+                        "model_selector": WAVE_API["model"],
                         "request_latitude": wave_request_coordinate["latitude"],
                         "request_longitude": wave_request_coordinate[
                             "longitude"
                         ],
                         "returned_latitude": wave_payload["latitude"],
                         "returned_longitude": wave_payload["longitude"],
-                        "response_timezone": wave_payload["timezone"],
-                        "response_utc_offset_seconds": wave_payload[
-                            "utc_offset_seconds"
-                        ],
                     }
                 )
 
@@ -373,7 +362,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 try:
                     sst_payload = fetch_sst_forecast(
                         location=location,
-                        sst_api_config=sst_api_config,
+                        sst_api_config=SST_API,
                     )
                 except Exception as error:
                     location_failure = (
@@ -398,8 +387,8 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 if sst_payload is not None:
                     sst_quality_results = run_payload_quality_checks(
                         payload=sst_payload,
-                        expected_hourly_fields=sst_api_config["hourly_fields"],
-                        model_selector=sst_api_config["model"],
+                    expected_hourly_fields=SST_API["hourly_fields"],
+                    model_selector=SST_API["model"],
                         expected_returned_coordinate=sst_config[
                             "expected_returned_coordinate"
                         ],
@@ -465,7 +454,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     )
                     sst_metadata.update(
                         {
-                            "model_selector": sst_api_config["model"],
+                            "model_selector": SST_API["model"],
                             "request_latitude": sst_request_coordinate[
                                 "latitude"
                             ],
@@ -474,10 +463,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                             ],
                             "returned_latitude": sst_payload["latitude"],
                             "returned_longitude": sst_payload["longitude"],
-                            "response_timezone": sst_payload["timezone"],
-                            "response_utc_offset_seconds": sst_payload[
-                                "utc_offset_seconds"
-                            ],
                         }
                     )
 
@@ -514,7 +499,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 captured_at = datetime.now(timezone.utc)
                 tide_params = build_tide_params(
                     location=location,
-                    tide_api_config=tide_api_config,
+                    tide_api_config=TIDE_API,
                     forecast_start=tide_forecast_times[0],
                 )
                 request_provenance = {
@@ -525,7 +510,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 tide_quality_results: list[dict[str, Any]] = []
                 try:
                     tide_payload = fetch_tide_predictions(
-                        tide_api_config=tide_api_config,
+                        tide_api_config=TIDE_API,
                         params=tide_params,
                     )
                 except Exception as error:
@@ -645,9 +630,8 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
 
     except Exception as error:
         logger.exception(
-            "pipeline failed run_id=%s environment=%s",
+            "pipeline failed run_id=%s",
             run_id,
-            environment,
         )
 
         complete_pipeline_run(
@@ -671,16 +655,14 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     )
 
     logger.info(
-        "pipeline completed run_id=%s environment=%s snapshots=%s rows=%s",
+        "pipeline completed run_id=%s snapshots=%s rows=%s",
         run_id,
-        environment,
         snapshots_written,
         rows_loaded,
     )
 
     return {
         "run_id": run_id,
-        "environment": environment,
         "status": "success",
         "started_at": started_at,
         "completed_at": completed_at,
