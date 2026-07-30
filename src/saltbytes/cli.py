@@ -1,9 +1,9 @@
 import argparse
 
-from forecast_ops.config import load_config
-from forecast_ops.logging import configure_logging
-from forecast_ops.pipeline import run_pipeline
-from forecast_ops.report import render_report
+from saltbytes.config import load_config
+from saltbytes.logging import configure_logging
+from saltbytes.pipeline import run_pipeline
+from saltbytes.report import render_report
 
 
 def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:

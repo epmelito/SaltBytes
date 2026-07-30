@@ -211,7 +211,7 @@ locations:
 
 storage:
   raw_data_path: data/local/raw
-  database_path: data/local/forecast_ops.duckdb
+  database_path: data/local/saltbytes.duckdb
 
 logging:
   level: INFO

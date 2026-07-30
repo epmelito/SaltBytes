@@ -1,6 +1,6 @@
-# ForecastOps
+# SaltBytes
 
-ForecastOps is a local Python data pipeline for exploring upcoming coastal
+SaltBytes is a local Python data pipeline for exploring upcoming coastal
 conditions at five North Carolina fishing locations.
 
 It currently collects:
@@ -13,7 +13,7 @@ It currently collects:
 The current milestone is a lightweight MVP that combines those sources into one
 readable hourly result.
 
-ForecastOps is a portfolio project. It does not guarantee fishing success,
+SaltBytes is a portfolio project. It does not guarantee fishing success,
 replace official marine guidance, or operate as a production service.
 
 ## Current status
@@ -40,7 +40,7 @@ The current configuration covers:
 
 ## Installation
 
-ForecastOps requires Python 3.11 or later.
+SaltBytes requires Python 3.11 or later.
 
 ```powershell
 python -m venv .venv
@@ -52,7 +52,7 @@ python -m pip install -e ".[dev]"
 ## Run the pipeline
 
 ```powershell
-forecast-ops
+saltbytes
 ```
 
 The local configuration is `config/local.yml`. Runtime data is written beneath
@@ -61,7 +61,7 @@ its configured `data/` paths and is not committed to Git.
 ## Read the latest report
 
 ```powershell
-forecast-ops report
+saltbytes report
 ```
 
 The report selects the latest attempted run, including a failed or partial run,
@@ -83,12 +83,12 @@ meaningful code change is stable.
 ## Repository structure
 
 ```text
-forecast-ops/
+saltbytes/
 |-- .agents/skills/
 |-- .github/workflows/
 |-- config/
 |-- docs/
-|-- src/forecast_ops/
+|-- src/saltbytes/
 |-- tests/
 |-- AGENTS.md
 |-- pyproject.toml

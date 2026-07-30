@@ -18,7 +18,7 @@ def configure_logging(config: dict[str, Any]) -> None:
         force=True,
     )
 
-    logging.getLogger("forecast_ops").setLevel(
+    logging.getLogger("saltbytes").setLevel(
         getattr(logging, log_level)
     )
     logging.getLogger("httpx").setLevel(logging.WARNING)

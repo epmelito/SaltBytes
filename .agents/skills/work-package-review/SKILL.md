@@ -1,9 +1,9 @@
 ---
 name: work-package-review
-description: Perform a focused, read-only conformance review of one ForecastOps work package using either current working-tree changes or immutable base and head revisions. Use when asked to verify issue conformance, scope, accepted decisions, validation evidence, and directly affected documentation.
+description: Perform a focused, read-only conformance review of one SaltBytes work package using either current working-tree changes or immutable base and head revisions. Use when asked to verify issue conformance, scope, accepted decisions, validation evidence, and directly affected documentation.
 ---
 
-# ForecastOps work-package review
+# SaltBytes work-package review
 
 ## Inputs
 

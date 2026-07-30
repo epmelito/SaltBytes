@@ -18,13 +18,13 @@ The first-release environmental baseline requires:
 - wave period
 - sea-surface temperature
 
-ForecastOps currently uses the Open-Meteo Weather API without an accepted
+SaltBytes currently uses the Open-Meteo Weather API without an accepted
 first-release model strategy. Stage 4 evaluated Open-Meteo best match and
 explicit atmospheric and marine model selectors.
 
 For atmospheric data, `ncep_nbm_conus` supplied the complete accepted field set
 during the evaluation. Open-Meteo documents an approximately 2.5 km grid and
-an approximately 11-day forecast horizon. That horizon covers ForecastOps'
+an approximately 11-day forecast horizon. That horizon covers SaltBytes'
 current seven-day production horizon.
 
 For marine data, `meteofrance_wave` supplied the required wave fields and
@@ -41,7 +41,7 @@ complete upstream run lineage.
 
 ## Decision
 
-ForecastOps will use the explicit Open-Meteo atmospheric model selector:
+SaltBytes will use the explicit Open-Meteo atmospheric model selector:
 
 - `ncep_nbm_conus`
 
@@ -60,7 +60,7 @@ The reasons are:
 NBM is itself a blended product. The model selector identifies the named NBM
 product but does not provide complete per-value upstream model or run lineage.
 
-ForecastOps will use these explicit Open-Meteo marine model selectors:
+SaltBytes will use these explicit Open-Meteo marine model selectors:
 
 - `meteofrance_wave` for:
   - `wave_height`
@@ -77,7 +77,7 @@ Selecting `meteofrance_currents` does not authorize:
 - `sea_level_height_msl` as tide
 - any other field from that product
 
-ForecastOps will not use `models=auto` as the accepted first-release
+SaltBytes will not use `models=auto` as the accepted first-release
 atmospheric or marine strategy.
 
 ECMWF WAM and other evaluated marine models remain deferred alternatives. They
@@ -153,7 +153,7 @@ atmospheric fields.
 ECMWF WAM provided a longer wave horizon and useful candidate cells, but it
 does not provide sea-surface temperature. It remains a deferred alternative.
 
-### Explicit NBM and Météo-France selectors
+### Explicit NBM and MÃ©tÃ©o-France selectors
 
 This is the accepted choice. It provides the evaluated required fields within
 the current horizon while making model and product selectors explicit.

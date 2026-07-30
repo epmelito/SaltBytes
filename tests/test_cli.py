@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from forecast_ops.cli import main
+from saltbytes.cli import main
 
 
 def test_main_runs_local_configuration(
@@ -16,9 +16,9 @@ def test_main_runs_local_configuration(
         "snapshots_written": 2,
         "rows_loaded": 96,
     }
-    monkeypatch.setattr("forecast_ops.cli.load_config", lambda: config)
-    monkeypatch.setattr("forecast_ops.cli.run_pipeline", lambda _: result)
-    monkeypatch.setattr("forecast_ops.cli.configure_logging", lambda _: None)
+    monkeypatch.setattr("saltbytes.cli.load_config", lambda: config)
+    monkeypatch.setattr("saltbytes.cli.run_pipeline", lambda _: result)
+    monkeypatch.setattr("saltbytes.cli.configure_logging", lambda _: None)
 
     main([])
 
@@ -43,8 +43,8 @@ def test_main_rejects_invalid_configuration_before_pipeline(
         pipeline_called = True
         return {}
 
-    monkeypatch.setattr("forecast_ops.cli.load_config", reject_config)
-    monkeypatch.setattr("forecast_ops.cli.run_pipeline", record_pipeline_call)
+    monkeypatch.setattr("saltbytes.cli.load_config", reject_config)
+    monkeypatch.setattr("saltbytes.cli.run_pipeline", record_pipeline_call)
 
     with pytest.raises(ValueError, match=r"locations\[0\].sst"):
         main([])
@@ -64,13 +64,13 @@ def test_main_renders_report_without_running_pipeline(
         pipeline_called = True
         return {}
 
-    monkeypatch.setattr("forecast_ops.cli.load_config", lambda: config)
-    monkeypatch.setattr("forecast_ops.cli.configure_logging", lambda _: None)
+    monkeypatch.setattr("saltbytes.cli.load_config", lambda: config)
+    monkeypatch.setattr("saltbytes.cli.configure_logging", lambda _: None)
     monkeypatch.setattr(
-        "forecast_ops.cli.render_report",
+        "saltbytes.cli.render_report",
         lambda **kwargs: f"report for {kwargs['run_id']} {kwargs['hours']}",
     )
-    monkeypatch.setattr("forecast_ops.cli.run_pipeline", record_pipeline_call)
+    monkeypatch.setattr("saltbytes.cli.run_pipeline", record_pipeline_call)
 
     main(["report", "--run-id", "run123", "--hours", "12"])
 

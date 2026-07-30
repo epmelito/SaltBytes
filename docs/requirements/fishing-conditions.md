@@ -10,7 +10,7 @@ Roadmap stage 3 remains in progress until its completion evidence is satisfied.
 
 ## Purpose
 
-ForecastOps should support explainable comparisons of upcoming environmental
+SaltBytes should support explainable comparisons of upcoming environmental
 windows for general recreational coastal anglers.
 
 The first release covers surf and publicly accessible fixed fishing pier
@@ -268,11 +268,11 @@ Verified repository evidence:
 - `config/dev.yml`
 - `config/test.yml`
 - `config/prod.yml`
-- `src/forecast_ops/config.py`
-- `src/forecast_ops/api.py`
-- `src/forecast_ops/database.py`
-- `src/forecast_ops/pipeline.py`
-- `src/forecast_ops/quality.py`
+- `src/saltbytes/config.py`
+- `src/saltbytes/api.py`
+- `src/saltbytes/database.py`
+- `src/saltbytes/pipeline.py`
+- `src/saltbytes/quality.py`
 - relevant tests under `tests/`
 
 ## Open-Meteo baseline evaluation

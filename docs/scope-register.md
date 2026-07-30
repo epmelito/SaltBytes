@@ -1,6 +1,6 @@
 # Scope
 
-ForecastOps no longer maintains a separate detailed scope register.
+SaltBytes no longer maintains a separate detailed scope register.
 
 Current scope is defined by:
 

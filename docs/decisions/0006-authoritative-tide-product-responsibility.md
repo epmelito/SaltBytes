@@ -22,7 +22,7 @@ interchangeable.
 NOAA CO-OPS publishes tide predictions for harmonic and subordinate prediction
 locations, identifies reference-station relationships, and applies local datum
 requirements. The available station relationships vary across the five
-accepted ForecastOps locations.
+accepted SaltBytes locations.
 
 Open-Meteo provides `sea_level_height_msl`, but it is referenced to global mean
 sea level rather than a selected local tidal datum. Open-Meteo also documents
@@ -37,7 +37,7 @@ transfer rules, or a tide-phase calculation.
 NOAA CO-OPS tide predictions are the authoritative source family for satisfying
 the locally referenced tide or water-level requirement.
 
-ForecastOps will preserve the distinction between:
+SaltBytes will preserve the distinction between:
 
 - tide predictions
 - observed water levels
@@ -76,7 +76,7 @@ Benefits:
 
 Costs and limitations:
 
-- each ForecastOps location still requires a reviewed prediction relationship
+- each SaltBytes location still requires a reviewed prediction relationship
 - some nearby NOAA prediction locations represent an inlet, sound, river, or
   estuary rather than the accepted Atlantic-facing context
 - subordinate predictions may support only high and low predictions

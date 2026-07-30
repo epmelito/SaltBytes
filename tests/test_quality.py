@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from forecast_ops.quality import (
+from saltbytes.quality import (
     build_tide_forecast_times,
     derive_tide_phases,
     normalize_tide_events,

@@ -11,7 +11,7 @@ sea-surface-temperature, and tide products. Implementation needs a minimum set
 of deterministic checks that prevents incomplete or spatially inconsistent
 source results from being normalized.
 
-The current ForecastOps pipeline already applies quality checks before passing
+The current SaltBytes pipeline already applies quality checks before passing
 raw snapshots and normalized forecasts are written. The coastal rules extend
 that boundary without introducing partial normalization, fallbacks,
 generalized validation frameworks, or unsupported tolerances.
@@ -20,7 +20,7 @@ The first-release production horizon is seven days.
 
 ## Decision
 
-ForecastOps will validate atmospheric, wave, sea-surface-temperature, and tide
+SaltBytes will validate atmospheric, wave, sea-surface-temperature, and tide
 results independently.
 
 A whole-source-result rejection applies only to the affected weather, wave,

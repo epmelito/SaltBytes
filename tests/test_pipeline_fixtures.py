@@ -7,8 +7,8 @@ from typing import Any
 import duckdb
 import pytest
 
-from forecast_ops.config import load_config
-from forecast_ops.pipeline import run_pipeline
+from saltbytes.config import load_config
+from saltbytes.pipeline import run_pipeline
 
 
 def atmospheric_payload(
@@ -117,7 +117,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     config = deepcopy(load_config())
     config["storage"] = {
         "raw_data_path": str(tmp_path / "raw"),
-        "database_path": str(tmp_path / "forecast_ops.duckdb"),
+        "database_path": str(tmp_path / "saltbytes.duckdb"),
     }
     weather_payloads: dict[str, dict[str, Any]] = {}
     wave_payloads: dict[str, dict[str, Any]] = {}
@@ -176,15 +176,15 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         return payload
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_sst_forecast",
+        "saltbytes.pipeline.fetch_sst_forecast",
         fake_fetch_sst_forecast,
     )
 
@@ -203,7 +203,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         return payload
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_tide_predictions",
+        "saltbytes.pipeline.fetch_tide_predictions",
         fake_fetch_tide_predictions,
     )
     fixed_now = datetime(2026, 7, 28)
@@ -213,7 +213,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         def now(cls, tz: object = None) -> datetime:
             return fixed_now.replace(tzinfo=tz)
 
-    monkeypatch.setattr("forecast_ops.pipeline.datetime", FixedDatetime)
+    monkeypatch.setattr("saltbytes.pipeline.datetime", FixedDatetime)
 
     result = run_pipeline(config)
 

@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-ForecastOps needs a bounded first-release audience and fishing context before
+SaltBytes needs a bounded first-release audience and fishing context before
 location and environmental requirements can guide later data work.
 
 The project charter calls for representative North Carolina coastal fishing

@@ -14,7 +14,7 @@ must pass.
 Run:
 
 ```powershell
-forecast-ops
+saltbytes
 ```
 
 Confirm that atmospheric, wave, sea-surface-temperature, and tide processing
@@ -41,7 +41,7 @@ source substitution.
 
 ## 3. Expose one readable local output
 
-Present the integrated result with `forecast-ops report`. It selects the latest
+Present the integrated result with `saltbytes report`. It selects the latest
 attempted run by default and supports run, location, and forecast-hour filters.
 It displays source failures alongside available hourly values using the local
 configured display timezone. Public hosting, APIs, authentication, dashboards,

@@ -5,7 +5,7 @@ from typing import Any
 import duckdb
 import pytest
 
-from forecast_ops.pipeline import run_pipeline
+from saltbytes.pipeline import run_pipeline
 
 HOURLY_FIELDS = [
     "wind_speed_10m",
@@ -181,7 +181,7 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
         },
         "storage": {
             "raw_data_path": str(tmp_path / "raw"),
-            "database_path": str(tmp_path / "forecast_ops.duckdb"),
+            "database_path": str(tmp_path / "saltbytes.duckdb"),
         },
     }
 
@@ -282,7 +282,7 @@ def stub_later_source_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
         return sst_payload(location)
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_sst_forecast",
+        "saltbytes.pipeline.fetch_sst_forecast",
         fake_fetch_sst_forecast,
     )
 
@@ -293,7 +293,7 @@ def stub_later_source_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
         return tide_payload(params)
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_tide_predictions",
+        "saltbytes.pipeline.fetch_tide_predictions",
         fake_fetch_tide_predictions,
     )
 
@@ -344,15 +344,15 @@ def test_source_quality_failures_are_independent_and_collected(
         return payload
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_sst_forecast",
+        "saltbytes.pipeline.fetch_sst_forecast",
         fake_fetch_sst_forecast,
     )
 
@@ -463,11 +463,11 @@ def test_rejected_tide_payload_does_not_block_later_location(
     fetched_tide_stations: list[str] = []
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         lambda location, api_config: atmospheric_payload(location),
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         lambda location, wave_api_config: wave_payload(location),
     )
 
@@ -484,7 +484,7 @@ def test_rejected_tide_payload_does_not_block_later_location(
         return payload
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_tide_predictions",
+        "saltbytes.pipeline.fetch_tide_predictions",
         fetch_tide_with_first_result_invalid,
     )
 
@@ -556,11 +556,11 @@ def test_weather_api_failure_is_isolated_and_recorded(
         raise RuntimeError("forecast api unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         lambda location, wave_api_config: wave_payload(location),
     )
 
@@ -621,11 +621,11 @@ def test_wave_api_failure_is_isolated_and_recorded(
         raise RuntimeError("wave api unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         fail_fetch_wave_forecast,
     )
 
@@ -677,11 +677,11 @@ def test_source_result_persistence_failure_aborts_immediately(
         raise RuntimeError("source result database unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.insert_source_result",
+        "saltbytes.pipeline.insert_source_result",
         fail_source_result_insert,
     )
 
@@ -719,11 +719,11 @@ def test_raw_storage_failure_aborts_immediately(
         raise OSError("raw storage unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.write_raw_snapshot",
+        "saltbytes.pipeline.write_raw_snapshot",
         fail_raw_storage,
     )
 
@@ -761,11 +761,11 @@ def test_snapshot_database_failure_aborts_immediately(
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.insert_forecast_snapshot",
+        "saltbytes.pipeline.insert_forecast_snapshot",
         fail_snapshot_insert,
     )
 
@@ -802,11 +802,11 @@ def test_atmospheric_normalized_failure_aborts_immediately(
         raise RuntimeError("atmospheric normalized storage unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.insert_forecast_hourly",
+        "saltbytes.pipeline.insert_forecast_hourly",
         fail_forecast_hourly_insert,
     )
 
@@ -836,7 +836,7 @@ def _test_wave_raw_storage_failure_aborts_immediately(
     ) -> dict[str, Any]:
         return wave_payload(location)
 
-    from forecast_ops.storage import write_raw_snapshot as real_write
+    from saltbytes.storage import write_raw_snapshot as real_write
 
     def fail_second_raw_write(**kwargs: Any) -> dict[str, Any]:
         nonlocal raw_write_count
@@ -846,15 +846,15 @@ def _test_wave_raw_storage_failure_aborts_immediately(
         return real_write(**kwargs)
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.write_raw_snapshot",
+        "saltbytes.pipeline.write_raw_snapshot",
         fail_second_raw_write,
     )
 
@@ -880,7 +880,7 @@ def _test_wave_snapshot_database_failure_aborts_immediately(
     ) -> dict[str, Any]:
         return wave_payload(location)
 
-    from forecast_ops.database import (
+    from saltbytes.database import (
         insert_forecast_snapshot as real_insert_snapshot,
     )
 
@@ -893,15 +893,15 @@ def _test_wave_snapshot_database_failure_aborts_immediately(
         real_insert_snapshot(database_path, metadata)
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.insert_forecast_snapshot",
+        "saltbytes.pipeline.insert_forecast_snapshot",
         fail_wave_snapshot_insert,
     )
 
@@ -934,15 +934,15 @@ def test_wave_normalized_failure_aborts_immediately(
         raise RuntimeError("wave normalized storage unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.insert_wave_hourly",
+        "saltbytes.pipeline.insert_wave_hourly",
         fail_wave_hourly_insert,
     )
 
@@ -980,15 +980,15 @@ def test_sst_api_failure_is_isolated_and_recorded(
         raise RuntimeError("sst api unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_sst_forecast",
+        "saltbytes.pipeline.fetch_sst_forecast",
         fail_fetch_sst_forecast,
     )
 
@@ -1042,11 +1042,11 @@ def test_sst_normalized_failure_aborts_immediately(
         return wave_payload(location)
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
 
@@ -1054,7 +1054,7 @@ def test_sst_normalized_failure_aborts_immediately(
         raise RuntimeError(message)
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.insert_sst_hourly",
+        "saltbytes.pipeline.insert_sst_hourly",
         fail_sst_hourly_insert,
     )
 
@@ -1077,11 +1077,11 @@ def test_tide_api_failure_is_isolated_and_recorded(
     fetched_tide_stations: list[str] = []
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         lambda location, api_config: atmospheric_payload(location),
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         lambda location, wave_api_config: wave_payload(location),
     )
 
@@ -1093,7 +1093,7 @@ def test_tide_api_failure_is_isolated_and_recorded(
         raise RuntimeError("tide api unavailable")
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_tide_predictions",
+        "saltbytes.pipeline.fetch_tide_predictions",
         fail_fetch_tide_predictions,
     )
 
@@ -1144,27 +1144,27 @@ def test_tide_persistence_failures_abort_immediately(
     config = pipeline_config(tmp_path)
 
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_forecast",
+        "saltbytes.pipeline.fetch_forecast",
         lambda location, api_config: atmospheric_payload(location),
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.fetch_wave_forecast",
+        "saltbytes.pipeline.fetch_wave_forecast",
         lambda location, wave_api_config: wave_payload(location),
     )
 
     if failure_point == "snapshot":
         monkeypatch.setattr(
-            "forecast_ops.pipeline.insert_tide_snapshot",
+            "saltbytes.pipeline.insert_tide_snapshot",
             lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
         )
     elif failure_point == "events":
         monkeypatch.setattr(
-            "forecast_ops.pipeline.insert_tide_events",
+            "saltbytes.pipeline.insert_tide_events",
             lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
         )
     else:
         monkeypatch.setattr(
-            "forecast_ops.pipeline.insert_tide_phase_hourly",
+            "saltbytes.pipeline.insert_tide_phase_hourly",
             lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
         )
 

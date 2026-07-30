@@ -12,7 +12,7 @@ accuracy.
 
 ## Relationship model
 
-ForecastOps preserves these distinct relationships:
+SaltBytes preserves these distinct relationships:
 
 - display or destination coordinate
 - weather request coordinate
@@ -108,7 +108,7 @@ expected returned coordinate for that model or product after parsing.
 
 The comparison does not use raw JSON text or decimal formatting. No geographic
 tolerance is authorized. A different returned coordinate rejects only the
-affected source result and requires review. ForecastOps does not infer a
+affected source result and requires review. SaltBytes does not infer a
 replacement relationship at runtime.
 
 Each relationship must have a configured static coastal-regime classification.
