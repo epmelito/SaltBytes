@@ -397,12 +397,16 @@ def test_source_quality_failures_are_independent_and_collected(
             group by location_id
             """
         ).fetchall()
-        quality_results = connection.execute(
+        source_results = connection.execute(
             """
-            select check_name, status
-            from quality_results
+            select location_id, source, status, detail
+            from source_results
+            order by location_id, source
             """
         ).fetchall()
+        quality_result_count = connection.execute(
+            "select count(*) from quality_results"
+        ).fetchone()
 
     assert fetched_weather_locations == ["jennettes_pier", "fort_fisher"]
     assert fetched_wave_locations == ["jennettes_pier", "fort_fisher"]
@@ -427,21 +431,32 @@ def test_source_quality_failures_are_independent_and_collected(
     assert weather_locations == [("jennettes_pier", 168)]
     assert wave_locations == [("fort_fisher", 168)]
     assert sst_locations == [("fort_fisher", 168)]
-    assert {
-        ":".join(check_name.split(":", maxsplit=2)[:2])
-        for check_name, _ in quality_results
-    } == {
-        "jennettes_pier:weather",
-        "jennettes_pier:wave",
-        "jennettes_pier:sst",
-        "jennettes_pier:tide",
-        "fort_fisher:weather",
-        "fort_fisher:wave",
-        "fort_fisher:sst",
-        "fort_fisher:tide",
-    }
-    assert any(status == "fail" for _, status in quality_results)
-    assert any(status == "pass" for _, status in quality_results)
+    assert source_results == [
+        ("fort_fisher", "sst", "success", None),
+        ("fort_fisher", "tide", "success", None),
+        ("fort_fisher", "wave", "success", None),
+        (
+            "fort_fisher",
+            "weather",
+            "validation_failed",
+            "weather:returned_latitude_matches_expected",
+        ),
+        (
+            "jennettes_pier",
+            "sst",
+            "validation_failed",
+            "sst:returned_latitude_matches_expected",
+        ),
+        ("jennettes_pier", "tide", "success", None),
+        (
+            "jennettes_pier",
+            "wave",
+            "validation_failed",
+            "wave:returned_longitude_matches_expected",
+        ),
+        ("jennettes_pier", "weather", "success", None),
+    ]
+    assert quality_result_count == (0,)
     assert len(list((tmp_path / "raw").rglob("*.json"))) == 5
 
 
@@ -717,6 +732,14 @@ def test_rejected_tide_payload_does_not_block_later_location(
         tide_phase_count = connection.execute(
             "select count(*) from tide_phase_hourly"
         ).fetchone()
+        tide_results = connection.execute(
+            """
+            select location_id, status, detail
+            from source_results
+            where source = 'tide'
+            order by location_id
+            """
+        ).fetchall()
 
     assert fetched_tide_stations == ["8652226", "8658559"]
     assert run is not None
@@ -728,6 +751,14 @@ def test_rejected_tide_payload_does_not_block_later_location(
     assert tide_snapshots == [("fort_fisher", "8658559")]
     assert tide_event_count == (39,)
     assert tide_phase_count == (168,)
+    assert tide_results == [
+        ("fort_fisher", "success", None),
+        (
+            "jennettes_pier",
+            "validation_failed",
+            "tide:prediction_events_alternate, tide:phase_bounds_complete",
+        ),
+    ]
     assert len(list((tmp_path / "raw").rglob("*.json"))) == 7
 
 
@@ -766,6 +797,14 @@ def test_weather_api_failure_is_isolated_and_recorded(
             from pipeline_runs
             """
         ).fetchone()
+        source_results = connection.execute(
+            """
+            select location_id, status, detail
+            from source_results
+            where source = 'weather'
+            order by location_id
+            """
+        ).fetchall()
 
     expected_error = (
         "weather API fetch failed for jennettes_pier: "
@@ -776,6 +815,10 @@ def test_weather_api_failure_is_isolated_and_recorded(
     assert fetched_locations == ["jennettes_pier", "fort_fisher"]
     assert str(error.value) == expected_error
     assert run == ("failed", 1086, expected_error)
+    assert source_results == [
+        ("fort_fisher", "fetch_failed", "forecast api unavailable"),
+        ("jennettes_pier", "fetch_failed", "forecast api unavailable"),
+    ]
 
 
 def test_wave_api_failure_is_isolated_and_recorded(
@@ -815,6 +858,14 @@ def test_wave_api_failure_is_isolated_and_recorded(
         run = connection.execute(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
+        source_results = connection.execute(
+            """
+            select location_id, status, detail
+            from source_results
+            where source = 'wave'
+            order by location_id
+            """
+        ).fetchall()
 
     expected_error = (
         "wave API fetch failed for jennettes_pier: wave api unavailable; "
@@ -823,34 +874,52 @@ def test_wave_api_failure_is_isolated_and_recorded(
     assert fetched_wave_locations == ["jennettes_pier", "fort_fisher"]
     assert str(error.value) == expected_error
     assert run == ("failed", 1086, expected_error)
+    assert source_results == [
+        ("fort_fisher", "fetch_failed", "wave api unavailable"),
+        ("jennettes_pier", "fetch_failed", "wave api unavailable"),
+    ]
 
 
-def test_quality_persistence_failure_aborts_immediately(
+def test_source_result_persistence_failure_aborts_immediately(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = pipeline_config(tmp_path)
+    fetched_locations: list[str] = []
 
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
     ) -> dict[str, Any]:
+        fetched_locations.append(location["id"])
         return atmospheric_payload(location)
 
-    def fail_quality_insert(**kwargs: Any) -> None:
-        raise RuntimeError("quality database unavailable")
+    def fail_source_result_insert(**kwargs: Any) -> None:
+        raise RuntimeError("source result database unavailable")
 
     monkeypatch.setattr(
         "forecast_ops.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "forecast_ops.pipeline.insert_quality_result",
-        fail_quality_insert,
+        "forecast_ops.pipeline.insert_source_result",
+        fail_source_result_insert,
     )
 
-    with pytest.raises(RuntimeError, match="quality database unavailable"):
+    with pytest.raises(
+        RuntimeError,
+        match="source result database unavailable",
+    ):
         run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+
+    assert fetched_locations == ["jennettes_pier"]
+    assert run == ("failed", 0, "source result database unavailable")
 
 
 def test_raw_storage_failure_aborts_immediately(
@@ -891,7 +960,6 @@ def test_raw_storage_failure_aborts_immediately(
             from pipeline_runs
             """
         ).fetchone()
-
     assert fetched_locations == ["jennettes_pier"]
     assert run == ("failed", 0, "raw storage unavailable")
 
@@ -1153,6 +1221,14 @@ def test_sst_api_failure_is_isolated_and_recorded(
         run = connection.execute(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
+        source_results = connection.execute(
+            """
+            select location_id, status, detail
+            from source_results
+            where source = 'sst'
+            order by location_id
+            """
+        ).fetchall()
 
     expected_error = (
         "sst API fetch failed for jennettes_pier: sst api unavailable; "
@@ -1161,6 +1237,10 @@ def test_sst_api_failure_is_isolated_and_recorded(
     assert fetched_sst_locations == ["jennettes_pier", "fort_fisher"]
     assert str(error.value) == expected_error
     assert run == ("failed", 1086, expected_error)
+    assert source_results == [
+        ("fort_fisher", "fetch_failed", "sst api unavailable"),
+        ("jennettes_pier", "fetch_failed", "sst api unavailable"),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -1262,7 +1342,6 @@ def test_sst_persistence_failures_abort_immediately(
         run = connection.execute(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
-
     assert run == ("failed", 336, message)
 
 
@@ -1302,6 +1381,14 @@ def test_tide_api_failure_is_isolated_and_recorded(
         run = connection.execute(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
+        source_results = connection.execute(
+            """
+            select location_id, status, detail
+            from source_results
+            where source = 'tide'
+            order by location_id
+            """
+        ).fetchall()
 
     expected_error = (
         "tide API fetch failed for jennettes_pier: tide api unavailable; "
@@ -1310,6 +1397,10 @@ def test_tide_api_failure_is_isolated_and_recorded(
     assert fetched_tide_stations == ["8652226", "8658559"]
     assert str(error.value) == expected_error
     assert run == ("failed", 1008, expected_error)
+    assert source_results == [
+        ("fort_fisher", "fetch_failed", "tide api unavailable"),
+        ("jennettes_pier", "fetch_failed", "tide api unavailable"),
+    ]
 
 
 @pytest.mark.parametrize(

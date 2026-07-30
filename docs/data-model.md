@@ -24,12 +24,18 @@ returned-coordinate context, raw-file path, and provenance.
 Accepted NOAA tide responses, including the configured station relationship and
 raw-file provenance.
 
+### `source_results`
+
+One outcome per attempted location and source: `success`, `fetch_failed`, or
+`validation_failed`. Failed outcomes retain concise details.
+
+Fetch and validation failures do not create accepted snapshots or normalized
+rows, but do not prevent independent source attempts from continuing.
+
 ### `quality_results`
 
-Validation evidence for source attempts, including accepted and rejected
-results.
-
-Rejected results do not create accepted snapshots or normalized rows.
+The legacy granular validation table remains dormant until the later schema
+reset package.
 
 ### Normalized hourly tables
 
