@@ -14,7 +14,7 @@ must pass.
 Run:
 
 ```powershell
-forecast-ops --environment dev
+forecast-ops
 ```
 
 Confirm that atmospheric, wave, sea-surface-temperature, and tide processing

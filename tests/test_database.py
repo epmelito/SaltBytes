@@ -282,7 +282,6 @@ def insert_run(
     insert_pipeline_run(
         database_path=database_path,
         run_id=run_id,
-        environment="test",
         started_at=started_at
         or datetime(2026, 7, 28, 10, 0, tzinfo=timezone.utc),
     )
@@ -460,7 +459,7 @@ def test_insert_pipeline_run_and_snapshot_provenance(
     with duckdb.connect(str(database_path), read_only=True) as connection:
         run = connection.execute(
             """
-            select environment, status, rows_loaded
+            select status, rows_loaded
             from pipeline_runs
             where run_id = 'run123'
             """
@@ -481,7 +480,7 @@ def test_insert_pipeline_run_and_snapshot_provenance(
             """
         ).fetchone()
 
-    assert run == ("test", "running", 0)
+    assert run == ("running", 0)
     assert snapshot == (
         "run123",
         "jennettes_pier",

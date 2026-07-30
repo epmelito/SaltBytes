@@ -7,7 +7,6 @@ import duckdb
 _SCHEMA_SQL = """
 create table if not exists pipeline_runs (
     run_id varchar primary key,
-    environment varchar not null,
     started_at timestamptz not null,
     completed_at timestamptz,
     status varchar not null,
@@ -140,7 +139,6 @@ def initialize_database(database_path: Path | str) -> None:
 def insert_pipeline_run(
     database_path: Path | str,
     run_id: str,
-    environment: str,
     started_at: datetime,
     status: str = "running",
 ) -> None:
@@ -149,13 +147,12 @@ def insert_pipeline_run(
             """
             insert into pipeline_runs (
                 run_id,
-                environment,
                 started_at,
                 status
             )
-            values (?, ?, ?, ?)
+            values (?, ?, ?)
             """,
-            [run_id, environment, started_at, status],
+            [run_id, started_at, status],
         )
 
 

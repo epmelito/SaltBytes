@@ -9,8 +9,8 @@ MVP result.
 
 ### `pipeline_runs`
 
-One row per pipeline execution, including environment, status, timestamps, and
-run-level counts.
+One row per pipeline execution, including status, timestamps, and run-level
+counts.
 
 ### `forecast_snapshots`
 

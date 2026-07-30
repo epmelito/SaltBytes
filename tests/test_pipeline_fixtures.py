@@ -114,7 +114,7 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = deepcopy(load_config("test"))
+    config = deepcopy(load_config())
     config["storage"] = {
         "raw_data_path": str(tmp_path / "raw"),
         "database_path": str(tmp_path / "forecast_ops.duckdb"),

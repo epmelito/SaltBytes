@@ -24,7 +24,6 @@ SST_FIELDS = ["sea_surface_temperature"]
 
 def pipeline_config(tmp_path: Path) -> dict[str, Any]:
     return {
-        "environment": "test",
         "locations": [
             {
                 "id": "jennettes_pier",
