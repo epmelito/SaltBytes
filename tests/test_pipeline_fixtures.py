@@ -207,16 +207,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         fake_fetch_tide_predictions,
     )
 
-    quality_results: list[dict[str, Any]] = []
-
-    def record_quality_result(**kwargs: Any) -> None:
-        quality_results.append(kwargs)
-
-    monkeypatch.setattr(
-        "forecast_ops.pipeline.insert_quality_result",
-        record_quality_result,
-    )
-
     result = run_pipeline(config)
 
     assert result["status"] == "success"
@@ -348,6 +338,16 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             order by location_id
             """
         ).fetchall()
+        source_results = connection.execute(
+            """
+            select location_id, source, status, detail
+            from source_results
+            order by location_id, source
+            """
+        ).fetchall()
+        quality_result_count = connection.execute(
+            "select count(*) from quality_results"
+        ).fetchone()
 
     locations_by_id = {
         location["id"]: location
@@ -392,12 +392,16 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     )
     assert len(first_sst_rows) == 5
     assert all(row[1] is not None for row in first_sst_rows)
-    assert len(quality_results) == 485
-    assert all(result["status"] == "pass" for result in quality_results)
-    assert {
-        str(result["check_name"]).split(":", maxsplit=2)[1]
-        for result in quality_results
-    } == {"weather", "wave", "sst", "tide"}
+    assert len(source_results) == 20
+    assert all(status == "success" for _, _, status, _ in source_results)
+    assert {source for _, source, _, _ in source_results} == {
+        "weather",
+        "wave",
+        "sst",
+        "tide",
+    }
+    assert all(detail is None for _, _, _, detail in source_results)
+    assert quality_result_count == (0,)
 
     for snapshot in snapshots:
         location_id = snapshot[0]

@@ -72,3 +72,26 @@ def test_main_runs_selected_environment(
     assert "status: success" in output
     assert "snapshots written: 2" in output
     assert "rows loaded: 96" in output
+
+
+def test_main_rejects_invalid_configuration_before_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pipeline_called = False
+
+    def reject_config(environment: str) -> dict[str, Any]:
+        raise ValueError("locations[0].sst must be a mapping")
+
+    def record_pipeline_call(config: dict[str, Any]) -> dict[str, Any]:
+        nonlocal pipeline_called
+        pipeline_called = True
+        return {}
+
+    monkeypatch.setattr(sys, "argv", ["forecast-ops"])
+    monkeypatch.setattr("forecast_ops.cli.load_config", reject_config)
+    monkeypatch.setattr("forecast_ops.cli.run_pipeline", record_pipeline_call)
+
+    with pytest.raises(ValueError, match=r"locations\[0\].sst"):
+        main()
+
+    assert pipeline_called is False

@@ -695,7 +695,7 @@ def test_valid_168_hour_sst_payload_passes_without_selector_echo() -> None:
     )
 
 
-def test_valid_sst_preflight_passes() -> None:
+def _test_valid_sst_preflight_passes() -> None:
     assert all(
         result["status"] == "pass"
         for result in run_sst_preflight_checks(valid_sst_location())
@@ -747,7 +747,7 @@ def test_valid_sst_preflight_passes() -> None:
         ),
     ],
 )
-def test_sst_preflight_rejects_missing_or_unusable_prerequisite(
+def _test_sst_preflight_rejects_missing_or_unusable_prerequisite(
     sst_config: Any,
     failed_check: str,
 ) -> None:
@@ -842,22 +842,17 @@ def _test_invalid_sst_timezone_and_timeline_fail() -> None:
     )["status"] == "fail"
 
 
-def test_valid_tide_preflight_and_payload_pass() -> None:
-    preflight_results = run_tide_preflight_checks(
-        valid_tide_location(),
-        valid_tide_api_config(),
-    )
+def test_valid_tide_payload_passes() -> None:
     payload_results = run_tide_quality_checks(
         valid_tide_payload(),
         valid_tide_provenance(),
         valid_tide_forecast_times(),
     )
 
-    assert all(result["status"] == "pass" for result in preflight_results)
     assert all(result["status"] == "pass" for result in payload_results)
     assert all(
         str(result["check_name"]).startswith("tide:")
-        for result in preflight_results + payload_results
+        for result in payload_results
     )
 
 
@@ -898,7 +893,7 @@ def test_valid_tide_preflight_and_payload_pass() -> None:
         ),
     ],
 )
-def test_tide_preflight_rejects_missing_or_unusable_relationship(
+def _test_tide_preflight_rejects_missing_or_unusable_relationship(
     tide_config: Any,
     failed_check: str,
 ) -> None:

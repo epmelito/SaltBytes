@@ -16,7 +16,7 @@ from forecast_ops.database import (
     insert_forecast_hourly,
     insert_forecast_snapshot,
     insert_pipeline_run,
-    insert_quality_result,
+    insert_source_result,
     insert_sst_hourly,
     insert_tide_events,
     insert_tide_phase_hourly,
@@ -28,8 +28,6 @@ from forecast_ops.quality import (
     derive_tide_phases,
     normalize_tide_events,
     run_payload_quality_checks,
-    run_sst_preflight_checks,
-    run_tide_preflight_checks,
     run_tide_quality_checks,
 )
 from forecast_ops.storage import create_run_id, write_raw_snapshot
@@ -105,6 +103,15 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     run_id,
                     location["id"],
                 )
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="weather",
+                    status="fetch_failed",
+                    detail=str(error),
+                    recorded_at=datetime.now(timezone.utc),
+                )
 
             if weather_payload is not None:
                 weather_quality_results = run_payload_quality_checks(
@@ -115,17 +122,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         "expected_returned_coordinate"
                     ],
                     source_label="weather",
-                )
-
-            for quality_result in weather_quality_results:
-                insert_quality_result(
-                    database_path=database_path,
-                    run_id=run_id,
-                    check_name=f"{location['id']}:{quality_result['check_name']}",
-                    status=str(quality_result["status"]),
-                    observed_value=str(quality_result["observed_value"]),
-                    expected_value=str(quality_result["expected_value"]),
-                    checked_at=quality_result["checked_at"],
                 )
 
             failed_weather_checks = [
@@ -151,7 +147,25 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     location["id"],
                     failed_check_names,
                 )
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="weather",
+                    status="validation_failed",
+                    detail=failed_check_names,
+                    recorded_at=datetime.now(timezone.utc),
+                )
             elif weather_payload is not None:
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="weather",
+                    status="success",
+                    detail=None,
+                    recorded_at=datetime.now(timezone.utc),
+                )
                 logger.info(
                     "weather quality checks passed run_id=%s location=%s "
                     "checks=%s",
@@ -231,6 +245,15 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     run_id,
                     location["id"],
                 )
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="wave",
+                    status="fetch_failed",
+                    detail=str(error),
+                    recorded_at=datetime.now(timezone.utc),
+                )
 
             if wave_payload is not None:
                 wave_quality_results = run_payload_quality_checks(
@@ -242,17 +265,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     ],
                     expected_model_selector="meteofrance_wave",
                     source_label="wave",
-                )
-
-            for quality_result in wave_quality_results:
-                insert_quality_result(
-                    database_path=database_path,
-                    run_id=run_id,
-                    check_name=f"{location['id']}:{quality_result['check_name']}",
-                    status=str(quality_result["status"]),
-                    observed_value=str(quality_result["observed_value"]),
-                    expected_value=str(quality_result["expected_value"]),
-                    checked_at=quality_result["checked_at"],
                 )
 
             failed_wave_checks = [
@@ -277,7 +289,25 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     location["id"],
                     failed_check_names,
                 )
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="wave",
+                    status="validation_failed",
+                    detail=failed_check_names,
+                    recorded_at=datetime.now(timezone.utc),
+                )
             elif wave_payload is not None:
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="wave",
+                    status="success",
+                    detail=None,
+                    recorded_at=datetime.now(timezone.utc),
+                )
                 logger.info(
                     "wave quality checks passed run_id=%s location=%s checks=%s",
                     run_id,
@@ -335,43 +365,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 location["id"],
             )
 
-            sst_preflight_results = run_sst_preflight_checks(location)
-
-            for quality_result in sst_preflight_results:
-                insert_quality_result(
-                    database_path=database_path,
-                    run_id=run_id,
-                    check_name=f"{location['id']}:{quality_result['check_name']}",
-                    status=str(quality_result["status"]),
-                    observed_value=str(quality_result["observed_value"]),
-                    expected_value=str(quality_result["expected_value"]),
-                    checked_at=quality_result["checked_at"],
-                )
-
-            failed_sst_preflight_checks = [
-                quality_result
-                for quality_result in sst_preflight_results
-                if quality_result["status"] == "fail"
-            ]
-
-            if failed_sst_preflight_checks:
-                failed_check_names = ", ".join(
-                    str(quality_result["check_name"])
-                    for quality_result in failed_sst_preflight_checks
-                )
-                location_failure = (
-                    f"sst quality checks failed for {location['id']}: "
-                    f"{failed_check_names}"
-                )
-                location_failures.append(location_failure)
-                logger.error(
-                    "sst preflight quality checks failed run_id=%s "
-                    "location=%s checks=%s",
-                    run_id,
-                    location["id"],
-                    failed_check_names,
-                )
-            else:
+            if location["sst"]:
                 sst_config = location["sst"]
                 sst_request_coordinate = sst_config["request_coordinate"]
                 sst_payload = None
@@ -391,6 +385,15 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         run_id,
                         location["id"],
                     )
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="sst",
+                        status="fetch_failed",
+                        detail=str(error),
+                        recorded_at=datetime.now(timezone.utc),
+                    )
 
                 if sst_payload is not None:
                     sst_quality_results = run_payload_quality_checks(
@@ -402,24 +405,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         ],
                         expected_model_selector="meteofrance_currents",
                         source_label="sst",
-                    )
-
-                for quality_result in sst_quality_results:
-                    insert_quality_result(
-                        database_path=database_path,
-                        run_id=run_id,
-                        check_name=(
-                            f"{location['id']}:"
-                            f"{quality_result['check_name']}"
-                        ),
-                        status=str(quality_result["status"]),
-                        observed_value=str(
-                            quality_result["observed_value"]
-                        ),
-                        expected_value=str(
-                            quality_result["expected_value"]
-                        ),
-                        checked_at=quality_result["checked_at"],
                     )
 
                 failed_sst_checks = [
@@ -445,7 +430,25 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         location["id"],
                         failed_check_names,
                     )
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="sst",
+                        status="validation_failed",
+                        detail=failed_check_names,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
                 elif sst_payload is not None:
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="sst",
+                        status="success",
+                        detail=None,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
                     logger.info(
                         "sst quality checks passed run_id=%s location=%s "
                         "checks=%s",
@@ -507,46 +510,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 location["id"],
             )
 
-            tide_preflight_results = run_tide_preflight_checks(
-                location,
-                tide_api_config,
-            )
-
-            for quality_result in tide_preflight_results:
-                insert_quality_result(
-                    database_path=database_path,
-                    run_id=run_id,
-                    check_name=f"{location['id']}:{quality_result['check_name']}",
-                    status=str(quality_result["status"]),
-                    observed_value=str(quality_result["observed_value"]),
-                    expected_value=str(quality_result["expected_value"]),
-                    checked_at=quality_result["checked_at"],
-                )
-
-            failed_tide_preflight_checks = [
-                quality_result
-                for quality_result in tide_preflight_results
-                if quality_result["status"] == "fail"
-            ]
-
-            if failed_tide_preflight_checks:
-                failed_check_names = ", ".join(
-                    str(quality_result["check_name"])
-                    for quality_result in failed_tide_preflight_checks
-                )
-                location_failure = (
-                    f"tide quality checks failed for {location['id']}: "
-                    f"{failed_check_names}"
-                )
-                location_failures.append(location_failure)
-                logger.error(
-                    "tide preflight quality checks failed run_id=%s "
-                    "location=%s checks=%s",
-                    run_id,
-                    location["id"],
-                    failed_check_names,
-                )
-            else:
+            if location["tide"]:
                 captured_at = datetime.now(timezone.utc)
                 tide_params = build_tide_params(
                     location=location,
@@ -574,30 +538,21 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         run_id,
                         location["id"],
                     )
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="tide",
+                        status="fetch_failed",
+                        detail=str(error),
+                        recorded_at=datetime.now(timezone.utc),
+                    )
 
                 if tide_payload is not None:
                     tide_quality_results = run_tide_quality_checks(
                         payload=tide_payload,
                         request_provenance=request_provenance,
                         forecast_times=tide_forecast_times,
-                    )
-
-                for quality_result in tide_quality_results:
-                    insert_quality_result(
-                        database_path=database_path,
-                        run_id=run_id,
-                        check_name=(
-                            f"{location['id']}:"
-                            f"{quality_result['check_name']}"
-                        ),
-                        status=str(quality_result["status"]),
-                        observed_value=str(
-                            quality_result["observed_value"]
-                        ),
-                        expected_value=str(
-                            quality_result["expected_value"]
-                        ),
-                        checked_at=quality_result["checked_at"],
                     )
 
                 failed_tide_checks = [
@@ -623,7 +578,25 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                         location["id"],
                         failed_check_names,
                     )
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="tide",
+                        status="validation_failed",
+                        detail=failed_check_names,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
                 elif tide_payload is not None:
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="tide",
+                        status="success",
+                        detail=None,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
                     tide_events = normalize_tide_events(tide_payload)
                     tide_phases = derive_tide_phases(
                         tide_events,
