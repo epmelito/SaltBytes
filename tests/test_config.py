@@ -22,7 +22,8 @@ def test_local_config_contains_approved_locations_and_variable_settings() -> Non
         "bogue_inlet_pier",
         "fort_fisher",
     ]
-    assert set(config) == {"locations", "storage", "logging"}
+    assert set(config) == {"locations", "storage", "logging", "display_timezone"}
+    assert config["display_timezone"] == "America/New_York"
     assert config["storage"] == {
         "raw_data_path": "data/local/raw",
         "database_path": "data/local/forecast_ops.duckdb",
@@ -71,6 +72,16 @@ def test_load_config_rejects_invalid_logging_level(tmp_path: Path) -> None:
     write_config(config_path, config)
 
     with pytest.raises(ValueError, match="unsupported logging level: VERBOSE"):
+        load_config(config_path)
+
+
+def test_load_config_rejects_invalid_display_timezone(tmp_path: Path) -> None:
+    config = deepcopy(load_config())
+    config["display_timezone"] = "invalid/timezone"
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(ValueError, match="valid IANA timezone"):
         load_config(config_path)
 
 

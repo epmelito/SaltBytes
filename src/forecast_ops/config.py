@@ -1,6 +1,7 @@
 import math
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 
@@ -289,6 +290,17 @@ def validate_config(
 
     if logging_level not in VALID_LOG_LEVELS:
         raise ValueError(f"unsupported logging level: {logging_level}")
+
+    display_timezone = _require_string(
+        config.get("display_timezone"),
+        "display_timezone",
+    )
+    try:
+        ZoneInfo(display_timezone)
+    except ZoneInfoNotFoundError as error:
+        raise ValueError(
+            f"display_timezone must be a valid IANA timezone: {display_timezone}"
+        ) from error
 
 
 # load and validate local configuration

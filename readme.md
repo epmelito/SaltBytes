@@ -24,11 +24,7 @@ and stores normalized UTC data in DuckDB. The downstream
 `coastal_conditions_hourly` view aligns available source values by exact run,
 location, and UTC hour.
 
-The remaining MVP work is:
-
-1. validate the full pipeline with live data
-2. fix observed blocking or correctness defects
-3. expose one readable local output
+The MVP provides a local readable output over the integrated hourly view.
 
 See [the roadmap](docs/roadmap.md) for the delivery sequence.
 
@@ -61,6 +57,18 @@ forecast-ops
 
 The local configuration is `config/local.yml`. Runtime data is written beneath
 its configured `data/` paths and is not committed to Git.
+
+## Read the latest report
+
+```powershell
+forecast-ops report
+```
+
+The report selects the latest attempted run, including a failed or partial run,
+and displays the first 24 forecast hours at or after its start time. Use
+`--run-id`, `--location`, or `--hours` to select a specific run, configured
+location, or forecast window. Stored timestamps remain UTC; output uses the
+configured local display timezone.
 
 ## Validation
 

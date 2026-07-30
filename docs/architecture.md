@@ -2,10 +2,11 @@
 
 ## Current system
 
-ForecastOps is a local Python application with one supported pipeline command:
+ForecastOps is a local Python application with pipeline and report commands:
 
 ```powershell
 forecast-ops
+forecast-ops report
 ```
 
 The pipeline:
@@ -55,8 +56,8 @@ Operational failures such as storage or database errors abort the run.
 ## Configuration
 
 `config/local.yml` defines local storage paths, logging, locations, source
-coordinates, and NOAA station relationships. Fixed provider contracts are kept
-in the source clients.
+coordinates, NOAA station relationships, and the report display timezone. Fixed
+provider contracts are kept in the source clients.
 
 Source relationship details remain in configuration and accepted ADRs. They
 should be loaded only when a task changes those contracts.
@@ -77,3 +78,8 @@ union of normalized source keys and exact run, location, and UTC-hour joins.
 
 Do not redesign the ingestion control flow unless live validation proves a
 change is required.
+
+The read-only `forecast-ops report` command selects the latest attempted run by
+default, or a requested run ID. It renders the integrated hourly view and
+source-result failures for the configured locations; it converts UTC timestamps
+only while formatting output.
