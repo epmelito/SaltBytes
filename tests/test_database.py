@@ -12,6 +12,7 @@ from forecast_ops.database import (
     insert_forecast_snapshot,
     insert_pipeline_run,
     insert_quality_result,
+    insert_source_result,
     insert_sst_hourly,
     insert_tide_events,
     insert_tide_phase_hourly,
@@ -24,6 +25,7 @@ EXPECTED_TABLES = {
     "forecast_snapshots",
     "pipeline_runs",
     "quality_results",
+    "source_results",
     "sst_hourly",
     "tide_events",
     "tide_phase_hourly",
@@ -109,6 +111,14 @@ EXPECTED_TIDE_PHASE_COLUMNS = {
     "location_id",
     "forecast_time",
     "phase",
+}
+EXPECTED_SOURCE_RESULT_COLUMNS = {
+    "run_id",
+    "location_id",
+    "source",
+    "status",
+    "detail",
+    "recorded_at",
 }
 
 
@@ -397,6 +407,16 @@ def test_initialize_database_creates_required_schema(
                 """
             ).fetchall()
         }
+        source_result_columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'source_results'
+                """
+            ).fetchall()
+        }
 
     assert tables == EXPECTED_TABLES
     assert views == EXPECTED_VIEWS
@@ -407,6 +427,7 @@ def test_initialize_database_creates_required_schema(
     assert tide_snapshot_columns == EXPECTED_TIDE_SNAPSHOT_COLUMNS
     assert tide_event_columns == EXPECTED_TIDE_EVENT_COLUMNS
     assert tide_phase_columns == EXPECTED_TIDE_PHASE_COLUMNS
+    assert source_result_columns == EXPECTED_SOURCE_RESULT_COLUMNS
 
 
 def test_initialize_database_can_run_more_than_once(
@@ -1207,6 +1228,118 @@ def test_insert_quality_result(tmp_path: Path) -> None:
         "168",
         "168",
     )
+
+
+@pytest.mark.parametrize(
+    ("source", "status", "detail"),
+    [
+        ("weather", "success", None),
+        ("wave", "fetch_failed", "request timed out"),
+        ("sst", "validation_failed", "missing hourly timestamps"),
+    ],
+)
+def test_insert_source_result(
+    tmp_path: Path,
+    source: str,
+    status: str,
+    detail: str | None,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    recorded_at = datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc)
+    initialize_database(database_path)
+    insert_run(database_path)
+
+    insert_source_result(
+        database_path=database_path,
+        run_id="run123",
+        location_id="jennettes_pier",
+        source=source,
+        status=status,
+        detail=detail,
+        recorded_at=recorded_at,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        result = connection.execute(
+            """
+            select source, status, detail, recorded_at
+            from source_results
+            where run_id = 'run123'
+            """
+        ).fetchone()
+
+    assert result == (source, status, detail, recorded_at)
+
+
+def test_insert_source_result_rejects_unsupported_status(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+
+    with pytest.raises(ValueError, match="unsupported source result status"):
+        insert_source_result(
+            database_path=database_path,
+            run_id="run123",
+            location_id="jennettes_pier",
+            source="weather",
+            status="failed",
+            detail="request failed",
+            recorded_at=datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc),
+        )
+
+
+def test_source_results_enforce_one_result_per_run_location_and_source(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    result = {
+        "database_path": database_path,
+        "run_id": "run123",
+        "location_id": "jennettes_pier",
+        "source": "weather",
+        "status": "success",
+        "detail": None,
+        "recorded_at": datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc),
+    }
+
+    insert_source_result(**result)
+
+    with pytest.raises(duckdb.ConstraintException):
+        insert_source_result(**result)
+
+
+def test_initialize_database_preserves_source_results(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "forecast_ops.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_source_result(
+        database_path=database_path,
+        run_id="run123",
+        location_id="jennettes_pier",
+        source="weather",
+        status="success",
+        detail=None,
+        recorded_at=datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc),
+    )
+
+    initialize_database(database_path)
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        result = connection.execute(
+            """
+            select run_id, location_id, source, status, detail
+            from source_results
+            """
+        ).fetchone()
+
+    assert result == ("run123", "jennettes_pier", "weather", "success", None)
 
 
 def test_forecast_revision_view_compares_coastal_fields(

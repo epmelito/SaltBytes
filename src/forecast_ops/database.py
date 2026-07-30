@@ -118,6 +118,19 @@ create table if not exists quality_results (
     checked_at timestamptz not null,
     foreign key (run_id) references pipeline_runs(run_id)
 );
+
+create table if not exists source_results (
+    run_id varchar not null,
+    location_id varchar not null,
+    source varchar not null,
+    status varchar not null check (
+        status in ('success', 'fetch_failed', 'validation_failed')
+    ),
+    detail varchar,
+    recorded_at timestamptz not null,
+    primary key (run_id, location_id, source),
+    foreign key (run_id) references pipeline_runs(run_id)
+);
 """
 
 _MIGRATION_SQL = """
@@ -513,6 +526,44 @@ def insert_quality_result(
                 observed_value,
                 expected_value,
                 checked_at,
+            ],
+        )
+
+
+def insert_source_result(
+    database_path: Path | str,
+    run_id: str,
+    location_id: str,
+    source: str,
+    status: str,
+    detail: str | None,
+    recorded_at: datetime,
+) -> None:
+    valid_statuses = {"success", "fetch_failed", "validation_failed"}
+
+    if status not in valid_statuses:
+        raise ValueError(f"unsupported source result status: {status}")
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(
+            """
+            insert into source_results (
+                run_id,
+                location_id,
+                source,
+                status,
+                detail,
+                recorded_at
+            )
+            values (?, ?, ?, ?, ?, ?)
+            """,
+            [
+                run_id,
+                location_id,
+                source,
+                status,
+                detail,
+                recorded_at,
             ],
         )
 
