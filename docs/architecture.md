@@ -83,3 +83,16 @@ The read-only `saltbytes report` command selects the latest attempted run by
 default, or a requested run ID. It renders the integrated hourly view and
 source-result failures for the configured locations; it converts UTC timestamps
 only while formatting output.
+
+## Hosted ingestion
+
+GitHub Actions runs the unchanged `saltbytes` command on a hosted runner every
+six hours or on manual dispatch from `main`. The workflow uses GitHub OpenID
+Connect with Blob data permissions scoped to the `saltbytes-state` container.
+
+Before ingestion, the runner restores only `state/saltbytes.duckdb`; it never
+downloads the historical raw archive. It uploads new immutable raw snapshots
+under `raw/` before validating and replacing the mutable database blob. A
+failed restore, raw upload, database validation, or database upload leaves the
+current cloud database canonical. A failed pipeline can still publish its
+readable completed failure record when synchronization succeeds.

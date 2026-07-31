@@ -58,6 +58,10 @@ saltbytes
 The local configuration is `config/local.yml`. Runtime data is written beneath
 its configured `data/` paths and is not committed to Git.
 
+Hosted ingestion runs from `main` every six hours and can also be started
+manually. See [hosted operation](docs/hosted-operation.md) for the required
+Azure setup, recovery behavior, and manual-run procedure.
+
 ## Read the latest report
 
 ```powershell
