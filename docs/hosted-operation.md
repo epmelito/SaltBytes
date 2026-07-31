@@ -17,8 +17,12 @@ Create the private container `saltbytes-state` with this layout:
 
 ```text
 state/saltbytes.duckdb
-raw/YYYY/MM/DD/<run_id>/<location_id>_<snapshot_id>.json
+raw/YYYY/MM/DD/HHMMSSZ_<run_id>/<location_id>_<snapshot_id>.json
 ```
+
+`HHMMSSZ` comes from the persisted pipeline run start time in UTC. Existing
+run ID only folders remain unchanged. Reporting reads the canonical DuckDB
+state and does not depend on either raw folder shape.
 
 Create an Entra application or managed identity for GitHub Actions and add an
 OpenID Connect federated credential with:

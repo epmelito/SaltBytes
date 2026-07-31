@@ -17,6 +17,7 @@ def test_write_raw_snapshot_creates_immutable_json_file(tmp_path: Path) -> None:
         },
     }
     captured_at = datetime(2026, 7, 28, 10, 30, tzinfo=timezone.utc)
+    run_started_at = datetime(2026, 7, 28, 10, 17, tzinfo=timezone.utc)
 
     metadata = write_raw_snapshot(
         payload=payload,
@@ -25,6 +26,7 @@ def test_write_raw_snapshot_creates_immutable_json_file(tmp_path: Path) -> None:
         run_id="run123",
         snapshot_id="snapshot123",
         captured_at=captured_at,
+        run_started_at=run_started_at,
     )
 
     expected_path = (
@@ -32,7 +34,7 @@ def test_write_raw_snapshot_creates_immutable_json_file(tmp_path: Path) -> None:
         / "2026"
         / "07"
         / "28"
-        / "run123"
+        / "101700Z_run123"
         / "prague_snapshot123.json"
     )
 
@@ -48,6 +50,7 @@ def test_write_raw_snapshot_refuses_to_overwrite_existing_file(
     tmp_path: Path,
 ) -> None:
     captured_at = datetime(2026, 7, 28, 10, 30, tzinfo=timezone.utc)
+    run_started_at = datetime(2026, 7, 28, 10, 17, tzinfo=timezone.utc)
 
     arguments = {
         "payload": {"hourly": {"time": []}},
@@ -56,6 +59,7 @@ def test_write_raw_snapshot_refuses_to_overwrite_existing_file(
         "run_id": "run123",
         "snapshot_id": "snapshot123",
         "captured_at": captured_at,
+        "run_started_at": run_started_at,
     }
 
     write_raw_snapshot(**arguments)
@@ -77,7 +81,58 @@ def test_write_raw_snapshot_requires_timezone_aware_timestamp(
             raw_data_path=tmp_path,
             run_id="run123",
             captured_at=datetime(2026, 7, 28, 10, 30),
+            run_started_at=datetime(
+                2026, 7, 28, 10, 17, tzinfo=timezone.utc
+            ),
         )
+
+
+def test_write_raw_snapshot_requires_timezone_aware_run_start(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="run_started_at must include timezone information",
+    ):
+        write_raw_snapshot(
+            payload={},
+            location_id="prague",
+            raw_data_path=tmp_path,
+            run_id="run123",
+            captured_at=datetime(
+                2026, 7, 28, 10, 30, tzinfo=timezone.utc
+            ),
+            run_started_at=datetime(2026, 7, 28, 10, 17),
+        )
+
+
+def test_write_raw_snapshot_converts_run_start_to_utc(
+    tmp_path: Path,
+) -> None:
+    metadata = write_raw_snapshot(
+        payload={},
+        location_id="prague",
+        raw_data_path=tmp_path,
+        run_id="run123",
+        snapshot_id="snapshot123",
+        captured_at=datetime(
+            2026, 7, 29, 0, 30, tzinfo=timezone.utc
+        ),
+        run_started_at=datetime.fromisoformat(
+            "2026-07-29T01:17:00+03:00"
+        ),
+    )
+
+    expected_path = (
+        tmp_path
+        / "2026"
+        / "07"
+        / "28"
+        / "221700Z_run123"
+        / "prague_snapshot123.json"
+    )
+
+    assert Path(metadata["raw_file_path"]) == expected_path
 
 
 @pytest.mark.parametrize(
@@ -102,4 +157,7 @@ def test_write_raw_snapshot_rejects_unsafe_path_components(
             raw_data_path=tmp_path,
             run_id=run_id,
             snapshot_id=snapshot_id,
+            run_started_at=datetime(
+                2026, 7, 28, 10, 17, tzinfo=timezone.utc
+            ),
         )

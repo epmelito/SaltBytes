@@ -187,6 +187,7 @@ def _run_pipeline(
                     location_id=location["id"],
                     raw_data_path=raw_data_path,
                     run_id=run_id,
+                    run_started_at=started_at,
                 )
                 weather_metadata.update(
                     {
@@ -325,6 +326,7 @@ def _run_pipeline(
                     location_id=location["id"],
                     raw_data_path=raw_data_path,
                     run_id=run_id,
+                    run_started_at=started_at,
                 )
                 wave_metadata.update(
                     {
@@ -464,6 +466,7 @@ def _run_pipeline(
                         location_id=location["id"],
                         raw_data_path=raw_data_path,
                         run_id=run_id,
+                        run_started_at=started_at,
                     )
                     sst_metadata.update(
                         {
@@ -605,6 +608,7 @@ def _run_pipeline(
                         location_id=location["id"],
                         raw_data_path=raw_data_path,
                         run_id=run_id,
+                        run_started_at=started_at,
                         captured_at=captured_at,
                     )
                     insert_tide_snapshot(
