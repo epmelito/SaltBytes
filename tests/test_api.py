@@ -241,6 +241,8 @@ def test_fetch_forecast_returns_json_object(
 def test_fetch_forecast_rejects_non_object_json(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    attempts = 0
+
     class FakeResponse:
         def raise_for_status(self) -> None:
             pass
@@ -263,6 +265,8 @@ def test_fetch_forecast_rejects_non_object_json(
             url: str,
             params: dict[str, Any],
         ) -> FakeResponse:
+            nonlocal attempts
+            attempts += 1
             return FakeResponse()
 
     monkeypatch.setattr(httpx, "Client", FakeClient)
@@ -275,6 +279,8 @@ def test_fetch_forecast_rejects_non_object_json(
             coastal_location(),
             atmospheric_api_config(),
         )
+
+    assert attempts == 1
 
 
 def test_fetch_forecast_propagates_http_errors(
@@ -643,3 +649,171 @@ def test_fetch_tide_predictions_rejects_non_object_json(
         match="tide prediction api response must contain a json object",
     ):
         fetch_tide_predictions(tide_api_config(), {})
+
+
+def test_fetch_forecast_retries_timeout_once_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {"hourly": {"time": []}}
+    attempts = 0
+    delays: list[float] = []
+    clients: list[Any] = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return payload
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            assert timeout == 2.5
+            self.closed = False
+            clients.append(self)
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            self.closed = True
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> FakeResponse:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise httpx.ConnectTimeout("TLS handshake timed out")
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    monkeypatch.setattr("saltbytes.api.time.sleep", delays.append)
+
+    assert fetch_forecast(
+        coastal_location(),
+        atmospheric_api_config(),
+        timeout_seconds=2.5,
+    ) == payload
+    assert attempts == 2
+    assert delays == [0.25]
+    assert clients[0].closed is True
+
+
+def test_fetch_wave_forecast_raises_after_one_timeout_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts = 0
+    delays: list[float] = []
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> None:
+            nonlocal attempts
+            attempts += 1
+            raise httpx.ReadTimeout("response timed out")
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    monkeypatch.setattr("saltbytes.api.time.sleep", delays.append)
+
+    with pytest.raises(httpx.ReadTimeout, match="response timed out"):
+        fetch_wave_forecast(coastal_location(), wave_api_config())
+
+    assert attempts == 2
+    assert delays == [0.25]
+
+
+def test_fetch_sst_forecast_does_not_retry_http_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = httpx.Request("GET", "https://marine-api.open-meteo.com")
+    response = httpx.Response(status_code=500, request=request)
+    attempts = 0
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            raise httpx.HTTPStatusError(
+                "server error",
+                request=request,
+                response=response,
+            )
+
+        def json(self) -> dict[str, Any]:
+            return {}
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> FakeResponse:
+            nonlocal attempts
+            attempts += 1
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+
+    with pytest.raises(httpx.HTTPStatusError, match="server error"):
+        fetch_sst_forecast(coastal_location(), sst_api_config())
+
+    assert attempts == 1
+
+
+def test_open_meteo_fetches_use_caller_owned_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clients: list[Any] = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict[str, Any]:
+            return {"hourly": {"time": []}}
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+            self.closed = False
+            clients.append(self)
+
+        def get(
+            self,
+            url: str,
+            params: dict[str, Any],
+        ) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    client = FakeClient(timeout=3.0)
+
+    fetch_forecast(coastal_location(), atmospheric_api_config(), client=client)
+    fetch_wave_forecast(coastal_location(), wave_api_config(), client=client)
+    fetch_sst_forecast(coastal_location(), sst_api_config(), client=client)
+
+    assert len(clients) == 1
+    assert clients[0].timeout == 3.0
+    assert clients[0].closed is False

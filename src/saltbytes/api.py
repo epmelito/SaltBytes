@@ -1,7 +1,10 @@
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
+
+_OPEN_METEO_RETRY_BACKOFF_SECONDS = 0.25
 
 WEATHER_API = {
     "base_url": "https://api.open-meteo.com/v1/forecast",
@@ -38,6 +41,42 @@ TIDE_API = {
     "forecast_days": 7,
 }
 
+
+def _get_open_meteo_response(
+    client: httpx.Client,
+    url: str,
+    params: dict[str, Any],
+) -> httpx.Response:
+    for attempt in range(2):
+        try:
+            return client.get(url, params=params)
+        except (httpx.ConnectTimeout, httpx.ReadTimeout):
+            if attempt == 1:
+                raise
+            time.sleep(_OPEN_METEO_RETRY_BACKOFF_SECONDS)
+
+    raise AssertionError("Open-Meteo request retry loop ended unexpectedly")
+
+
+def _fetch_open_meteo_payload(
+    url: str,
+    params: dict[str, Any],
+    timeout_seconds: float,
+    client: httpx.Client | None,
+) -> Any:
+    if client is None:
+        with httpx.Client(timeout=timeout_seconds) as request_client:
+            response = _get_open_meteo_response(
+                request_client,
+                url,
+                params,
+            )
+    else:
+        response = _get_open_meteo_response(client, url, params)
+
+    response.raise_for_status()
+    return response.json()
+
 # build the open meteo request parameters for one location
 def build_forecast_params(
     location: dict[str, Any],
@@ -60,13 +99,16 @@ def fetch_forecast(
     location: dict[str, Any],
     api_config: dict[str, Any] | None = None,
     timeout_seconds: float = 10.0,
+    client: httpx.Client | None = None,
 ) -> dict[str, Any]:
     params = build_forecast_params(location)
 
-    with httpx.Client(timeout=timeout_seconds) as client:
-        response = client.get(WEATHER_API["base_url"], params=params)
-        response.raise_for_status()
-        payload = response.json()
+    payload = _fetch_open_meteo_payload(
+        WEATHER_API["base_url"],
+        params,
+        timeout_seconds,
+        client,
+    )
 
     if not isinstance(payload, dict):
         raise ValueError("forecast api response must contain a json object")
@@ -96,16 +138,16 @@ def fetch_wave_forecast(
     location: dict[str, Any],
     wave_api_config: dict[str, Any] | None = None,
     timeout_seconds: float = 10.0,
+    client: httpx.Client | None = None,
 ) -> dict[str, Any]:
     params = build_wave_params(location)
 
-    with httpx.Client(timeout=timeout_seconds) as client:
-        response = client.get(
-            WAVE_API["base_url"],
-            params=params,
-        )
-        response.raise_for_status()
-        payload = response.json()
+    payload = _fetch_open_meteo_payload(
+        WAVE_API["base_url"],
+        params,
+        timeout_seconds,
+        client,
+    )
 
     if not isinstance(payload, dict):
         raise ValueError(
@@ -137,16 +179,16 @@ def fetch_sst_forecast(
     location: dict[str, Any],
     sst_api_config: dict[str, Any] | None = None,
     timeout_seconds: float = 10.0,
+    client: httpx.Client | None = None,
 ) -> dict[str, Any]:
     params = build_sst_params(location)
 
-    with httpx.Client(timeout=timeout_seconds) as client:
-        response = client.get(
-            SST_API["base_url"],
-            params=params,
-        )
-        response.raise_for_status()
-        payload = response.json()
+    payload = _fetch_open_meteo_payload(
+        SST_API["base_url"],
+        params,
+        timeout_seconds,
+        client,
+    )
 
     if not isinstance(payload, dict):
         raise ValueError(
