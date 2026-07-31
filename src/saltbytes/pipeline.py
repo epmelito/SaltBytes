@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from saltbytes.api import (
     SST_API,
     TIDE_API,
@@ -40,6 +42,14 @@ logger = logging.getLogger(__name__)
 
 # run the configured forecast pipeline for every location
 def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
+    with httpx.Client(timeout=10.0) as open_meteo_client:
+        return _run_pipeline(config, open_meteo_client)
+
+
+def _run_pipeline(
+    config: dict[str, Any],
+    open_meteo_client: httpx.Client,
+) -> dict[str, Any]:
     locations = config["locations"]
     storage_config = config["storage"]
 
@@ -89,6 +99,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 weather_payload = fetch_forecast(
                     location=location,
                     api_config=WEATHER_API,
+                    client=open_meteo_client,
                 )
             except Exception as error:
                 location_failure = (
@@ -227,6 +238,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 wave_payload = fetch_wave_forecast(
                     location=location,
                     wave_api_config=WAVE_API,
+                    client=open_meteo_client,
                 )
             except Exception as error:
                 location_failure = (
@@ -363,6 +375,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                     sst_payload = fetch_sst_forecast(
                         location=location,
                         sst_api_config=SST_API,
+                        client=open_meteo_client,
                     )
                 except Exception as error:
                     location_failure = (

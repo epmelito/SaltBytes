@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+import httpx
 import pytest
 
 from saltbytes.pipeline import run_pipeline
@@ -278,6 +279,7 @@ def stub_later_source_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_fetch_sst_forecast(
         location: dict[str, Any],
         sst_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return sst_payload(location)
 
@@ -298,6 +300,68 @@ def stub_later_source_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def test_pipeline_reuses_and_closes_open_meteo_client(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    clients: list[Any] = []
+    request_clients: list[Any] = []
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            assert timeout == 10.0
+            self.closed = False
+            clients.append(self)
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            self.closed = True
+
+    def fake_fetch_forecast(
+        location: dict[str, Any],
+        api_config: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        request_clients.append(client)
+        return atmospheric_payload(location)
+
+    def fake_fetch_wave_forecast(
+        location: dict[str, Any],
+        wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        request_clients.append(client)
+        return wave_payload(location)
+
+    def fake_fetch_sst_forecast(
+        location: dict[str, Any],
+        sst_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        request_clients.append(client)
+        return sst_payload(location)
+
+    monkeypatch.setattr("saltbytes.pipeline.httpx.Client", FakeClient)
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_forecast", fake_fetch_forecast
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_wave_forecast", fake_fetch_wave_forecast
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_sst_forecast", fake_fetch_sst_forecast
+    )
+
+    run_pipeline(config)
+
+    assert len(clients) == 1
+    assert request_clients == [clients[0]] * 6
+    assert clients[0].closed is True
+
+
 def test_source_quality_failures_are_independent_and_collected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -310,6 +374,7 @@ def test_source_quality_failures_are_independent_and_collected(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_weather_locations.append(location["id"])
         payload = atmospheric_payload(location)
@@ -322,6 +387,7 @@ def test_source_quality_failures_are_independent_and_collected(
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
         wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_wave_locations.append(location["id"])
         payload = wave_payload(location)
@@ -334,6 +400,7 @@ def test_source_quality_failures_are_independent_and_collected(
     def fake_fetch_sst_forecast(
         location: dict[str, Any],
         sst_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_sst_locations.append(location["id"])
         payload = sst_payload(location)
@@ -464,11 +531,11 @@ def test_rejected_tide_payload_does_not_block_later_location(
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
-        lambda location, api_config: atmospheric_payload(location),
+        lambda location, api_config, client: atmospheric_payload(location),
     )
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_wave_forecast",
-        lambda location, wave_api_config: wave_payload(location),
+        lambda location, wave_api_config, client: wave_payload(location),
     )
 
     def fetch_tide_with_first_result_invalid(
@@ -551,9 +618,10 @@ def test_weather_api_failure_is_isolated_and_recorded(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_locations.append(location["id"])
-        raise RuntimeError("forecast api unavailable")
+        raise httpx.ConnectTimeout("forecast api timed out")
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
@@ -561,7 +629,7 @@ def test_weather_api_failure_is_isolated_and_recorded(
     )
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_wave_forecast",
-        lambda location, wave_api_config: wave_payload(location),
+        lambda location, wave_api_config, client: wave_payload(location),
     )
 
     with pytest.raises(ValueError) as error:
@@ -587,16 +655,16 @@ def test_weather_api_failure_is_isolated_and_recorded(
 
     expected_error = (
         "weather API fetch failed for jennettes_pier: "
-        "forecast api unavailable; "
+        "forecast api timed out; "
         "weather API fetch failed for fort_fisher: "
-        "forecast api unavailable"
+        "forecast api timed out"
     )
     assert fetched_locations == ["jennettes_pier", "fort_fisher"]
     assert str(error.value) == expected_error
     assert run == ("failed", 1086, expected_error)
     assert source_results == [
-        ("fort_fisher", "fetch_failed", "forecast api unavailable"),
-        ("jennettes_pier", "fetch_failed", "forecast api unavailable"),
+        ("fort_fisher", "fetch_failed", "forecast api timed out"),
+        ("jennettes_pier", "fetch_failed", "forecast api timed out"),
     ]
 
 
@@ -610,12 +678,14 @@ def test_wave_api_failure_is_isolated_and_recorded(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
     def fail_fetch_wave_forecast(
         location: dict[str, Any],
         wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_wave_locations.append(location["id"])
         raise RuntimeError("wave api unavailable")
@@ -669,6 +739,7 @@ def test_source_result_persistence_failure_aborts_immediately(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_locations.append(location["id"])
         return atmospheric_payload(location)
@@ -711,6 +782,7 @@ def test_raw_storage_failure_aborts_immediately(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_locations.append(location["id"])
         return atmospheric_payload(location)
@@ -753,6 +825,7 @@ def test_snapshot_database_failure_aborts_immediately(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_locations.append(location["id"])
         return atmospheric_payload(location)
@@ -795,6 +868,7 @@ def test_atmospheric_normalized_failure_aborts_immediately(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
@@ -827,12 +901,14 @@ def _test_wave_raw_storage_failure_aborts_immediately(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
         wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return wave_payload(location)
 
@@ -871,12 +947,14 @@ def _test_wave_snapshot_database_failure_aborts_immediately(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
         wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return wave_payload(location)
 
@@ -921,12 +999,14 @@ def test_wave_normalized_failure_aborts_immediately(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
         wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return wave_payload(location)
 
@@ -963,18 +1043,21 @@ def test_sst_api_failure_is_isolated_and_recorded(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
         wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return wave_payload(location)
 
     def fail_fetch_sst_forecast(
         location: dict[str, Any],
         sst_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_sst_locations.append(location["id"])
         raise RuntimeError("sst api unavailable")
@@ -1032,12 +1115,14 @@ def test_sst_normalized_failure_aborts_immediately(
     def fake_fetch_forecast(
         location: dict[str, Any],
         api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
         wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return wave_payload(location)
 
@@ -1078,11 +1163,11 @@ def test_tide_api_failure_is_isolated_and_recorded(
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
-        lambda location, api_config: atmospheric_payload(location),
+        lambda location, api_config, client: atmospheric_payload(location),
     )
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_wave_forecast",
-        lambda location, wave_api_config: wave_payload(location),
+        lambda location, wave_api_config, client: wave_payload(location),
     )
 
     def fail_fetch_tide_predictions(
@@ -1145,11 +1230,11 @@ def test_tide_persistence_failures_abort_immediately(
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
-        lambda location, api_config: atmospheric_payload(location),
+        lambda location, api_config, client: atmospheric_payload(location),
     )
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_wave_forecast",
-        lambda location, wave_api_config: wave_payload(location),
+        lambda location, wave_api_config, client: wave_payload(location),
     )
 
     if failure_point == "snapshot":
