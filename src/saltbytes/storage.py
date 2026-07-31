@@ -29,6 +29,7 @@ def write_raw_snapshot(
     location_id: str,
     raw_data_path: Path | str,
     run_id: str,
+    run_started_at: datetime,
     snapshot_id: str | None = None,
     captured_at: datetime | None = None,
 ) -> dict[str, Any]:
@@ -40,15 +41,22 @@ def write_raw_snapshot(
 
     captured_at = captured_at or datetime.now(timezone.utc)
 
-    if captured_at.tzinfo is None or captured_at.utcoffset() is None:
-        raise ValueError("captured_at must include timezone information")
+    for field_name, timestamp in (
+        ("captured_at", captured_at),
+        ("run_started_at", run_started_at),
+    ):
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            raise ValueError(f"{field_name} must include timezone information")
+
+    run_started_at_utc = run_started_at.astimezone(timezone.utc)
+    run_directory = f"{run_started_at_utc.strftime('%H%M%SZ')}_{run_id}"
 
     raw_directory = (
         Path(raw_data_path)
-        / captured_at.strftime("%Y")
-        / captured_at.strftime("%m")
-        / captured_at.strftime("%d")
-        / run_id
+        / run_started_at_utc.strftime("%Y")
+        / run_started_at_utc.strftime("%m")
+        / run_started_at_utc.strftime("%d")
+        / run_directory
     )
     raw_directory.mkdir(parents=True, exist_ok=True)
 

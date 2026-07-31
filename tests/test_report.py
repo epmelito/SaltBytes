@@ -64,14 +64,16 @@ def _insert_run_data(database_path: Path) -> None:
                     "old-run",
                     "jennettes_pier",
                     datetime(2026, 7, 30, 9, tzinfo=timezone.utc),
-                    "old.json",
+                    "raw/2026/07/30/old-run/"
+                    "jennettes_pier_old-weather.json",
                 ),
                 (
                     "latest-weather",
                     "latest-run",
                     "jennettes_pier",
                     datetime(2026, 7, 30, 12, 30, tzinfo=timezone.utc),
-                    "latest.json",
+                    "raw/2026/07/30/123000Z_latest-run/"
+                    "jennettes_pier_latest-weather.json",
                 ),
             ],
         )

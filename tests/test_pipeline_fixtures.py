@@ -487,3 +487,16 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
         None,
     }
     assert len({snapshot[1] for snapshot in snapshots}) == 20
+
+    expected_raw_directory = (
+        tmp_path
+        / "raw"
+        / "2026"
+        / "07"
+        / "28"
+        / f"000000Z_{result['run_id']}"
+    )
+    assert {
+        Path(snapshot[1]).parent
+        for snapshot in snapshots
+    } == {expected_raw_directory}
