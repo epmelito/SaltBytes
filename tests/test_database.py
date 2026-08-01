@@ -11,6 +11,7 @@ from saltbytes.database import (
     insert_forecast_hourly,
     insert_forecast_snapshot,
     insert_pipeline_run,
+    insert_run_locations,
     insert_source_result,
     insert_sst_hourly,
     insert_tide_events,
@@ -23,6 +24,7 @@ EXPECTED_TABLES = {
     "forecast_hourly",
     "forecast_snapshots",
     "pipeline_runs",
+    "run_locations",
     "source_results",
     "sst_hourly",
     "tide_events",
@@ -1535,3 +1537,346 @@ def test_coastal_conditions_hourly_exposes_tide_state_once(
             "fetch_failed",
         ),
     ]
+
+def orientation_location(
+    location_id: str = "jennettes_pier",
+    shore_normal: float = 75.0,
+    fishing_context: str = "surf",
+    pier_azimuth: float | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": location_id,
+        "fishing_context": fishing_context,
+        "orientation": {
+            "shore_normal_azimuth_degrees": shore_normal,
+            "pier_seaward_azimuth_degrees": pier_azimuth,
+            "orientation_method": "manual satellite review",
+            "orientation_source": "reviewed satellite image",
+            "orientation_reviewed_at": "2026-08-01",
+            "orientation_limitation": "local shoreline segment only",
+        },
+    }
+
+
+def test_run_locations_store_complete_reference_frame(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    location = orientation_location(
+        fishing_context="pier",
+        pier_azimuth=70.0,
+    )
+
+    insert_run_locations(database_path, "run123", [location])
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                select column_name
+                from information_schema.columns
+                where table_name = 'run_locations'
+                """
+            ).fetchall()
+        }
+        row = connection.execute(
+            """
+            select
+                run_id,
+                location_id,
+                fishing_context,
+                shore_normal_azimuth_degrees,
+                pier_seaward_azimuth_degrees,
+                orientation_method,
+                orientation_source,
+                orientation_reviewed_at,
+                orientation_limitation
+            from run_locations
+            """
+        ).fetchone()
+
+    assert columns == {
+        "run_id",
+        "location_id",
+        "fishing_context",
+        "shore_normal_azimuth_degrees",
+        "pier_seaward_azimuth_degrees",
+        "orientation_method",
+        "orientation_source",
+        "orientation_reviewed_at",
+        "orientation_limitation",
+    }
+    assert row == (
+        "run123",
+        "jennettes_pier",
+        "pier",
+        75.0,
+        70.0,
+        "manual satellite review",
+        "reviewed satellite image",
+        datetime(2026, 8, 1).date(),
+        "local shoreline segment only",
+    )
+
+    with pytest.raises(duckdb.ConstraintException):
+        insert_run_locations(database_path, "run123", [location])
+
+
+@pytest.mark.parametrize(
+    ("shore_normal", "direction", "expected_angle"),
+    [
+        (0.0, 0.0, 0.0),
+        (0.0, 360.0, 0.0),
+        (0.0, 90.0, 90.0),
+        (0.0, 180.0, -180.0),
+        (10.0, 350.0, -20.0),
+        (350.0, 10.0, 20.0),
+    ],
+)
+def test_coastal_conditions_hourly_derives_signed_site_relative_angles(
+    tmp_path: Path,
+    shore_normal: float,
+    direction: float,
+    expected_angle: float,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    location_id = "test_location"
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_run_locations(
+        database_path,
+        "run123",
+        [
+            orientation_location(
+                location_id=location_id,
+                shore_normal=shore_normal,
+            )
+        ],
+    )
+
+    weather_metadata = snapshot_metadata(
+        snapshot_id="weather-angle",
+        run_id="run123",
+    )
+    weather_metadata["location_id"] = location_id
+    wave_metadata = wave_snapshot_metadata(
+        snapshot_id="wave-angle",
+        run_id="run123",
+    )
+    wave_metadata["location_id"] = location_id
+    insert_forecast_snapshot(database_path, weather_metadata)
+    insert_forecast_snapshot(database_path, wave_metadata)
+    insert_forecast_hourly(
+        database_path,
+        "weather-angle",
+        location_id,
+        atmospheric_payload(wind_direction=direction),
+    )
+    insert_wave_hourly(
+        database_path,
+        "wave-angle",
+        location_id,
+        wave_payload(wave_direction=direction),
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        row = connection.execute(
+            """
+            select
+                shore_normal_azimuth_degrees,
+                wind_to_shore_angle_degrees,
+                wave_to_shore_angle_degrees
+            from coastal_conditions_hourly
+            """
+        ).fetchone()
+
+    assert row == (
+        shore_normal,
+        expected_angle,
+        expected_angle,
+    )
+
+
+def test_coastal_conditions_hourly_retains_historical_and_missing_values(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+
+    insert_run(database_path, "historical-run")
+    historical_metadata = snapshot_metadata(
+        snapshot_id="historical-weather",
+        run_id="historical-run",
+    )
+    insert_forecast_snapshot(database_path, historical_metadata)
+    insert_forecast_hourly(
+        database_path,
+        "historical-weather",
+        "jennettes_pier",
+        atmospheric_payload(wind_direction=75.0),
+    )
+
+    insert_run(database_path, "current-run")
+    insert_run_locations(
+        database_path,
+        "current-run",
+        [
+            orientation_location(
+                location_id="jennettes_pier",
+                shore_normal=75.0,
+            )
+        ],
+    )
+    current_metadata = snapshot_metadata(
+        snapshot_id="current-weather",
+        run_id="current-run",
+    )
+    insert_forecast_snapshot(database_path, current_metadata)
+    insert_forecast_hourly(
+        database_path,
+        "current-weather",
+        "jennettes_pier",
+        atmospheric_payload(wind_direction=75.0),
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            """
+            select
+                run_id,
+                shore_normal_azimuth_degrees,
+                wind_to_shore_angle_degrees,
+                wave_to_shore_angle_degrees
+            from coastal_conditions_hourly
+            order by run_id
+            """
+        ).fetchall()
+
+    assert rows == [
+        ("current-run", 75.0, 0.0, None),
+        ("historical-run", None, None, None),
+    ]
+
+
+def test_site_relative_angles_preserve_run_and_location_isolation(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path, "run-one")
+    insert_run(database_path, "run-two")
+    insert_run_locations(
+        database_path,
+        "run-one",
+        [
+            orientation_location("location-a", 0.0),
+            orientation_location("location-b", 90.0),
+        ],
+    )
+    insert_run_locations(
+        database_path,
+        "run-two",
+        [orientation_location("location-a", 180.0)],
+    )
+
+    cases = [
+        ("run-one", "location-a", "weather-one-a"),
+        ("run-one", "location-b", "weather-one-b"),
+        ("run-two", "location-a", "weather-two-a"),
+    ]
+    for run_id, location_id, snapshot_id in cases:
+        metadata = snapshot_metadata(
+            snapshot_id=snapshot_id,
+            run_id=run_id,
+        )
+        metadata["location_id"] = location_id
+        insert_forecast_snapshot(database_path, metadata)
+        insert_forecast_hourly(
+            database_path,
+            snapshot_id,
+            location_id,
+            atmospheric_payload(wind_direction=90.0),
+        )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            """
+            select
+                run_id,
+                location_id,
+                shore_normal_azimuth_degrees,
+                wind_to_shore_angle_degrees
+            from coastal_conditions_hourly
+            order by run_id, location_id
+            """
+        ).fetchall()
+
+    assert rows == [
+        ("run-one", "location-a", 0.0, 90.0),
+        ("run-one", "location-b", 90.0, 0.0),
+        ("run-two", "location-a", 180.0, -90.0),
+    ]
+
+def test_initialize_database_upgrades_legacy_orientation_schema(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path, "legacy-run")
+    metadata = snapshot_metadata(
+        snapshot_id="legacy-weather",
+        run_id="legacy-run",
+    )
+    insert_forecast_snapshot(database_path, metadata)
+    insert_forecast_hourly(
+        database_path,
+        "legacy-weather",
+        "jennettes_pier",
+        atmospheric_payload(wind_direction=75.0),
+    )
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("drop view coastal_conditions_hourly")
+        connection.execute("drop table run_locations")
+        connection.execute(
+            """
+            create view coastal_conditions_hourly as
+            select
+                snapshots.run_id,
+                hourly.location_id,
+                hourly.forecast_time,
+                hourly.wind_direction_10m
+            from forecast_hourly as hourly
+            inner join forecast_snapshots as snapshots
+                on snapshots.snapshot_id = hourly.snapshot_id
+            """
+        )
+
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run_location_table_count = connection.execute(
+            """
+            select count(*)
+            from information_schema.tables
+            where table_schema = 'main'
+                and table_name = 'run_locations'
+                and table_type = 'BASE TABLE'
+            """
+        ).fetchone()
+        row = connection.execute(
+            """
+            select
+                run_id,
+                wind_direction_10m,
+                shore_normal_azimuth_degrees,
+                wind_to_shore_angle_degrees
+            from coastal_conditions_hourly
+            """
+        ).fetchone()
+
+    assert run_location_table_count == (1,)
+    assert row == ("legacy-run", 75.0, None, None)

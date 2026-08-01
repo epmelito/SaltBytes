@@ -22,6 +22,7 @@ from saltbytes.database import (
     insert_forecast_hourly,
     insert_forecast_snapshot,
     insert_pipeline_run,
+    insert_run_locations,
     insert_source_result,
     insert_sst_hourly,
     insert_tide_events,
@@ -77,6 +78,12 @@ def _run_pipeline(
     )
 
     try:
+        insert_run_locations(
+            database_path=database_path,
+            run_id=run_id,
+            locations=locations,
+        )
+
         tide_forecast_times = build_tide_forecast_times(
             started_at,
             TIDE_API["forecast_days"],

@@ -1115,3 +1115,93 @@ def test_tide_result_rejects_invalid_request_provenance(
         check_name,
         source_label="tide",
     )["status"] == "fail"
+
+@pytest.mark.parametrize(
+    ("payload_factory", "runner", "field_name", "source_label"),
+    [
+        (
+            valid_payload,
+            run_checks,
+            "wind_direction_10m",
+            "weather",
+        ),
+        (
+            valid_wave_payload,
+            run_wave_checks,
+            "wave_direction",
+            "wave",
+        ),
+    ],
+)
+@pytest.mark.parametrize("value", [0.0, 360.0])
+def test_direction_boundaries_are_accepted(
+    payload_factory: Any,
+    runner: Any,
+    field_name: str,
+    source_label: str,
+    value: float,
+) -> None:
+    payload = payload_factory()
+    payload["hourly"][field_name][0] = value
+
+    results = runner(payload)
+
+    assert result_for(
+        results,
+        f"{field_name}_values_are_finite",
+        source_label=source_label,
+    )["status"] == "pass"
+    assert result_for(
+        results,
+        f"{field_name}_values_are_in_range",
+        source_label=source_label,
+    )["status"] == "pass"
+
+
+@pytest.mark.parametrize(
+    ("payload_factory", "runner", "field_name", "source_label"),
+    [
+        (
+            valid_payload,
+            run_checks,
+            "wind_direction_10m",
+            "weather",
+        ),
+        (
+            valid_wave_payload,
+            run_wave_checks,
+            "wave_direction",
+            "wave",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("value", "failed_suffix"),
+    [
+        ("north", "values_are_numeric"),
+        (True, "values_are_numeric"),
+        (float("inf"), "values_are_finite"),
+        (float("-inf"), "values_are_finite"),
+        (float("nan"), "values_are_finite"),
+        (-1.0, "values_are_in_range"),
+        (361.0, "values_are_in_range"),
+    ],
+)
+def test_invalid_direction_values_fail(
+    payload_factory: Any,
+    runner: Any,
+    field_name: str,
+    source_label: str,
+    value: Any,
+    failed_suffix: str,
+) -> None:
+    payload = payload_factory()
+    payload["hourly"][field_name][0] = value
+
+    results = runner(payload)
+
+    assert result_for(
+        results,
+        f"{field_name}_{failed_suffix}",
+        source_label=source_label,
+    )["status"] == "fail"

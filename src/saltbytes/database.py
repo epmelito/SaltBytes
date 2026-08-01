@@ -14,6 +14,20 @@ create table if not exists pipeline_runs (
     error_message varchar
 );
 
+create table if not exists run_locations (
+    run_id varchar not null,
+    location_id varchar not null,
+    fishing_context varchar not null,
+    shore_normal_azimuth_degrees double not null,
+    pier_seaward_azimuth_degrees double,
+    orientation_method varchar not null,
+    orientation_source varchar not null,
+    orientation_reviewed_at date not null,
+    orientation_limitation varchar not null,
+    primary key (run_id, location_id),
+    foreign key (run_id) references pipeline_runs(run_id)
+);
+
 create table if not exists forecast_snapshots (
     snapshot_id varchar primary key,
     run_id varchar not null,
@@ -261,17 +275,40 @@ select
     runs.started_at as run_started_at,
     runs.status as run_status,
     hourly_keys.location_id,
+    run_locations.shore_normal_azimuth_degrees,
     hourly_keys.forecast_time,
     weather_rows.snapshot_id as weather_snapshot_id,
     weather_rows.precipitation_probability,
     weather_rows.wind_speed_10m,
     weather_rows.wind_direction_10m,
+    case
+        when weather_rows.wind_direction_10m is null
+            or run_locations.shore_normal_azimuth_degrees is null
+        then null
+        else mod(
+            weather_rows.wind_direction_10m
+            - run_locations.shore_normal_azimuth_degrees
+            + 540,
+            360
+        ) - 180
+    end as wind_to_shore_angle_degrees,
     weather_rows.wind_gusts_10m,
     weather_rows.precipitation,
     weather_results.status as weather_status,
     wave_rows.snapshot_id as wave_snapshot_id,
     wave_rows.wave_height,
     wave_rows.wave_direction,
+    case
+        when wave_rows.wave_direction is null
+            or run_locations.shore_normal_azimuth_degrees is null
+        then null
+        else mod(
+            wave_rows.wave_direction
+            - run_locations.shore_normal_azimuth_degrees
+            + 540,
+            360
+        ) - 180
+    end as wave_to_shore_angle_degrees,
     wave_rows.wave_period,
     wave_results.status as wave_status,
     sst_rows.snapshot_id as sst_snapshot_id,
@@ -296,6 +333,9 @@ select
 from hourly_keys
 inner join pipeline_runs as runs
     on runs.run_id = hourly_keys.run_id
+left join run_locations
+    on run_locations.run_id = hourly_keys.run_id
+    and run_locations.location_id = hourly_keys.location_id
 left join weather_rows
     on weather_rows.run_id = hourly_keys.run_id
     and weather_rows.location_id = hourly_keys.location_id
@@ -366,6 +406,58 @@ def insert_pipeline_run(
             """,
             [run_id, started_at, status],
         )
+
+
+# persist the configured location reference frame for one run
+def insert_run_locations(
+    database_path: Path | str,
+    run_id: str,
+    locations: list[dict[str, Any]],
+) -> None:
+    rows = []
+
+    for location in locations:
+        orientation = location["orientation"]
+        rows.append(
+            (
+                run_id,
+                location["id"],
+                location["fishing_context"],
+                orientation["shore_normal_azimuth_degrees"],
+                orientation["pier_seaward_azimuth_degrees"],
+                orientation["orientation_method"],
+                orientation["orientation_source"],
+                orientation["orientation_reviewed_at"],
+                orientation["orientation_limitation"],
+            )
+        )
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("begin transaction")
+
+        try:
+            connection.executemany(
+                """
+                insert into run_locations (
+                    run_id,
+                    location_id,
+                    fishing_context,
+                    shore_normal_azimuth_degrees,
+                    pier_seaward_azimuth_degrees,
+                    orientation_method,
+                    orientation_source,
+                    orientation_reviewed_at,
+                    orientation_limitation
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+        except Exception:
+            connection.execute("rollback")
+            raise
+        else:
+            connection.execute("commit")
 
 
 # insert metadata for one raw forecast snapshot
