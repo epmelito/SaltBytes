@@ -43,7 +43,24 @@ Rows use stable location identity and UTC forecast time.
 
 ### `tide_events`
 
-NOAA high and low tide predictions used to derive hourly tide phase.
+NOAA high and low tide predictions used to derive hourly tide phase and
+bracketing-extrema context.
+
+### `tide_state_hourly`
+
+A derived DuckDB view that combines each accepted hourly tide-phase row with
+the preceding and following extrema from the same snapshot and location.
+
+It exposes:
+
+- previous and next extremum times and types
+- previous and next predicted water levels
+- minutes since and until the adjacent extrema
+- the absolute predicted range between those extrema
+- the existing rising or falling phase
+
+Rows remain null for the derived extremum fields when a valid bracketing pair is
+not available.
 
 ## Relationships
 
@@ -83,12 +100,13 @@ It includes:
 - selected atmospheric values
 - selected wave values
 - sea-surface temperature
-- tide phase
+- tide phase, adjacent extrema timing, and predicted tidal range
 - source status and source snapshot provenance for each source family
 
 Failure detail remains in `source_results`; it is not repeated in the hourly
-view. Missing normalized values remain null. The view does not interpolate,
-round, tolerate, or generate timestamps.
+view. Missing normalized values and unavailable bracketing tide context remain
+null. The views do not interpolate, carry values forward, round, tolerate, or
+generate timestamps.
 
 Do not interpolate, carry values forward, substitute sources, or add fishing
 scores or recommendations in the MVP.

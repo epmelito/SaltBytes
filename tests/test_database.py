@@ -1181,3 +1181,357 @@ def test_coastal_conditions_hourly_keeps_exact_run_and_hour_boundaries(
             10.0, None, None, None, "success", "fetch_failed", "validation_failed", "fetch_failed",
         ),
     ]
+
+
+def test_tide_state_hourly_derives_bracketing_extrema(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    low_time = datetime(2026, 7, 29, 0, tzinfo=timezone.utc)
+    middle_time = datetime(2026, 7, 29, 3, tzinfo=timezone.utc)
+    high_time = datetime(2026, 7, 29, 6, tzinfo=timezone.utc)
+    later_time = datetime(2026, 7, 29, 9, tzinfo=timezone.utc)
+    next_low_time = datetime(2026, 7, 29, 12, tzinfo=timezone.utc)
+
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_tide_snapshot(
+        database_path,
+        tide_snapshot_metadata(),
+        tide_request_provenance(),
+        tide_relationship(),
+    )
+    insert_tide_events(
+        database_path,
+        "tide-snapshot123",
+        "jennettes_pier",
+        [
+            {
+                "event_time": low_time,
+                "event_type": "low",
+                "predicted_water_level": 0.0,
+            },
+            {
+                "event_time": high_time,
+                "event_type": "high",
+                "predicted_water_level": 1.0,
+            },
+            {
+                "event_time": next_low_time,
+                "event_type": "low",
+                "predicted_water_level": 0.25,
+            },
+        ],
+    )
+    insert_tide_phase_hourly(
+        database_path,
+        "tide-snapshot123",
+        "jennettes_pier",
+        [
+            {"forecast_time": low_time, "phase": "rising"},
+            {"forecast_time": middle_time, "phase": "rising"},
+            {"forecast_time": high_time, "phase": "falling"},
+            {"forecast_time": later_time, "phase": "falling"},
+        ],
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            """
+            select
+                forecast_time,
+                phase,
+                previous_extremum_time,
+                previous_extremum_type,
+                previous_predicted_water_level,
+                next_extremum_time,
+                next_extremum_type,
+                next_predicted_water_level,
+                minutes_since_previous_extremum,
+                minutes_until_next_extremum,
+                predicted_tidal_range
+            from tide_state_hourly
+            order by forecast_time
+            """
+        ).fetchall()
+
+    assert rows == [
+        (
+            low_time,
+            "rising",
+            low_time,
+            "low",
+            0.0,
+            high_time,
+            "high",
+            1.0,
+            0,
+            360,
+            1.0,
+        ),
+        (
+            middle_time,
+            "rising",
+            low_time,
+            "low",
+            0.0,
+            high_time,
+            "high",
+            1.0,
+            180,
+            180,
+            1.0,
+        ),
+        (
+            high_time,
+            "falling",
+            high_time,
+            "high",
+            1.0,
+            next_low_time,
+            "low",
+            0.25,
+            0,
+            360,
+            0.75,
+        ),
+        (
+            later_time,
+            "falling",
+            high_time,
+            "high",
+            1.0,
+            next_low_time,
+            "low",
+            0.25,
+            180,
+            180,
+            0.75,
+        ),
+    ]
+
+
+def test_tide_state_hourly_isolates_snapshots_and_missing_pairs(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    low_time = datetime(2026, 7, 29, 0, tzinfo=timezone.utc)
+    forecast_time = datetime(2026, 7, 29, 3, tzinfo=timezone.utc)
+    high_time = datetime(2026, 7, 29, 6, tzinfo=timezone.utc)
+
+    initialize_database(database_path)
+
+    for run_id in ("run-a", "run-b", "run-c"):
+        insert_run(database_path, run_id)
+
+    for snapshot_id, run_id in (
+        ("tide-a", "run-a"),
+        ("tide-b", "run-b"),
+        ("tide-c", "run-c"),
+    ):
+        insert_tide_snapshot(
+            database_path,
+            tide_snapshot_metadata(
+                snapshot_id=snapshot_id,
+                run_id=run_id,
+            ),
+            tide_request_provenance(),
+            tide_relationship(),
+        )
+
+    for snapshot_id, low_level, high_level in (
+        ("tide-a", 0.0, 1.0),
+        ("tide-b", 10.0, 20.0),
+    ):
+        insert_tide_events(
+            database_path,
+            snapshot_id,
+            "jennettes_pier",
+            [
+                {
+                    "event_time": low_time,
+                    "event_type": "low",
+                    "predicted_water_level": low_level,
+                },
+                {
+                    "event_time": high_time,
+                    "event_type": "high",
+                    "predicted_water_level": high_level,
+                },
+            ],
+        )
+
+    insert_tide_events(
+        database_path,
+        "tide-c",
+        "jennettes_pier",
+        [
+            {
+                "event_time": low_time,
+                "event_type": "low",
+                "predicted_water_level": 5.0,
+            }
+        ],
+    )
+
+    for snapshot_id in ("tide-a", "tide-b", "tide-c"):
+        insert_tide_phase_hourly(
+            database_path,
+            snapshot_id,
+            "jennettes_pier",
+            [{"forecast_time": forecast_time, "phase": "rising"}],
+        )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            """
+            select
+                snapshot_id,
+                phase,
+                previous_predicted_water_level,
+                next_predicted_water_level,
+                predicted_tidal_range
+            from tide_state_hourly
+            order by snapshot_id
+            """
+        ).fetchall()
+
+    assert rows == [
+        ("tide-a", "rising", 0.0, 1.0, 1.0),
+        ("tide-b", "rising", 10.0, 20.0, 10.0),
+        ("tide-c", "rising", None, None, None),
+    ]
+
+
+def test_coastal_conditions_hourly_exposes_tide_state_once(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    hour = datetime(2026, 7, 29, 12, tzinfo=timezone.utc)
+    previous_time = datetime(2026, 7, 29, 6, tzinfo=timezone.utc)
+    next_time = datetime(2026, 7, 29, 18, tzinfo=timezone.utc)
+
+    initialize_database(database_path)
+    insert_run(database_path, "run-one")
+    insert_run(database_path, "run-two")
+
+    insert_tide_snapshot(
+        database_path,
+        tide_snapshot_metadata(
+            snapshot_id="tide-one",
+            run_id="run-one",
+        ),
+        tide_request_provenance(),
+        tide_relationship(),
+    )
+    insert_tide_events(
+        database_path,
+        "tide-one",
+        "jennettes_pier",
+        [
+            {
+                "event_time": previous_time,
+                "event_type": "low",
+                "predicted_water_level": 0.0,
+            },
+            {
+                "event_time": next_time,
+                "event_type": "high",
+                "predicted_water_level": 1.0,
+            },
+        ],
+    )
+    insert_tide_phase_hourly(
+        database_path,
+        "tide-one",
+        "jennettes_pier",
+        [{"forecast_time": hour, "phase": "rising"}],
+    )
+
+    insert_forecast_snapshot(
+        database_path,
+        snapshot_metadata(
+            snapshot_id="weather-two",
+            run_id="run-two",
+        ),
+    )
+    insert_forecast_hourly(
+        database_path,
+        "weather-two",
+        "jennettes_pier",
+        atmospheric_payload(),
+    )
+
+    insert_source_result(
+        database_path,
+        "run-one",
+        "jennettes_pier",
+        "tide",
+        "success",
+        None,
+        hour,
+    )
+    insert_source_result(
+        database_path,
+        "run-two",
+        "jennettes_pier",
+        "tide",
+        "fetch_failed",
+        "request timed out",
+        hour,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            """
+            select
+                run_id,
+                tide_snapshot_id,
+                tide_phase,
+                tide_previous_extremum_time,
+                tide_previous_extremum_type,
+                tide_previous_predicted_water_level,
+                tide_next_extremum_time,
+                tide_next_extremum_type,
+                tide_next_predicted_water_level,
+                tide_minutes_since_previous_extremum,
+                tide_minutes_until_next_extremum,
+                tide_predicted_range,
+                tide_status
+            from coastal_conditions_hourly
+            order by run_id
+            """
+        ).fetchall()
+
+    assert rows == [
+        (
+            "run-one",
+            "tide-one",
+            "rising",
+            previous_time,
+            "low",
+            0.0,
+            next_time,
+            "high",
+            1.0,
+            360,
+            360,
+            1.0,
+            "success",
+        ),
+        (
+            "run-two",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            "fetch_failed",
+        ),
+    ]
