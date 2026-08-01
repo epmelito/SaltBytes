@@ -1,4 +1,5 @@
 import math
+from datetime import date
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -51,6 +52,28 @@ def _require_number_in_range(
     return numeric_value
 
 
+# require a finite compass azimuth
+def _require_azimuth(
+    value: Any,
+    field_name: str,
+) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise ValueError(
+            f"{field_name} must be a finite azimuth from 0 inclusive "
+            "to 360 exclusive"
+        )
+
+    azimuth = float(value)
+
+    if not math.isfinite(azimuth) or not 0 <= azimuth < 360:
+        raise ValueError(
+            f"{field_name} must be a finite azimuth from 0 inclusive "
+            "to 360 exclusive"
+        )
+
+    return azimuth
+
+
 # validate one configured location
 def _validate_location(
     location: Any,
@@ -79,6 +102,68 @@ def _validate_location(
         raise ValueError(
             f"unsupported fishing context: {fishing_context}"
         )
+
+    orientation_config = _require_mapping(
+        location_config.get("orientation"),
+        f"locations[{index}].orientation",
+    )
+    required_orientation_fields = (
+        "shore_normal_azimuth_degrees",
+        "pier_seaward_azimuth_degrees",
+        "orientation_method",
+        "orientation_source",
+        "orientation_reviewed_at",
+        "orientation_limitation",
+    )
+    missing_orientation_fields = [
+        field_name
+        for field_name in required_orientation_fields
+        if field_name not in orientation_config
+    ]
+    if missing_orientation_fields:
+        raise ValueError(
+            f"locations[{index}].orientation must contain "
+            f"{', '.join(missing_orientation_fields)}"
+        )
+
+    _require_azimuth(
+        orientation_config["shore_normal_azimuth_degrees"],
+        f"locations[{index}].orientation.shore_normal_azimuth_degrees",
+    )
+
+    pier_azimuth = orientation_config["pier_seaward_azimuth_degrees"]
+    if fishing_context == "pier":
+        _require_azimuth(
+            pier_azimuth,
+            f"locations[{index}].orientation.pier_seaward_azimuth_degrees",
+        )
+    elif pier_azimuth is not None:
+        raise ValueError(
+            f"locations[{index}].orientation.pier_seaward_azimuth_degrees "
+            "must be null for surf locations"
+        )
+
+    for field_name in (
+        "orientation_method",
+        "orientation_source",
+        "orientation_limitation",
+    ):
+        _require_string(
+            orientation_config[field_name],
+            f"locations[{index}].orientation.{field_name}",
+        )
+
+    reviewed_at = _require_string(
+        orientation_config["orientation_reviewed_at"],
+        f"locations[{index}].orientation.orientation_reviewed_at",
+    )
+    try:
+        date.fromisoformat(reviewed_at)
+    except ValueError as error:
+        raise ValueError(
+            f"locations[{index}].orientation.orientation_reviewed_at "
+            "must be an ISO date"
+        ) from error
 
     display_coordinate = _require_mapping(
         location_config.get("display_coordinate"),

@@ -2,6 +2,13 @@ locations:
   - id: jennettes_pier
     name: Jennette's Pier
     fishing_context: pier
+    orientation:
+      shore_normal_azimuth_degrees: 75
+      pier_seaward_azimuth_degrees: 70
+      orientation_method: Manual review of local shoreline tangent in north up satellite imagery; seaward normal rounded to nearest 5 degrees
+      orientation_source: User provided Google Maps satellite screenshot reviewed 2026-08-01
+      orientation_reviewed_at: "2026-08-01"
+      orientation_limitation: Local shoreline is mildly curved; the pier axis differs from the shore normal and the values are not survey grade
     display_coordinate:
       latitude: 35.9096355
       longitude: -75.5966537
@@ -44,6 +51,13 @@ locations:
   - id: ocracoke_ramp_72
     name: Beach Access Ramp 72, Ocracoke Island
     fishing_context: surf
+    orientation:
+      shore_normal_azimuth_degrees: 135
+      pier_seaward_azimuth_degrees: null
+      orientation_method: Manual review of local shoreline tangent in north up satellite imagery; seaward normal rounded to nearest 5 degrees
+      orientation_source: User provided Google Maps satellite screenshot reviewed 2026-08-01
+      orientation_reviewed_at: "2026-08-01"
+      orientation_limitation: Applies to the reviewed oceanfront segment near Ramp 72, not the inlet spit or channel margins
     display_coordinate:
       latitude: 35.0868922
       longitude: -75.9844152
@@ -86,6 +100,13 @@ locations:
   - id: fort_macon_ocean
     name: Fort Macon State Park, ocean side
     fishing_context: surf
+    orientation:
+      shore_normal_azimuth_degrees: 185
+      pier_seaward_azimuth_degrees: null
+      orientation_method: Manual review of local shoreline tangent in north up satellite imagery; seaward normal rounded to nearest 5 degrees
+      orientation_source: User provided Google Maps satellite screenshot reviewed 2026-08-01
+      orientation_reviewed_at: "2026-08-01"
+      orientation_limitation: Applies to the ocean beach segment west of Beaufort Inlet, not the shoreline bend at the inlet
     display_coordinate:
       latitude: 34.6949437
       longitude: -76.697391
@@ -128,6 +149,13 @@ locations:
   - id: bogue_inlet_pier
     name: Bogue Inlet Pier
     fishing_context: pier
+    orientation:
+      shore_normal_azimuth_degrees: 165
+      pier_seaward_azimuth_degrees: 175
+      orientation_method: Manual review of local shoreline tangent in north up satellite imagery; seaward normal rounded to nearest 5 degrees
+      orientation_source: User provided Google Maps satellite screenshot reviewed 2026-08-01
+      orientation_reviewed_at: "2026-08-01"
+      orientation_limitation: Applies to the pier beach segment and pier axis, not Bogue Inlet or nearby channel geometry
     display_coordinate:
       latitude: 34.6601236
       longitude: -77.0337424
@@ -170,6 +198,13 @@ locations:
   - id: fort_fisher
     name: Fort Fisher State Recreation Area
     fishing_context: surf
+    orientation:
+      shore_normal_azimuth_degrees: 105
+      pier_seaward_azimuth_degrees: null
+      orientation_method: Manual review of local shoreline tangent in north up satellite imagery; seaward normal rounded to nearest 5 degrees
+      orientation_source: User provided Google Maps satellite screenshot reviewed 2026-08-01
+      orientation_reviewed_at: "2026-08-01"
+      orientation_limitation: Applies to the reviewed Atlantic beach segment; the shoreline curves and does not represent the Cape Fear River or The Basin
     display_coordinate:
       latitude: 33.9534
       longitude: -77.929
