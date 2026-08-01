@@ -12,6 +12,15 @@ view.
 One row per pipeline execution, including status, timestamps, and run-level
 counts.
 
+### `run_locations`
+
+One immutable row per configured location and pipeline run.
+
+Each row preserves the fishing context, reviewed shore normal, optional pier
+alignment, review method, source, date, and stated limitation that were active
+when the run began. Historical forecasts therefore remain tied to the
+orientation used for that run even if the configuration changes later.
+
 ### `forecast_snapshots`
 
 Accepted atmospheric, wave, and sea-surface-temperature source responses.
@@ -96,9 +105,11 @@ so it retains all runs without cross-run mixing or latest-snapshot selection.
 It includes:
 
 - location identifier
+- persisted shore normal for the run
 - UTC forecast hour
 - selected atmospheric values
 - selected wave values
+- signed wind and wave angles relative to the persisted shore normal
 - sea-surface temperature
 - tide phase, adjacent extrema timing, and predicted tidal range
 - source status and source snapshot provenance for each source family
@@ -107,6 +118,16 @@ Failure detail remains in `source_results`; it is not repeated in the hourly
 view. Missing normalized values and unavailable bracketing tide context remain
 null. The views do not interpolate, carry values forward, round, tolerate, or
 generate timestamps.
+
+Site relative angles subtract the persisted seaward shore normal from the
+incoming compass direction and normalize the result to `[-180, 180)`. Zero is
+directly onshore, negative values are counterclockwise from the shore normal,
+positive values are clockwise, and `-180` is directly offshore. Source
+direction `360` is equivalent to `0`.
+
+Runs created before `run_locations` existed retain their integrated rows with
+null orientation and null site relative angles. A missing weather or wave row
+also leaves only that source's derived angle null.
 
 Do not interpolate, carry values forward, substitute sources, or add fishing
 scores or recommendations in the MVP.

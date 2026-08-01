@@ -353,6 +353,16 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
             order by location_id, source
             """
         ).fetchall()
+        run_locations = connection.execute(
+            """
+            select
+                location_id,
+                shore_normal_azimuth_degrees,
+                pier_seaward_azimuth_degrees
+            from run_locations
+            order by location_id
+            """
+        ).fetchall()
         integrated_row_count = connection.execute(
             "select count(*) from coastal_conditions_hourly"
         ).fetchone()
@@ -376,8 +386,11 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
                 and wave_snapshot_id is not null
                 and sst_snapshot_id is not null
                 and tide_snapshot_id is not null
+                and shore_normal_azimuth_degrees is not null
                 and wind_speed_10m is not null
+                and wind_to_shore_angle_degrees is not null
                 and wave_height is not null
+                and wave_to_shore_angle_degrees is not null
                 and sea_surface_temperature is not null
                 and tide_phase is not null
             """
@@ -425,6 +438,13 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     )
     assert len(first_sst_rows) == 5
     assert all(row[1] is not None for row in first_sst_rows)
+    assert run_locations == [
+        ("bogue_inlet_pier", 165.0, 175.0),
+        ("fort_fisher", 105.0, None),
+        ("fort_macon_ocean", 185.0, None),
+        ("jennettes_pier", 75.0, 70.0),
+        ("ocracoke_ramp_72", 135.0, None),
+    ]
     assert len(source_results) == 20
     assert all(status == "success" for _, _, status, _ in source_results)
     assert {source for _, source, _, _ in source_results} == {

@@ -30,6 +30,16 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
                 "id": "jennettes_pier",
                 "name": "Jennette's Pier",
                 "fishing_context": "pier",
+                "orientation": {
+                    "shore_normal_azimuth_degrees": 75,
+                    "pier_seaward_azimuth_degrees": 70,
+                    "orientation_method": "manual satellite review",
+                    "orientation_source": "reviewed satellite image",
+                    "orientation_reviewed_at": "2026-08-01",
+                    "orientation_limitation": (
+                        "local shoreline segment only"
+                    ),
+                },
                 "display_coordinate": {
                     "latitude": 35.9096355,
                     "longitude": -75.5966537,
@@ -91,6 +101,16 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
                 "id": "fort_fisher",
                 "name": "Fort Fisher State Recreation Area",
                 "fishing_context": "surf",
+                "orientation": {
+                    "shore_normal_azimuth_degrees": 105,
+                    "pier_seaward_azimuth_degrees": None,
+                    "orientation_method": "manual satellite review",
+                    "orientation_source": "reviewed satellite image",
+                    "orientation_reviewed_at": "2026-08-01",
+                    "orientation_limitation": (
+                        "local shoreline segment only"
+                    ),
+                },
                 "display_coordinate": {
                     "latitude": 33.9534,
                     "longitude": -77.929,
@@ -1263,3 +1283,206 @@ def test_tide_persistence_failures_abort_immediately(
         ).fetchone()
 
     assert run == ("failed", 504, message)
+
+def test_pipeline_persists_run_locations_before_all_sources_fail(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+
+    def fail_forecast(
+        location: dict[str, Any],
+        api_config: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        raise RuntimeError("weather unavailable")
+
+    def fail_wave(
+        location: dict[str, Any],
+        wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        raise RuntimeError("wave unavailable")
+
+    def fail_sst(
+        location: dict[str, Any],
+        sst_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        raise RuntimeError("sst unavailable")
+
+    def fail_tide(
+        tide_api_config: dict[str, Any],
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        raise RuntimeError("tide unavailable")
+
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_forecast",
+        fail_forecast,
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_wave_forecast",
+        fail_wave,
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_sst_forecast",
+        fail_sst,
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_tide_predictions",
+        fail_tide,
+    )
+
+    with pytest.raises(ValueError):
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded from pipeline_runs"
+        ).fetchone()
+        locations = connection.execute(
+            """
+            select
+                location_id,
+                fishing_context,
+                shore_normal_azimuth_degrees,
+                pier_seaward_azimuth_degrees,
+                orientation_method,
+                orientation_source,
+                orientation_reviewed_at,
+                orientation_limitation
+            from run_locations
+            order by location_id
+            """
+        ).fetchall()
+        source_result_count = connection.execute(
+            "select count(*) from source_results"
+        ).fetchone()
+
+    assert run == ("failed", 0)
+    assert locations == [
+        (
+            "fort_fisher",
+            "surf",
+            105.0,
+            None,
+            "manual satellite review",
+            "reviewed satellite image",
+            datetime(2026, 8, 1).date(),
+            "local shoreline segment only",
+        ),
+        (
+            "jennettes_pier",
+            "pier",
+            75.0,
+            70.0,
+            "manual satellite review",
+            "reviewed satellite image",
+            datetime(2026, 8, 1).date(),
+            "local shoreline segment only",
+        ),
+    ]
+    assert source_result_count == (8,)
+
+@pytest.mark.parametrize(
+    (
+        "source",
+        "field_name",
+        "invalid_value",
+        "table_name",
+        "expected_detail",
+    ),
+    [
+        (
+            "weather",
+            "wind_direction_10m",
+            -1.0,
+            "forecast_hourly",
+            "weather:wind_direction_10m_values_are_in_range",
+        ),
+        (
+            "wave",
+            "wave_direction",
+            float("inf"),
+            "wave_hourly",
+            (
+                "wave:wave_direction_values_are_finite, "
+                "wave:wave_direction_values_are_in_range"
+            ),
+        ),
+    ],
+)
+def test_invalid_direction_fails_before_normalized_storage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    field_name: str,
+    invalid_value: float,
+    table_name: str,
+    expected_detail: str,
+) -> None:
+    config = pipeline_config(tmp_path)
+
+    def fake_fetch_forecast(
+        location: dict[str, Any],
+        api_config: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        payload = atmospheric_payload(location)
+        if source == "weather" and location["id"] == "jennettes_pier":
+            payload["hourly"][field_name][0] = invalid_value
+        return payload
+
+    def fake_fetch_wave_forecast(
+        location: dict[str, Any],
+        wave_api_config: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        payload = wave_payload(location)
+        if source == "wave" and location["id"] == "jennettes_pier":
+            payload["hourly"][field_name][0] = invalid_value
+        return payload
+
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_forecast",
+        fake_fetch_forecast,
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_wave_forecast",
+        fake_fetch_wave_forecast,
+    )
+
+    with pytest.raises(ValueError):
+        run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        source_result = connection.execute(
+            """
+            select status, detail
+            from source_results
+            where location_id = 'jennettes_pier'
+                and source = ?
+            """,
+            [source],
+        ).fetchone()
+        rejected_location_count = connection.execute(
+            f"""
+            select count(*)
+            from {table_name}
+            where location_id = 'jennettes_pier'
+            """
+        ).fetchone()
+        accepted_location_count = connection.execute(
+            f"""
+            select count(*)
+            from {table_name}
+            where location_id = 'fort_fisher'
+            """
+        ).fetchone()
+
+    assert source_result == ("validation_failed", expected_detail)
+    assert rejected_location_count == (0,)
+    assert accepted_location_count == (168,)

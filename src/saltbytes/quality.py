@@ -855,4 +855,35 @@ def run_payload_quality_checks(
             )
         )
 
+        if field_name in {"wind_direction_10m", "wave_direction"}:
+            values_are_finite = values_are_numeric and all(
+                math.isfinite(float(value))
+                for value in values
+            )
+            results.append(
+                _quality_result(
+                    source_label,
+                    f"{field_name}_values_are_finite",
+                    values_are_finite,
+                    values_are_finite,
+                    True,
+                    checked_at,
+                )
+            )
+
+            values_are_in_range = values_are_finite and all(
+                0 <= float(value) <= 360
+                for value in values
+            )
+            results.append(
+                _quality_result(
+                    source_label,
+                    f"{field_name}_values_are_in_range",
+                    values_are_in_range,
+                    values_are_in_range,
+                    True,
+                    checked_at,
+                )
+            )
+
     return results
