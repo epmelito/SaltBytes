@@ -117,6 +117,60 @@ create table if not exists source_results (
     foreign key (run_id) references pipeline_runs(run_id)
 );
 
+create or replace view tide_state_hourly as
+with event_pairs as (
+    select
+        snapshot_id,
+        location_id,
+        event_time as previous_extremum_time,
+        event_type as previous_extremum_type,
+        predicted_water_level as previous_predicted_water_level,
+        lead(event_time) over (
+            partition by snapshot_id, location_id
+            order by event_time
+        ) as next_extremum_time,
+        lead(event_type) over (
+            partition by snapshot_id, location_id
+            order by event_time
+        ) as next_extremum_type,
+        lead(predicted_water_level) over (
+            partition by snapshot_id, location_id
+            order by event_time
+        ) as next_predicted_water_level
+    from tide_events
+)
+select
+    hourly.snapshot_id,
+    hourly.location_id,
+    hourly.forecast_time,
+    hourly.phase,
+    pairs.previous_extremum_time,
+    pairs.previous_extremum_type,
+    pairs.previous_predicted_water_level,
+    pairs.next_extremum_time,
+    pairs.next_extremum_type,
+    pairs.next_predicted_water_level,
+    date_diff(
+        'minute',
+        pairs.previous_extremum_time,
+        hourly.forecast_time
+    ) as minutes_since_previous_extremum,
+    date_diff(
+        'minute',
+        hourly.forecast_time,
+        pairs.next_extremum_time
+    ) as minutes_until_next_extremum,
+    abs(
+        pairs.next_predicted_water_level
+        - pairs.previous_predicted_water_level
+    ) as predicted_tidal_range
+from tide_phase_hourly as hourly
+left join event_pairs as pairs
+    on pairs.snapshot_id = hourly.snapshot_id
+    and pairs.location_id = hourly.location_id
+    and pairs.previous_extremum_time <= hourly.forecast_time
+    and hourly.forecast_time < pairs.next_extremum_time;
+
 create or replace view coastal_conditions_hourly as
 with hourly_keys as (
     select snapshots.run_id, hourly.location_id, hourly.forecast_time
@@ -135,7 +189,7 @@ with hourly_keys as (
         on snapshots.snapshot_id = hourly.snapshot_id
     union
     select snapshots.run_id, hourly.location_id, hourly.forecast_time
-    from tide_phase_hourly as hourly
+    from tide_state_hourly as hourly
     inner join tide_snapshots as tide_snapshots
         on tide_snapshots.snapshot_id = hourly.snapshot_id
     inner join forecast_snapshots as snapshots
@@ -186,8 +240,17 @@ tide_rows as (
         hourly.location_id,
         hourly.forecast_time,
         hourly.snapshot_id,
-        hourly.phase
-    from tide_phase_hourly as hourly
+        hourly.phase,
+        hourly.previous_extremum_time,
+        hourly.previous_extremum_type,
+        hourly.previous_predicted_water_level,
+        hourly.next_extremum_time,
+        hourly.next_extremum_type,
+        hourly.next_predicted_water_level,
+        hourly.minutes_since_previous_extremum,
+        hourly.minutes_until_next_extremum,
+        hourly.predicted_tidal_range
+    from tide_state_hourly as hourly
     inner join tide_snapshots as tide_snapshots
         on tide_snapshots.snapshot_id = hourly.snapshot_id
     inner join forecast_snapshots as snapshots
@@ -216,6 +279,19 @@ select
     sst_results.status as sst_status,
     tide_rows.snapshot_id as tide_snapshot_id,
     tide_rows.phase as tide_phase,
+    tide_rows.previous_extremum_time as tide_previous_extremum_time,
+    tide_rows.previous_extremum_type as tide_previous_extremum_type,
+    tide_rows.previous_predicted_water_level
+        as tide_previous_predicted_water_level,
+    tide_rows.next_extremum_time as tide_next_extremum_time,
+    tide_rows.next_extremum_type as tide_next_extremum_type,
+    tide_rows.next_predicted_water_level
+        as tide_next_predicted_water_level,
+    tide_rows.minutes_since_previous_extremum
+        as tide_minutes_since_previous_extremum,
+    tide_rows.minutes_until_next_extremum
+        as tide_minutes_until_next_extremum,
+    tide_rows.predicted_tidal_range as tide_predicted_range,
     tide_results.status as tide_status
 from hourly_keys
 inner join pipeline_runs as runs
