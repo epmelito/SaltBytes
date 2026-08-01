@@ -96,3 +96,111 @@ def test_load_config_requires_mapping_root(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="configuration must contain a yaml mapping"):
         load_config(config_path)
+
+
+def test_local_config_retains_reviewed_site_orientation() -> None:
+    config = load_config()
+
+    assert {
+        location["id"]: (
+            location["orientation"]["shore_normal_azimuth_degrees"],
+            location["orientation"]["pier_seaward_azimuth_degrees"],
+        )
+        for location in config["locations"]
+    } == {
+        "jennettes_pier": (75, 70),
+        "ocracoke_ramp_72": (135, None),
+        "fort_macon_ocean": (185, None),
+        "bogue_inlet_pier": (165, 175),
+        "fort_fisher": (105, None),
+    }
+
+    for location in config["locations"]:
+        orientation = location["orientation"]
+        assert orientation["orientation_method"]
+        assert orientation["orientation_source"]
+        assert orientation["orientation_reviewed_at"] == "2026-08-01"
+        assert orientation["orientation_limitation"]
+
+
+def test_load_config_rejects_missing_orientation_field(
+    tmp_path: Path,
+) -> None:
+    config = deepcopy(load_config())
+    del config["locations"][0]["orientation"]["orientation_source"]
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="orientation must contain orientation_source",
+    ):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [-1, 360, float("inf"), float("nan"), "east"],
+)
+def test_load_config_rejects_invalid_shore_normal_azimuth(
+    tmp_path: Path,
+    value: Any,
+) -> None:
+    config = deepcopy(load_config())
+    config["locations"][0]["orientation"][
+        "shore_normal_azimuth_degrees"
+    ] = value
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="shore_normal_azimuth_degrees must be a finite azimuth",
+    ):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("location_index", "value", "message"),
+    [
+        (
+            0,
+            None,
+            "pier_seaward_azimuth_degrees must be a finite azimuth",
+        ),
+        (
+            1,
+            90,
+            "pier_seaward_azimuth_degrees must be null for surf locations",
+        ),
+    ],
+)
+def test_load_config_enforces_pier_orientation_by_fishing_context(
+    tmp_path: Path,
+    location_index: int,
+    value: float | None,
+    message: str,
+) -> None:
+    config = deepcopy(load_config())
+    config["locations"][location_index]["orientation"][
+        "pier_seaward_azimuth_degrees"
+    ] = value
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(ValueError, match=message):
+        load_config(config_path)
+
+
+def test_load_config_rejects_invalid_orientation_review_date(
+    tmp_path: Path,
+) -> None:
+    config = deepcopy(load_config())
+    config["locations"][0]["orientation"][
+        "orientation_reviewed_at"
+    ] = "August 1, 2026"
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(ValueError, match="must be an ISO date"):
+        load_config(config_path)
