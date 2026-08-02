@@ -10,7 +10,6 @@ from saltbytes.database import initialize_database
 from saltbytes.reporting.html import (
     _line_chart_html,
     render_conditions_html_report,
-    render_html_report,
     render_operations_html_report,
 )
 
@@ -393,23 +392,6 @@ def test_render_operations_html_report_shows_insufficient_revision_history(
     )
 
     assert "Insufficient persisted history" in report
-
-
-def test_render_html_report_temporarily_preserves_conditions_output(
-    tmp_path: Path,
-) -> None:
-    database_path = tmp_path / "saltbytes.duckdb"
-    initialize_database(database_path)
-    _insert_run(database_path)
-
-    report = render_html_report(
-        _config(database_path),
-        location_id="test_coast",
-    )
-
-    assert "<title>SaltBytes coastal conditions</title>" in report
-    assert 'id="conditions"' in report
-    assert 'id="monitoring"' not in report
 
 
 def test_line_chart_marks_missing_series_unavailable() -> None:

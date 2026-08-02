@@ -117,7 +117,7 @@ def test_main_reports_outdated_schema_without_traceback(
         raise ReportSchemaError(message)
 
     monkeypatch.setattr(
-        "saltbytes.cli.render_html_report",
+        "saltbytes.cli.render_operations_html_report",
         reject_schema,
     )
 
@@ -125,6 +125,7 @@ def test_main_reports_outdated_schema_without_traceback(
         main(
             [
                 "report",
+                "operations",
                 "--format",
                 "html",
                 "--output",

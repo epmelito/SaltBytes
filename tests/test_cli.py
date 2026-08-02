@@ -31,6 +31,32 @@ def test_main_runs_local_configuration(
     assert "rows loaded: 96" in output
 
 
+def test_main_exits_nonzero_after_failed_pipeline_result(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config: dict[str, Any] = {"logging": {"level": "INFO"}}
+    result: dict[str, Any] = {
+        "run_id": "run-failed",
+        "status": "failed",
+        "snapshots_written": 2,
+        "rows_loaded": 24,
+    }
+    monkeypatch.setattr("saltbytes.cli.load_config", lambda: config)
+    monkeypatch.setattr("saltbytes.cli.run_pipeline", lambda _: result)
+    monkeypatch.setattr("saltbytes.cli.configure_logging", lambda _: None)
+
+    with pytest.raises(SystemExit) as error:
+        main([])
+
+    assert error.value.code == 1
+    output = capsys.readouterr().out
+    assert "run id: run-failed" in output
+    assert "status: failed" in output
+    assert "snapshots written: 2" in output
+    assert "rows loaded: 24" in output
+
+
 def test_main_rejects_invalid_configuration_before_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -53,44 +79,40 @@ def test_main_rejects_invalid_configuration_before_pipeline(
     assert pipeline_called is False
 
 
-def test_main_renders_report_without_running_pipeline(
+def test_main_requires_explicit_report_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "saltbytes.cli.load_config",
+        lambda: pytest.fail("configuration must not load"),
+    )
+
+    with pytest.raises(SystemExit) as error:
+        main(["report"])
+
+    assert error.value.code == 2
+
+
+@pytest.mark.parametrize(
+    ("report_type", "renderer_name"),
+    (
+        ("conditions", "render_conditions_report"),
+        ("operations", "render_operations_report"),
+    ),
+)
+def test_main_renders_explicit_text_report_without_running_pipeline(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    report_type: str,
+    renderer_name: str,
 ) -> None:
     config: dict[str, Any] = {"logging": {"level": "INFO"}}
-    pipeline_called = False
-
-    def record_pipeline_call(_: dict[str, Any]) -> dict[str, Any]:
-        nonlocal pipeline_called
-        pipeline_called = True
-        return {}
 
     monkeypatch.setattr("saltbytes.cli.load_config", lambda: config)
     monkeypatch.setattr("saltbytes.cli.configure_logging", lambda _: None)
     monkeypatch.setattr(
-        "saltbytes.cli.render_report",
-        lambda **kwargs: f"report for {kwargs['run_id']} {kwargs['hours']}",
-    )
-    monkeypatch.setattr("saltbytes.cli.run_pipeline", record_pipeline_call)
-
-    main(["report", "--run-id", "run123", "--hours", "12"])
-
-    assert capsys.readouterr().out == "report for run123 12\n"
-    assert pipeline_called is False
-
-
-def test_main_writes_html_report_without_running_pipeline(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    config: dict[str, Any] = {"logging": {"level": "INFO"}}
-    output_path = tmp_path / "report.html"
-
-    monkeypatch.setattr("saltbytes.cli.load_config", lambda: config)
-    monkeypatch.setattr("saltbytes.cli.configure_logging", lambda _: None)
-    monkeypatch.setattr(
-        "saltbytes.cli.render_html_report",
-        lambda **kwargs: f"<html>{kwargs['run_id']} {kwargs['hours']}</html>",
+        f"saltbytes.cli.{renderer_name}",
+        lambda **kwargs: f"{report_type} {kwargs['run_id']} {kwargs['hours']}",
     )
     monkeypatch.setattr(
         "saltbytes.cli.run_pipeline",
@@ -100,6 +122,50 @@ def test_main_writes_html_report_without_running_pipeline(
     main(
         [
             "report",
+            report_type,
+            "--run-id",
+            "run123",
+            "--hours",
+            "12",
+        ]
+    )
+
+    assert capsys.readouterr().out == f"{report_type} run123 12\n"
+
+
+@pytest.mark.parametrize(
+    ("report_type", "renderer_name"),
+    (
+        ("conditions", "render_conditions_html_report"),
+        ("operations", "render_operations_html_report"),
+    ),
+)
+def test_main_writes_explicit_html_report_without_running_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    report_type: str,
+    renderer_name: str,
+) -> None:
+    config: dict[str, Any] = {"logging": {"level": "INFO"}}
+    output_path = tmp_path / "report.html"
+
+    monkeypatch.setattr("saltbytes.cli.load_config", lambda: config)
+    monkeypatch.setattr("saltbytes.cli.configure_logging", lambda _: None)
+    monkeypatch.setattr(
+        f"saltbytes.cli.{renderer_name}",
+        lambda **kwargs: (
+            f"<html>{report_type} {kwargs['run_id']} {kwargs['hours']}</html>"
+        ),
+    )
+    monkeypatch.setattr(
+        "saltbytes.cli.run_pipeline",
+        lambda _: pytest.fail("pipeline must not run while generating a report"),
+    )
+
+    main(
+        [
+            "report",
+            report_type,
             "--format",
             "html",
             "--output",
@@ -111,7 +177,9 @@ def test_main_writes_html_report_without_running_pipeline(
         ]
     )
 
-    assert output_path.read_text(encoding="utf-8") == "<html>run123 12</html>"
+    assert output_path.read_text(encoding="utf-8") == (
+        f"<html>{report_type} run123 12</html>"
+    )
 
 
 def test_main_requires_output_for_html_report(
@@ -124,4 +192,4 @@ def test_main_requires_output_for_html_report(
     monkeypatch.setattr("saltbytes.cli.configure_logging", lambda _: None)
 
     with pytest.raises(ValueError, match="--output is required"):
-        main(["report", "--format", "html"])
+        main(["report", "conditions", "--format", "html"])

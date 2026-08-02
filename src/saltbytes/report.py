@@ -64,7 +64,7 @@ def _select_run(
     return run
 
 
-def render_report(
+def render_conditions_report(
     config: dict[str, Any],
     run_id: str | None = None,
     hours: int = 24,
@@ -85,7 +85,7 @@ def render_report(
     database_path = Path(config["storage"]["database_path"])
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
-        selected_run_id, started_at, completed_at, status, rows_loaded = _select_run(
+        selected_run_id, started_at, completed_at, status, _rows_loaded = _select_run(
             connection,
             run_id,
         )
@@ -98,21 +98,6 @@ def render_report(
             [selected_run_id, started_at],
         ).fetchone()[0]
         window_end = first_hour + timedelta(hours=hours) if first_hour else None
-
-        source_rows = connection.execute(
-            """
-            select location_id, source, status, detail
-            from source_results
-            where run_id = ?
-            """,
-            [selected_run_id],
-        ).fetchall()
-        source_results: dict[str, dict[str, tuple[str, str | None]]] = {}
-        for result_location_id, source, source_status, detail in source_rows:
-            source_results.setdefault(result_location_id, {})[source] = (
-                source_status,
-                detail,
-            )
 
         report_rows = connection.execute(
             """
@@ -152,7 +137,6 @@ def render_report(
         f"Status: {status}",
         f"Started: {_format_time(started_at, display_timezone)}",
         f"Completed: {completed_text}",
-        f"Rows loaded: {rows_loaded}",
         f"Display timezone: {display_timezone.key}",
     ]
     if first_hour is None:
@@ -174,7 +158,6 @@ def render_report(
             [
                 "",
                 f"{location['name']} ({location['fishing_context']})",
-                f"Sources: {_source_summary(source_results.get(current_location_id, {}))}",
             ]
         )
         location_rows = rows_by_location.get(current_location_id, [])
@@ -215,5 +198,90 @@ def render_report(
                     )
                 )
             )
+
+    return "\n".join(lines)
+
+
+def render_operations_report(
+    config: dict[str, Any],
+    run_id: str | None = None,
+    hours: int = 24,
+    location_id: str | None = None,
+) -> str:
+    if hours <= 0:
+        raise ValueError("hours must be greater than zero")
+
+    locations = config["locations"]
+    locations_by_id = {location["id"]: location for location in locations}
+    if location_id is not None and location_id not in locations_by_id:
+        raise ValueError(f"unknown location: {location_id}")
+
+    selected_locations = (
+        [locations_by_id[location_id]] if location_id else locations
+    )
+    display_timezone = ZoneInfo(config["display_timezone"])
+    database_path = Path(config["storage"]["database_path"])
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        selected_run_id, started_at, completed_at, status, rows_loaded = _select_run(
+            connection,
+            run_id,
+        )
+        first_hour = connection.execute(
+            """
+            select min(forecast_time)
+            from coastal_conditions_hourly
+            where run_id = ? and forecast_time >= ?
+            """,
+            [selected_run_id, started_at],
+        ).fetchone()[0]
+        window_end = first_hour + timedelta(hours=hours) if first_hour else None
+        source_rows = connection.execute(
+            """
+            select location_id, source, status, detail
+            from source_results
+            where run_id = ?
+            """,
+            [selected_run_id],
+        ).fetchall()
+
+    source_results: dict[str, dict[str, tuple[str, str | None]]] = {}
+    for result_location_id, source, source_status, detail in source_rows:
+        source_results.setdefault(result_location_id, {})[source] = (
+            source_status,
+            detail,
+        )
+
+    completed_text = (
+        _format_time(completed_at, display_timezone)
+        if completed_at is not None
+        else "not completed"
+    )
+    lines = [
+        f"Run: {selected_run_id}",
+        f"Status: {status}",
+        f"Started: {_format_time(started_at, display_timezone)}",
+        f"Completed: {completed_text}",
+        f"Rows loaded: {rows_loaded}",
+        f"Display timezone: {display_timezone.key}",
+    ]
+    if first_hour is None:
+        lines.append("Forecast window: no integrated hours at or after run start")
+    else:
+        lines.append(
+            "Forecast window: "
+            f"{_format_time(first_hour, display_timezone)} through "
+            f"{_format_time(window_end - timedelta(hours=1), display_timezone)}"
+        )
+
+    for location in selected_locations:
+        current_location_id = location["id"]
+        lines.extend(
+            [
+                "",
+                f"{location['name']} ({location['fishing_context']})",
+                f"Sources: {_source_summary(source_results.get(current_location_id, {}))}",
+            ]
+        )
 
     return "\n".join(lines)

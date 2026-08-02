@@ -812,17 +812,3 @@ def render_operations_html_report(
             + limitations
         ),
     )
-
-
-def render_html_report(
-    config: dict[str, Any],
-    run_id: str | None = None,
-    hours: int = 24,
-    location_id: str | None = None,
-) -> str:
-    return render_conditions_html_report(
-        config,
-        run_id=run_id,
-        hours=hours,
-        location_id=location_id,
-    )
