@@ -1,7 +1,7 @@
 # SaltBytes
 
-SaltBytes is a local Python data pipeline for exploring upcoming coastal
-conditions at five North Carolina fishing locations.
+SaltBytes is a Python data pipeline and static reporting project for exploring
+upcoming coastal conditions at five North Carolina fishing locations.
 
 It currently collects:
 
@@ -24,13 +24,14 @@ and stores normalized UTC data in DuckDB. The downstream
 `coastal_conditions_hourly` view aligns available source values by exact run,
 location, and UTC hour.
 
-The MVP provides local text and HTML reports over the retained DuckDB state.
+The MVP provides local text and HTML reports, a curated public JSON export, and
+an interactive Observable dashboard over the retained DuckDB state.
 
-View the [public report site](https://epmelito.github.io/SaltBytes/) for the
-latest successfully published coastal conditions and pipeline operations reports.
-The site refreshes after successful scheduled or manual ingestion. View the
-committed [sample report site](docs/sample-report/index.html) for a fixed reviewed
-snapshot that does not change with hosted runs.
+View the [public site](https://epmelito.github.io/SaltBytes/) for the latest
+successfully published dashboard, coastal conditions report, and pipeline
+operations report. The site refreshes after successful scheduled or manual
+ingestion. View the committed [sample report site](docs/sample-report/index.html)
+for a fixed reviewed snapshot that does not change with hosted runs.
 
 See [the roadmap](docs/roadmap.md) for the delivery sequence.
 
@@ -55,6 +56,15 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
+The Observable dashboard requires Node.js 24 for local builds. Install its
+locked dependencies from `dashboard/package-lock.json`:
+
+```powershell
+Push-Location dashboard
+npm ci
+Pop-Location
+```
+
 ## Run the pipeline
 
 ```powershell
@@ -66,7 +76,7 @@ its configured `data/` paths and is not committed to Git.
 
 Hosted ingestion runs from `main` every six hours and can also be started
 manually. See [hosted operation](docs/hosted-operation.md) for the required
-Azure setup, recovery behavior, and manual-run procedure.
+Azure setup, publication path, recovery behavior, and manual-run procedure.
 
 ## Read the latest report
 
@@ -91,11 +101,31 @@ revisions, and provenance. Use `--run-id`, `--location`, or `--hours` to select 
 specific run, configured location, or forecast window. Stored timestamps remain
 UTC; output uses the configured local display timezone.
 
+## Build the dashboard
+
+Export curated public data from the configured DuckDB database, then build the
+static Observable site:
+
+```powershell
+saltbytes dashboard export --output dashboard/src/data
+Push-Location dashboard
+npm run build
+Pop-Location
+```
+
+The browser reads only the generated JSON and static dashboard assets. It does
+not connect to DuckDB, Azure Blob Storage, authenticated APIs, or a running
+application server.
+
 ## Validation
 
 ```powershell
 python -m pytest
 python -m ruff check .
+Push-Location dashboard
+npm ci
+npm run build
+Pop-Location
 ```
 
 Use focused tests while developing and run the full checks once after a
@@ -108,6 +138,7 @@ saltbytes/
 |-- .agents/skills/
 |-- .github/workflows/
 |-- config/
+|-- dashboard/
 |-- docs/
 |-- src/saltbytes/
 |-- tests/

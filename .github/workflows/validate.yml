@@ -32,3 +32,29 @@ jobs:
 
       - name: run lint checks
         run: python -m ruff check .
+
+  dashboard:
+    name: dashboard build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      OBSERVABLE_TELEMETRY_DISABLE: "true"
+
+    steps:
+      - name: check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci --no-audit --no-fund
+
+      - name: build dashboard from fixture data
+        working-directory: dashboard
+        run: npm run build

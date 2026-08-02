@@ -20,6 +20,7 @@ jobs:
     env:
       AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_CONTAINER: saltbytes-state
+      OBSERVABLE_TELEMETRY_DISABLE: "true"
 
     steps:
       - name: check out repository
@@ -30,6 +31,13 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+
+      - name: set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
 
       - name: install project
         run: python -m pip install --editable .
@@ -44,31 +52,104 @@ jobs:
       - name: restore, ingest, and publish state
         run: bash scripts/hosted_ingestion.sh
 
+      - name: sign out of Azure
+        run: az logout
+
+      - name: install dashboard dependencies
+        working-directory: dashboard
+        run: |
+          unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
+          unset AZURE_STORAGE_ACCOUNT AZURE_STORAGE_CONTAINER
+          npm ci --no-audit --no-fund
+
       - name: generate published site
         run: |
+          unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
+          unset AZURE_STORAGE_ACCOUNT AZURE_STORAGE_CONTAINER
+          rm -rf site dashboard/dist dashboard/src/data
           mkdir -p site/conditions site/operations
+          saltbytes report conditions --format html --output site/conditions/index.html
+          saltbytes report operations --format html --output site/operations/index.html
+          saltbytes dashboard export --output dashboard/src/data
+          npm --prefix dashboard run build
+          mkdir -p site/dashboard
+          cp -R dashboard/dist/. site/dashboard/
           cat > site/index.html <<'HTML'
           <!doctype html>
           <html lang="en">
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>SaltBytes reports</title>
+            <title>SaltBytes</title>
+            <style>
+              body {
+                margin: 0;
+                font-family: system-ui, sans-serif;
+                color: #17212b;
+                background: #f4f7f8;
+              }
+              main {
+                width: min(48rem, calc(100% - 2rem));
+                margin: 4rem auto;
+              }
+              nav {
+                display: grid;
+                gap: 1rem;
+                margin-top: 2rem;
+              }
+              a {
+                display: block;
+                padding: 1rem 1.25rem;
+                color: inherit;
+                text-decoration: none;
+                background: white;
+                border: 1px solid #d7e0e4;
+                border-radius: 0.5rem;
+              }
+              a:hover,
+              a:focus-visible {
+                border-color: #276f83;
+              }
+              strong,
+              span {
+                display: block;
+              }
+              span {
+                margin-top: 0.35rem;
+                color: #52616b;
+              }
+            </style>
           </head>
           <body>
             <main>
-              <h1>SaltBytes reports</h1>
-              <p>Upcoming coastal conditions and pipeline operations.</p>
-              <ul>
-                <li><a href="conditions/">Coastal conditions</a></li>
-                <li><a href="operations/">Pipeline operations</a></li>
-              </ul>
+              <h1>SaltBytes</h1>
+              <p>Explore upcoming North Carolina coastal conditions and the data pipeline behind them.</p>
+              <nav aria-label="Published outputs">
+                <a href="dashboard/">
+                  <strong>Interactive dashboard</strong>
+                  <span>Explore conditions, revisions, monitoring, and provenance.</span>
+                </a>
+                <a href="conditions/">
+                  <strong>Conditions report</strong>
+                  <span>Review the latest deterministic coastal forecast report.</span>
+                </a>
+                <a href="operations/">
+                  <strong>Operations report</strong>
+                  <span>Inspect pipeline status, coverage, revisions, and provenance.</span>
+                </a>
+              </nav>
             </main>
           </body>
           </html>
           HTML
-          saltbytes report conditions --format html --output site/conditions/index.html
-          saltbytes report operations --format html --output site/operations/index.html
+          test -f site/index.html
+          test -f site/conditions/index.html
+          test -f site/operations/index.html
+          test -f site/dashboard/index.html
+          test -f site/dashboard/conditions.html
+          test -f site/dashboard/forecast-revisions.html
+          test -f site/dashboard/pipeline-monitoring.html
+          test -f site/dashboard/data-provenance.html
 
       - name: upload published site
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4

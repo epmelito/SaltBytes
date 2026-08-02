@@ -2,12 +2,14 @@
 
 ## Current system
 
-SaltBytes is a local Python application with pipeline and report commands:
+SaltBytes is a Python application with pipeline, report, and dashboard export
+commands:
 
 ```powershell
 saltbytes
 saltbytes report conditions
 saltbytes report operations
+saltbytes dashboard export --output dashboard/src/data
 ```
 
 The pipeline:
@@ -34,15 +36,23 @@ immutable raw JSON
 normalized DuckDB tables
 ```
 
-The MVP adds:
+The reporting layer adds:
 
 ```text
 normalized DuckDB tables
     ↓
 coastal_conditions_hourly view
-    ↓
-readable local output
+    ├─→ deterministic text and HTML reports
+    └─→ curated public JSON
+            ↓
+        Observable Framework build
+            ↓
+        static interactive dashboard
 ```
+
+Python owns DuckDB access and the public export boundary. The browser receives
+only generated JSON and static assets. It does not query DuckDB, Azure Blob
+Storage, authenticated APIs, or a running application server.
 
 ## Source and failure boundaries
 
@@ -72,7 +82,7 @@ normalized source rows, tide events, and hourly tide phase.
 
 See [data-model.md](data-model.md) for the persisted model.
 
-## MVP extension boundary
+## Reporting boundary
 
 The integrated view remains downstream from ingestion. It uses the distinct
 union of normalized source keys and exact run, location, and UTC-hour joins.
@@ -87,6 +97,16 @@ text operations report renders selected run metadata and source status. The HTML
 conditions report adds forecast charts, and the HTML operations report adds run
 history, revisions, source coverage, and provenance. All report outputs convert
 UTC timestamps only while formatting.
+
+The dashboard export opens DuckDB read only, validates the reporting schema, and
+writes seven documented JSON files. Current conditions come from the latest
+successful run, while monitoring retains recent failed and partial attempts.
+Raw paths, credentials, connection details, and private storage metadata are not
+part of the export contract.
+
+The isolated `dashboard/` project contains deterministic fixture data for local
+and pull request builds. Hosted publication replaces those fixtures with a fresh
+curated export before building the static dashboard.
 
 ## Hosted ingestion
 
@@ -103,6 +123,13 @@ readable completed failure record when synchronization succeeds, but its nonzero
 exit status prevents report generation and Pages deployment.
 
 After successful ingestion and canonical state publication, the workflow builds
-a static landing page plus separate conditions and operations reports, uploads
-only the generated `site` directory, and deploys it through GitHub Pages. This
-publication path has been verified by a successful manual run from `main`.
+the deterministic reports, exports curated dashboard data, builds Observable,
+and assembles the complete `site` directory. The shared landing page links to
+`/dashboard/`, `/conditions/`, and `/operations/`. Only `site` is uploaded to the
+existing Pages deployment job.
+
+Report generation, export, dashboard build, artifact upload, or deployment
+failure stops publication without rolling back canonical state. GitHub Pages
+keeps the previously deployed site available when a new publication fails.
+Pull request validation builds the dashboard from committed fixture data and
+requires no Azure access.

@@ -1,0 +1,42 @@
+[
+  {
+    "completed_at": "2026-08-02T18:02:00Z",
+    "duration_seconds": 120,
+    "partial_data": true,
+    "rows_loaded": 320,
+    "run_id": "run-20260802T180000Z",
+    "snapshot_count": 11,
+    "started_at": "2026-08-02T18:00:00Z",
+    "status": "failed"
+  },
+  {
+    "completed_at": "2026-08-02T12:03:00Z",
+    "duration_seconds": 180,
+    "partial_data": false,
+    "rows_loaded": 720,
+    "run_id": "run-20260802T120000Z",
+    "snapshot_count": 20,
+    "started_at": "2026-08-02T12:00:00Z",
+    "status": "success"
+  },
+  {
+    "completed_at": "2026-08-02T06:02:50Z",
+    "duration_seconds": 170,
+    "partial_data": false,
+    "rows_loaded": 720,
+    "run_id": "run-20260802T060000Z",
+    "snapshot_count": 20,
+    "started_at": "2026-08-02T06:00:00Z",
+    "status": "success"
+  },
+  {
+    "completed_at": "2026-08-02T00:02:45Z",
+    "duration_seconds": 165,
+    "partial_data": false,
+    "rows_loaded": 720,
+    "run_id": "run-20260802T000000Z",
+    "snapshot_count": 20,
+    "started_at": "2026-08-02T00:00:00Z",
+    "status": "success"
+  }
+]

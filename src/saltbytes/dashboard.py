@@ -1,0 +1,503 @@
+import json
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import duckdb
+
+from saltbytes.reporting.schema import ReportSchemaError, validate_report_schema
+
+_SOURCES = ("weather", "wave", "sst", "tide")
+_EXPORT_FILES = (
+    "manifest.json",
+    "locations.json",
+    "conditions.json",
+    "forecast-history.json",
+    "pipeline-runs.json",
+    "source-health.json",
+    "provenance.json",
+)
+
+
+class DashboardSchemaError(ValueError):
+    pass
+
+
+def _json_value(value: object | None) -> object | None:
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    if isinstance(value, date):
+        return value.isoformat()
+    return value
+
+
+def _query(
+    connection: duckdb.DuckDBPyConnection,
+    sql: str,
+    parameters: list[object] | None = None,
+) -> list[dict[str, object | None]]:
+    cursor = connection.execute(sql, parameters or [])
+    columns = [description[0] for description in cursor.description]
+    return [
+        {
+            column: _json_value(value)
+            for column, value in zip(columns, row, strict=True)
+        }
+        for row in cursor.fetchall()
+    ]
+
+
+def _run_record(row: tuple[Any, ...]) -> dict[str, object | None]:
+    run_id, started_at, completed_at, status, rows_loaded = row
+    return {
+        "run_id": run_id,
+        "started_at": _json_value(started_at),
+        "completed_at": _json_value(completed_at),
+        "status": status,
+        "rows_loaded": rows_loaded,
+    }
+
+
+def _write_json(path: Path, payload: object) -> None:
+    temporary_path = path.with_suffix(f"{path.suffix}.tmp")
+    try:
+        with temporary_path.open("w", encoding="utf-8", newline="\n") as output_file:
+            json.dump(
+                payload,
+                output_file,
+                allow_nan=False,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            output_file.write("\n")
+        temporary_path.replace(path)
+    except (OSError, ValueError) as exc:
+        temporary_path.unlink(missing_ok=True)
+        raise ValueError(f"could not write dashboard data: {path}") from exc
+
+
+def _dashboard_payloads(
+    connection: duckdb.DuckDBPyConnection,
+    config: dict[str, Any],
+    generated_at: datetime,
+) -> dict[str, object]:
+    latest_attempt = connection.execute(
+        """
+        select run_id, started_at, completed_at, status, rows_loaded
+        from pipeline_runs
+        order by started_at desc, run_id desc
+        limit 1
+        """
+    ).fetchone()
+    latest_success = connection.execute(
+        """
+        select run_id, started_at, completed_at, status, rows_loaded
+        from pipeline_runs
+        where status = 'success' and completed_at is not null
+        order by started_at desc, run_id desc
+        limit 1
+        """
+    ).fetchone()
+    if latest_success is None:
+        raise ValueError("no completed successful pipeline run found")
+
+    run_id, started_at, completed_at, _, _ = latest_success
+    window_start, window_end = connection.execute(
+        """
+        select min(forecast_time), max(forecast_time)
+        from coastal_conditions_hourly
+        where run_id = ? and forecast_time >= ?
+        """,
+        [run_id, started_at],
+    ).fetchone()
+    conditions = _query(
+        connection,
+        """
+        select
+            run_id,
+            location_id,
+            forecast_time,
+            shore_normal_azimuth_degrees,
+            weather_snapshot_id,
+            precipitation_probability,
+            wind_speed_10m,
+            wind_direction_10m,
+            wind_to_shore_angle_degrees,
+            wind_gusts_10m,
+            precipitation,
+            weather_status,
+            wave_snapshot_id,
+            wave_height,
+            wave_direction,
+            wave_to_shore_angle_degrees,
+            wave_period,
+            wave_status,
+            sst_snapshot_id,
+            sea_surface_temperature,
+            sst_status,
+            tide_snapshot_id,
+            tide_phase,
+            tide_previous_extremum_time,
+            tide_previous_extremum_type,
+            tide_previous_predicted_water_level,
+            tide_next_extremum_time,
+            tide_next_extremum_type,
+            tide_next_predicted_water_level,
+            tide_minutes_since_previous_extremum,
+            tide_minutes_until_next_extremum,
+            tide_predicted_range,
+            tide_status
+        from coastal_conditions_hourly
+        where run_id = ? and forecast_time >= ?
+        order by location_id, forecast_time
+        """,
+        [run_id, started_at],
+    )
+    history = []
+    if window_start is not None and window_end is not None:
+        history = _query(
+            connection,
+            """
+            with recent_runs as (
+                select run_id
+                from pipeline_runs
+                order by started_at desc, run_id desc
+                limit 20
+            )
+            select
+                conditions.run_id,
+                conditions.run_started_at,
+                conditions.location_id,
+                conditions.forecast_time,
+                conditions.wind_speed_10m,
+                conditions.wind_direction_10m,
+                conditions.wind_to_shore_angle_degrees,
+                conditions.wind_gusts_10m,
+                conditions.wave_height,
+                conditions.wave_direction,
+                conditions.wave_to_shore_angle_degrees,
+                conditions.wave_period,
+                conditions.sea_surface_temperature,
+                conditions.tide_phase,
+                conditions.tide_predicted_range
+            from coastal_conditions_hourly as conditions
+            inner join recent_runs
+                on recent_runs.run_id = conditions.run_id
+            where conditions.forecast_time between ? and ?
+            order by
+                conditions.location_id,
+                conditions.forecast_time,
+                conditions.run_started_at,
+                conditions.run_id
+            """,
+            [window_start, window_end],
+        )
+
+    pipeline_runs = _query(
+        connection,
+        """
+        with recent_runs as (
+            select
+                run_id,
+                started_at,
+                completed_at,
+                status,
+                rows_loaded
+            from pipeline_runs
+            order by started_at desc, run_id desc
+            limit 20
+        )
+        select
+            recent_runs.run_id,
+            recent_runs.started_at,
+            recent_runs.completed_at,
+            recent_runs.status,
+            case
+                when recent_runs.completed_at is null then null
+                else greatest(
+                    date_diff(
+                        'second',
+                        recent_runs.started_at,
+                        recent_runs.completed_at
+                    ),
+                    0
+                )
+            end as duration_seconds,
+            recent_runs.rows_loaded,
+            count(forecast_snapshots.snapshot_id) as snapshot_count,
+            recent_runs.status = 'failed' and recent_runs.rows_loaded > 0
+                as partial_data
+        from recent_runs
+        left join forecast_snapshots
+            on forecast_snapshots.run_id = recent_runs.run_id
+        group by all
+        order by recent_runs.started_at desc, recent_runs.run_id desc
+        """,
+    )
+    source_summary = _query(
+        connection,
+        """
+        with recent_runs as (
+            select run_id
+            from pipeline_runs
+            order by started_at desc, run_id desc
+            limit 20
+        ),
+        expected as (
+            select
+                recent_runs.run_id,
+                run_locations.location_id,
+                sources.source
+            from recent_runs
+            inner join run_locations
+                on run_locations.run_id = recent_runs.run_id
+            cross join (
+                values ('weather'), ('wave'), ('sst'), ('tide')
+            ) as sources(source)
+        )
+        select
+            expected.source,
+            sum(case when results.status = 'success' then 1 else 0 end)::integer
+                as success_count,
+            sum(
+                case
+                    when results.status is not null
+                        and results.status != 'success'
+                    then 1
+                    else 0
+                end
+            )::integer as failure_count,
+            sum(case when results.status is null then 1 else 0 end)::integer
+                as missing_count,
+            round(
+                sum(case when results.status = 'success' then 1 else 0 end)
+                    * 100.0 / count(*),
+                1
+            ) as success_rate_percent
+        from expected
+        left join source_results as results
+            on results.run_id = expected.run_id
+            and results.location_id = expected.location_id
+            and results.source = expected.source
+        group by expected.source
+        order by expected.source
+        """,
+    )
+    source_coverage = _query(
+        connection,
+        """
+        with recent_runs as (
+            select run_id, started_at
+            from pipeline_runs
+            order by started_at desc, run_id desc
+            limit 20
+        ),
+        expected as (
+            select
+                recent_runs.run_id,
+                recent_runs.started_at as run_started_at,
+                run_locations.location_id,
+                sources.source
+            from recent_runs
+            inner join run_locations
+                on run_locations.run_id = recent_runs.run_id
+            cross join (
+                values ('weather'), ('wave'), ('sst'), ('tide')
+            ) as sources(source)
+        )
+        select
+            expected.run_id,
+            expected.run_started_at,
+            expected.location_id,
+            expected.source,
+            coalesce(results.status, 'not_recorded') as status
+        from expected
+        left join source_results as results
+            on results.run_id = expected.run_id
+            and results.location_id = expected.location_id
+            and results.source = expected.source
+        order by
+            expected.run_started_at desc,
+            expected.run_id desc,
+            expected.location_id,
+            expected.source
+        """,
+    )
+    source_failures = _query(
+        connection,
+        """
+        with recent_runs as (
+            select run_id
+            from pipeline_runs
+            order by started_at desc, run_id desc
+            limit 20
+        )
+        select
+            results.run_id,
+            results.location_id,
+            results.source,
+            results.status,
+            results.recorded_at
+        from source_results as results
+        inner join recent_runs
+            on recent_runs.run_id = results.run_id
+        where results.status != 'success'
+        order by results.recorded_at desc, results.run_id desc
+        """,
+    )
+    provenance = _query(
+        connection,
+        """
+        with snapshot_references as (
+            select distinct location_id, 'weather' as source,
+                weather_snapshot_id as snapshot_id
+            from coastal_conditions_hourly
+            where run_id = ? and weather_snapshot_id is not null
+            union all
+            select distinct location_id, 'wave', wave_snapshot_id
+            from coastal_conditions_hourly
+            where run_id = ? and wave_snapshot_id is not null
+            union all
+            select distinct location_id, 'sst', sst_snapshot_id
+            from coastal_conditions_hourly
+            where run_id = ? and sst_snapshot_id is not null
+            union all
+            select distinct location_id, 'tide', tide_snapshot_id
+            from coastal_conditions_hourly
+            where run_id = ? and tide_snapshot_id is not null
+        )
+        select
+            snapshot_refs.location_id,
+            run_locations.fishing_context,
+            run_locations.shore_normal_azimuth_degrees,
+            run_locations.pier_seaward_azimuth_degrees,
+            run_locations.orientation_method,
+            run_locations.orientation_source,
+            run_locations.orientation_reviewed_at,
+            run_locations.orientation_limitation,
+            snapshot_refs.source,
+            snapshot_refs.snapshot_id,
+            snapshots.captured_at,
+            snapshots.model_selector,
+            snapshots.request_latitude,
+            snapshots.request_longitude,
+            snapshots.returned_latitude,
+            snapshots.returned_longitude,
+            tides.station_id,
+            tides.prediction_location,
+            tides.relationship_type,
+            tides.reference_station,
+            tides.product,
+            tides.interval,
+            tides.datum,
+            tides.time_zone,
+            tides.units,
+            tides.response_format,
+            tides.request_begin_date,
+            tides.request_end_date,
+            tides.high_time_offset_minutes,
+            tides.low_time_offset_minutes,
+            tides.high_multiplier,
+            tides.low_multiplier,
+            tides.distance_km,
+            tides.coastal_relationship,
+            tides.known_limitation
+        from snapshot_references as snapshot_refs
+        inner join forecast_snapshots as snapshots
+            on snapshots.snapshot_id = snapshot_refs.snapshot_id
+        inner join run_locations
+            on run_locations.run_id = ?
+            and run_locations.location_id = snapshot_refs.location_id
+        left join tide_snapshots as tides
+            on tides.snapshot_id = snapshot_refs.snapshot_id
+        order by snapshot_refs.location_id, snapshot_refs.source, snapshot_refs.snapshot_id
+        """,
+        [run_id, run_id, run_id, run_id, run_id],
+    )
+
+    freshness_minutes = max(
+        int((generated_at - completed_at).total_seconds() // 60),
+        0,
+    )
+    manifest = {
+        "schema_version": 1,
+        "generated_at": _json_value(generated_at),
+        "display_timezone": config["display_timezone"],
+        "latest_attempt": (
+            _run_record(latest_attempt) if latest_attempt is not None else None
+        ),
+        "latest_success": _run_record(latest_success),
+        "latest_success_freshness_minutes": freshness_minutes,
+        "forecast_window": {
+            "start": _json_value(window_start),
+            "end": _json_value(window_end),
+        },
+        "location_count": len(config["locations"]),
+        "source_count": len(_SOURCES),
+    }
+    locations = [
+        {
+            "location_id": location["id"],
+            "name": location["name"],
+            "fishing_context": location["fishing_context"],
+        }
+        for location in config["locations"]
+    ]
+    return {
+        "manifest.json": manifest,
+        "locations.json": locations,
+        "conditions.json": conditions,
+        "forecast-history.json": history,
+        "pipeline-runs.json": pipeline_runs,
+        "source-health.json": {
+            "summary": source_summary,
+            "coverage": source_coverage,
+            "failures": source_failures,
+        },
+        "provenance.json": provenance,
+    }
+
+
+def export_dashboard_data(
+    config: dict[str, Any],
+    output_directory: Path | str,
+    generated_at: datetime | None = None,
+) -> None:
+    database_path = Path(config["storage"]["database_path"])
+    if not database_path.is_file():
+        raise ValueError(f"database does not exist: {database_path}")
+
+    generated_at = generated_at or datetime.now(timezone.utc)
+    if generated_at.tzinfo is None or generated_at.utcoffset() is None:
+        raise ValueError("generated_at must include timezone information")
+
+    try:
+        with duckdb.connect(str(database_path), read_only=True) as connection:
+            connection.execute("set TimeZone = 'UTC'")
+            validate_report_schema(connection)
+            payloads = _dashboard_payloads(connection, config, generated_at)
+    except ReportSchemaError as exc:
+        raise DashboardSchemaError(
+            "dashboard export requires a current SaltBytes database schema"
+        ) from exc
+    except duckdb.Error as exc:
+        raise DashboardSchemaError(
+            "dashboard export could not read the current SaltBytes database schema"
+        ) from exc
+
+    if tuple(payloads) != _EXPORT_FILES:
+        raise RuntimeError("dashboard export file contract is inconsistent")
+
+    output_path = Path(output_directory)
+    try:
+        output_path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ValueError(
+            f"could not create dashboard output directory: {output_path}"
+        ) from exc
+    if not output_path.is_dir():
+        raise ValueError(f"dashboard output path must be a directory: {output_path}")
+
+    for filename, payload in payloads.items():
+        _write_json(output_path / filename, payload)

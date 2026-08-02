@@ -1,0 +1,157 @@
+@import url("observablehq:default.css");
+@import url("observablehq:theme-air.css") (prefers-color-scheme: light);
+@import url("observablehq:theme-near-midnight.css") (prefers-color-scheme: dark);
+@import url("observablehq:theme-alt.css");
+@import url("observablehq:theme-wide.css");
+
+:root {
+  --saltbytes-border: color-mix(in srgb, currentColor 18%, transparent);
+  --saltbytes-muted: color-mix(in srgb, currentColor 65%, transparent);
+  --saltbytes-surface: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.hero {
+  margin: 0 0 1.5rem;
+  padding: 1.35rem 1.5rem;
+  border: 1px solid var(--saltbytes-border);
+  border-radius: 0.9rem;
+  background: var(--saltbytes-surface);
+}
+
+.hero h1 {
+  margin: 0 0 0.35rem;
+}
+
+.hero p {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--saltbytes-muted);
+}
+
+.metric-grid,
+.chart-grid,
+.detail-grid,
+.link-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 1rem 0 1.5rem;
+}
+
+.metric-card,
+.detail-card,
+.report-link,
+.notice {
+  padding: 1rem;
+  border: 1px solid var(--saltbytes-border);
+  border-radius: 0.75rem;
+  background: var(--saltbytes-surface);
+}
+
+.metric-label,
+.detail-label {
+  margin-bottom: 0.35rem;
+  color: var(--saltbytes-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.detail-value {
+  overflow-wrap: anywhere;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.notice {
+  margin: 1rem 0;
+}
+
+.notice strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.report-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.report-link:hover {
+  border-color: currentColor;
+}
+
+.report-link strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.report-link span,
+.page-note {
+  color: var(--saltbytes-muted);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin: 1rem 0 1.5rem;
+}
+
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--saltbytes-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-scroll th {
+  white-space: nowrap;
+}
+
+.chart-card {
+  min-width: 0;
+}
+
+.chart-card h3 {
+  margin-top: 0;
+}
+
+.observablehq--block:has(form) {
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 1rem;
+  }
+
+  .metric-grid,
+  .chart-grid,
+  .detail-grid,
+  .link-grid {
+    grid-template-columns: 1fr;
+  }
+}

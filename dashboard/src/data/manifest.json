@@ -1,0 +1,26 @@
+{
+  "display_timezone": "America/New_York",
+  "forecast_window": {
+    "end": "2026-08-02T15:00:00Z",
+    "start": "2026-08-02T12:00:00Z"
+  },
+  "generated_at": "2026-08-02T19:00:00Z",
+  "latest_attempt": {
+    "completed_at": "2026-08-02T18:02:00Z",
+    "rows_loaded": 320,
+    "run_id": "run-20260802T180000Z",
+    "started_at": "2026-08-02T18:00:00Z",
+    "status": "failed"
+  },
+  "latest_success": {
+    "completed_at": "2026-08-02T12:03:00Z",
+    "rows_loaded": 720,
+    "run_id": "run-20260802T120000Z",
+    "started_at": "2026-08-02T12:00:00Z",
+    "status": "success"
+  },
+  "latest_success_freshness_minutes": 417,
+  "location_count": 5,
+  "schema_version": 1,
+  "source_count": 4
+}
