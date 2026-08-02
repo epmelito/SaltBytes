@@ -11,6 +11,10 @@ Analysis-ready feature preparation is current. It should define deterministic
 derived features and missing-data rules without introducing scoring weights or
 unsupported fishing recommendations.
 
+The interactive Observable dashboard is complete and hosted. `/dashboard/`,
+`/conditions/`, and `/operations/` are published using curated static data.
+The dashboard has passed browser runtime and live hosted verification.
+
 ## 1. Run hosted periodic ingestion
 
 Run SaltBytes automatically without relying on a personal laptop.
@@ -190,6 +194,8 @@ Hosted periodic ingestion
 → wind and wave directional interactions
 → static portfolio report site
 → automated report publication verification
+
+→ interactive Observable dashboard
 
 Current:
 
