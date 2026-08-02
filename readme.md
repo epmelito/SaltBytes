@@ -24,12 +24,14 @@ and stores normalized UTC data in DuckDB. The downstream
 `coastal_conditions_hourly` view aligns available source values by exact run,
 location, and UTC hour.
 
-The MVP provides a local readable output over the integrated hourly view.
+The MVP provides local text and HTML reports over the retained DuckDB state.
 
-View the committed [sample visual report](docs/sample-report/index.html) to
-inspect forecast conditions, revision history, ingestion monitoring,
-provenance, and limitations without installing or running the project.
-GitHub Pages publication is intentionally deferred to a separate follow-up.
+View the committed [sample report site](docs/sample-report/index.html) to open
+separate coastal conditions and pipeline operations snapshots without installing
+or running the project. The hosted workflow is configured to publish the same
+three-page site after successful scheduled or manual ingestion. This publication
+path remains pending hosted verification, and the stable Pages URL will be added
+only after that verification succeeds.
 
 See [the roadmap](docs/roadmap.md) for the delivery sequence.
 
@@ -70,20 +72,25 @@ Azure setup, recovery behavior, and manual-run procedure.
 ## Read the latest report
 
 ```powershell
-saltbytes report
+saltbytes report conditions
+saltbytes report operations
 ```
 
-Generate one self contained HTML report:
+Generate self contained HTML reports:
 
 ```powershell
-saltbytes report --format html --output report.html
+saltbytes report conditions --format html --output conditions.html
+saltbytes report operations --format html --output operations.html
 ```
 
-The report selects the latest attempted run, including a failed or partial run,
-and displays the first 24 forecast hours at or after its start time. Use
-`--run-id`, `--location`, or `--hours` to select a specific run, configured
-location, or forecast window. Stored timestamps remain UTC; output uses the
-configured local display timezone.
+Both report types select the latest attempted run by default, including a failed
+or partial run. The text conditions report displays the first 24 forecast hours
+at or after the run start, while the text operations report summarizes the
+selected run and source status. The HTML conditions report adds forecast charts,
+and the HTML operations report adds retained pipeline history, source coverage,
+revisions, and provenance. Use `--run-id`, `--location`, or `--hours` to select a
+specific run, configured location, or forecast window. Stored timestamps remain
+UTC; output uses the configured local display timezone.
 
 ## Validation
 

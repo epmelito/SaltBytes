@@ -1,6 +1,7 @@
 # Hosted ingestion operation
 
-The `hosted ingestion` GitHub Actions workflow runs from `main` every six
+The `hosted ingestion and report publication` GitHub Actions workflow runs
+from `main` every six
 hours (`17 */6 * * *`) and can be started with **Run workflow** on the Actions
 page. One fixed concurrency group does not cancel in-progress work, so
 scheduled and manual runs cannot publish state concurrently.
@@ -65,7 +66,19 @@ orphans.
 The pipeline records partial and failed source outcomes in DuckDB. The workflow
 synchronizes after `saltbytes` exits, then returns its original exit status. A
 failed pipeline can therefore retain its run record and accepted raw data when
-publication succeeds.
+state publication succeeds, while its nonzero status prevents report generation
+and Pages deployment.
+
+After a successful pipeline and canonical database publication, the ingestion
+job is configured to generate `site/index.html`,
+`site/conditions/index.html`, and `site/operations/index.html`. Only that
+generated static directory is uploaded as the Pages artifact. A separate
+deployment job uses the `github-pages` environment and Pages-specific
+permissions. Report generation, artifact upload, or deployment failure fails the
+workflow without rolling back canonical state or removing the previously
+published site. Scheduled and manual runs use the same ingestion and publication
+path. This Pages path remains pending hosted verification until it is merged and
+run successfully from `main`.
 
 To recover from a failed run, inspect its Action log, correct the source or
 Azure permission problem, and manually run the workflow from `main`. Do not

@@ -6,7 +6,8 @@ SaltBytes is a local Python application with pipeline and report commands:
 
 ```powershell
 saltbytes
-saltbytes report
+saltbytes report conditions
+saltbytes report operations
 ```
 
 The pipeline:
@@ -79,10 +80,13 @@ union of normalized source keys and exact run, location, and UTC-hour joins.
 Do not redesign the ingestion control flow unless live validation proves a
 change is required.
 
-The read-only `saltbytes report` command selects the latest attempted run by
-default, or a requested run ID. It renders the integrated hourly view and
-source-result failures for the configured locations; it converts UTC timestamps
-only while formatting output.
+The read-only report commands require an explicit report type and select the
+latest attempted run by default, or a requested run ID. The text conditions
+report renders integrated forecast values across the selected window, while the
+text operations report renders selected run metadata and source status. The HTML
+conditions report adds forecast charts, and the HTML operations report adds run
+history, revisions, source coverage, and provenance. All report outputs convert
+UTC timestamps only while formatting.
 
 ## Hosted ingestion
 
@@ -95,4 +99,11 @@ downloads the historical raw archive. It uploads new immutable raw snapshots
 under `raw/` before validating and replacing the mutable database blob. A
 failed restore, raw upload, database validation, or database upload leaves the
 current cloud database canonical. A failed pipeline can still publish its
-readable completed failure record when synchronization succeeds.
+readable completed failure record when synchronization succeeds, but its nonzero
+exit status prevents report generation and Pages deployment.
+
+After successful ingestion and canonical state publication, the workflow is
+configured to build a static landing page plus separate conditions and operations
+reports, upload only the generated `site` directory, and deploy it through GitHub
+Pages. Publication remains incomplete until this path is merged and verified by a
+successful hosted run from `main`.

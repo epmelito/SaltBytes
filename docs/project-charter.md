@@ -5,8 +5,8 @@
 SaltBytes is a lightweight portfolio project for exploring upcoming coastal
 conditions at a small set of North Carolina fishing locations.
 
-The current objective is to operate a small hosted data pipeline and public
-static report, then prepare deterministic analysis-ready features without
+The current objective is to finish and verify a public static report site for the
+hosted data pipeline, then prepare deterministic analysis-ready features without
 introducing unsupported scoring or recommendations.
 
 ## Product direction
@@ -33,10 +33,11 @@ SaltBytes does not:
 - use opaque AI-generated fishing recommendations
 - claim production readiness
 
-The current platform includes local execution, scheduled hosted ingestion,
-durable cloud state, and static report publication. Scoring, ranking,
-recommendations, additional coverage, APIs, authentication, and production
-operations remain later decisions.
+The current platform includes local execution, scheduled hosted ingestion, durable
+cloud state, and separate static conditions and operations reports. Automated
+Pages publication is implemented but remains pending hosted verification. Scoring,
+ranking, recommendations, additional coverage, APIs, authentication, and
+production operations remain later decisions.
 
 ## Principles
 

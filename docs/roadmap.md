@@ -4,15 +4,16 @@
 
 SaltBytes has completed hosted periodic ingestion, forecast history retention,
 the fishing-factor registry, the first research-backed attributes, and the
-static HTML portfolio report.
+static HTML portfolio report site.
 
-After each successful scheduled or manual ingestion, the hosted workflow
-generates and publishes the latest successful report. The committed sample
-report remains a fixed reviewed snapshot.
+Automated Pages publication is the current completion step. The workflow
+implementation is present, but publication remains incomplete until it is merged
+and verified through a successful hosted run from `main`. The committed sample
+site remains a fixed reviewed snapshot.
 
-The current milestone is analysis-ready feature preparation. It should define
-deterministic derived features and missing-data rules without introducing
-scoring weights or unsupported fishing recommendations.
+Analysis-ready feature preparation is next. It should define deterministic
+derived features and missing-data rules without introducing scoring weights or
+unsupported fishing recommendations.
 
 ## 1. Run hosted periodic ingestion
 
@@ -128,31 +129,34 @@ scoping.
 
 ## 5. Build and publish the first portfolio report
 
-Status: Complete.
+Status: Report site complete; automated publication verification pending.
 
-SaltBytes generates a self contained HTML report from stored DuckDB data. It
-presents current conditions, forecast trends, revisions, source completeness,
+SaltBytes generates separate self contained HTML reports from stored DuckDB
+data. The coastal conditions report presents current conditions and forecast
+trends. The pipeline operations report presents revisions, source completeness,
 pipeline history, provenance, freshness, and limitations.
 
 After successful ingestion and canonical state publication, the hosted workflow
-generates `site/index.html`, uploads only the generated site, and deploys it
+is configured to generate a landing page plus `site/conditions/index.html` and
+`site/operations/index.html`, upload only the generated site, and deploy it
 through GitHub Pages. Failed ingestion or report publication leaves the
-previously published page available. The page follows the six hour ingestion
-cadence and is not real time.
+previously published site available. The site follows the six hour ingestion
+cadence and is not real time. Publication is not complete until this behavior is
+verified from `main`.
 
-The committed `docs/sample-report/index.html` remains the fixed reviewed
-portfolio snapshot.
+The committed `docs/sample-report/` site remains the fixed reviewed portfolio
+snapshot.
 
 Do not present fishing scores, catch predictions, or optimal fishing windows
 before the research and scoring work support those claims.
 
 ### Exit criteria
 
-- the report can be regenerated from stored SaltBytes data
-- the public report uses the latest successful run for current conditions
-- monitoring and revisions use the retained hosted history
-- provenance, freshness, and limitations are visible
-- failed ingestion or publication does not replace the previous page
+- both reports can be regenerated from stored SaltBytes data
+- the public conditions report uses the latest successful run
+- the operations report uses retained hosted history and provenance
+- freshness and limitations are visible in both report contexts
+- failed ingestion or publication does not replace the previous site
 
 ## 6. Prepare the analysis-ready feature layer
 
@@ -188,9 +192,12 @@ Hosted periodic ingestion
 → tidal-state completion
 → site-orientation metadata
 → wind and wave directional interactions
-→ static portfolio report
-→ automated report publication
+→ static portfolio report site
 
 Current:
+
+Automated report publication verification
+
+Next:
 
 Analysis-ready feature preparation
