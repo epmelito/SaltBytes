@@ -153,7 +153,7 @@ atmospheric fields.
 ECMWF WAM provided a longer wave horizon and useful candidate cells, but it
 does not provide sea-surface temperature. It remains a deferred alternative.
 
-### Explicit NBM and MÃ©tÃ©o-France selectors
+### Explicit NBM and Météo-France selectors
 
 This is the accepted choice. It provides the evaluated required fields within
 the current horizon while making model and product selectors explicit.

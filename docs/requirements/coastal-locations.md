@@ -67,7 +67,7 @@ The first-release set should:
 
 | Location | Region | Context | Inclusion rationale |
 | --- | --- | --- | --- |
-| Jennetteâ€™s Pier | Northern | Pier | An identifiable Atlantic fishing pier representing the northern Outer Banks |
+| Jennette’s Pier | Northern | Pier | An identifiable Atlantic fishing pier representing the northern Outer Banks |
 | Beach Access Ramp 72, Ocracoke Island | Northern | Surf | A named National Park Service location at the southern end of Ocracoke Island representing an ocean-side surf context |
 | Fort Macon State Park, ocean side | Central | Surf | An identifiable ocean-side fishing location representing the central coast |
 | Bogue Inlet Pier | Central | Pier | An identifiable publicly accessible fixed fishing pier representing the central coast |
@@ -83,11 +83,11 @@ the sound shoreline.
 
 ## Location evidence
 
-### Jennetteâ€™s Pier
+### Jennette’s Pier
 
 Direct evidence:
 
-- The North Carolina Aquariums describes Jennetteâ€™s Pier as a 1,000-foot
+- The North Carolina Aquariums describes Jennette’s Pier as a 1,000-foot
   concrete fishing pier extending over the Atlantic Ocean.
 
 Inference:
@@ -102,7 +102,7 @@ Known limitations:
 
 Sources:
 
-- [Jennetteâ€™s Pier visit information](https://www.ncaquariums.com/visit-jennettes-pier),
+- [Jennette’s Pier visit information](https://www.ncaquariums.com/visit-jennettes-pier),
   publication or update date not shown, accessed 2026-07-28
 
 ### Beach Access Ramp 72, Ocracoke Island
@@ -211,7 +211,7 @@ Sources:
 
 The initial set provides:
 
-- northern pier representation at Jennetteâ€™s Pier
+- northern pier representation at Jennette’s Pier
 - northern surf representation on Ocracoke Island
 - central surf representation at Fort Macon
 - central pier representation at Bogue Inlet Pier

@@ -42,7 +42,7 @@ The initial location set will be:
 
 | Location | Context |
 | --- | --- |
-| Jennetteâ€™s Pier | Pier |
+| Jennette’s Pier | Pier |
 | Beach Access Ramp 72, Ocracoke Island | Surf |
 | Fort Macon State Park, ocean side | Surf |
 | Bogue Inlet Pier | Pier |

@@ -24,13 +24,13 @@ The pipeline:
 
 ```text
 YAML configuration
-    â†“
+    ↓
 source clients
-    â†“
+    ↓
 source-specific validation
-    â†“
+    ↓
 immutable raw JSON
-    â†“
+    ↓
 normalized DuckDB tables
 ```
 
@@ -38,9 +38,9 @@ The MVP adds:
 
 ```text
 normalized DuckDB tables
-    â†“
+    ↓
 coastal_conditions_hourly view
-    â†“
+    ↓
 readable local output
 ```
 
