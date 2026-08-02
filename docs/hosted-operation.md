@@ -69,19 +69,33 @@ failed pipeline can therefore retain its run record and accepted raw data when
 state publication succeeds, while its nonzero status prevents report generation
 and Pages deployment.
 
-After a successful pipeline and canonical database publication, the ingestion
-job is configured to generate `site/index.html`,
-`site/conditions/index.html`, and `site/operations/index.html`. Only that
-generated static directory is uploaded as the Pages artifact. A separate
-deployment job uses the `github-pages` environment and Pages-specific
-permissions. Report generation, artifact upload, or deployment failure fails the
-workflow without rolling back canonical state or removing the previously
-published site. Scheduled and manual runs use the same ingestion and publication
-path. This path has been verified by a successful manual run from `main`. The
-stable public site is <https://epmelito.github.io/SaltBytes/>.
+After a successful pipeline and canonical database publication, the runner:
 
-To recover from a failed run, inspect its Action log, correct the source or
-Azure permission problem, and manually run the workflow from `main`. Do not
-upload an unvalidated local database over `state/saltbytes.duckdb`; the
-workflow is the supported publisher. Blob soft delete permits recovery of a
-deleted state blob for seven days.
+1. generates the deterministic conditions and operations reports
+2. replaces the committed dashboard fixtures with a curated public JSON export
+3. builds the locked Observable project
+4. copies the build to `site/dashboard/`
+5. creates a shared landing page linking all three published outputs
+6. uploads the complete `site` directory for the existing Pages deployment job
+
+The stable public paths are:
+
+- <https://epmelito.github.io/SaltBytes/dashboard/>
+- <https://epmelito.github.io/SaltBytes/conditions/>
+- <https://epmelito.github.io/SaltBytes/operations/>
+
+A failed report, export, dashboard build, artifact upload, or deployment fails
+the workflow without rolling back canonical state. GitHub Pages keeps the
+previously deployed site available because deployment starts only after the
+complete site artifact is generated successfully. Scheduled and manual runs use
+the same ingestion and publication path.
+
+Pull request validation installs the committed dashboard lock file and builds
+Observable from deterministic fixture JSON. That validation does not authenticate
+to Azure or read the hosted DuckDB database.
+
+To recover from a failed run, inspect its Action log, correct the source, build,
+or Azure permission problem, and manually run the workflow from `main`. Do not
+upload an unvalidated local database over `state/saltbytes.duckdb`; the workflow
+is the supported publisher. Blob soft delete permits recovery of a deleted state
+blob for seven days.
