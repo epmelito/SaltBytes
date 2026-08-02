@@ -6,6 +6,7 @@ from saltbytes.logging import configure_logging
 from saltbytes.pipeline import run_pipeline
 from saltbytes.report import render_report
 from saltbytes.reporting.html import render_html_report
+from saltbytes.reporting.schema import ReportSchemaError
 
 
 def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
@@ -51,12 +52,21 @@ def main(argv: list[str] | None = None) -> None:
             raise ValueError(f"output path must be a file: {output_path}")
 
         try:
+            report = render_html_report(
+                **report_arguments
+            )
+        except ReportSchemaError as exc:
+            raise SystemExit(f"error: {exc}") from None
+
+        try:
             output_path.write_text(
-                render_html_report(**report_arguments),
+                report,
                 encoding="utf-8",
             )
         except OSError as exc:
-            raise ValueError(f"could not write HTML report: {output_path}") from exc
+            raise ValueError(
+                f"could not write HTML report: {output_path}"
+            ) from exc
         return
 
     result = run_pipeline(config)

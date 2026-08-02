@@ -10,6 +10,7 @@ from saltbytes.report import _select_run
 from saltbytes.reporting.monitoring import render_monitoring_section
 from saltbytes.reporting.provenance import render_provenance_section
 from saltbytes.reporting.revisions import render_revision_section
+from saltbytes.reporting.schema import validate_report_schema
 from saltbytes.reporting.source_monitoring import render_source_monitoring_section
 
 _SOURCES = ("weather", "wave", "sst", "tide")
@@ -400,6 +401,7 @@ def render_html_report(
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
         connection.execute("set TimeZone = 'UTC'")
+        validate_report_schema(connection)
         selected_run_id, started_at, completed_at, status, rows_loaded = _select_run(
             connection,
             run_id,
