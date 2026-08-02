@@ -79,6 +79,18 @@ depends on local state.
 
 ## Issues and pull requests
 
+- Keep issue bodies proportional to the work. Define the intended outcome,
+  material product and architecture boundaries, delivery constraints, acceptance
+  criteria, and required verification without turning the issue into a full
+  implementation specification.
+- Omit exact schemas, file layouts, query details, test inventories, UI
+  composition, and other implementation choices unless they are required to
+  preserve an accepted contract, prevent a known risk, or resolve an approved
+  decision.
+- Before creating or updating an issue, remove repeated requirements,
+  repository discoverable detail, speculative decisions, and tests already
+  implied by acceptance criteria.
+
 - Assign newly created issues and pull requests to the repository owner unless
   instructed otherwise.
 - Link completed work using `Closes #<issue>` when the pull request should close
