@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 
 from saltbytes.config import load_config
+from saltbytes.dashboard import DashboardSchemaError, export_dashboard_data
 from saltbytes.logging import configure_logging
 from saltbytes.pipeline import run_pipeline
 from saltbytes.report import render_conditions_report, render_operations_report
@@ -26,6 +27,14 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
     report_parser.add_argument("--format", choices=("text", "html"), default="text")
     report_parser.add_argument("--output")
 
+    dashboard_parser = subparsers.add_parser("dashboard")
+    dashboard_subparsers = dashboard_parser.add_subparsers(
+        dest="dashboard_command",
+        required=True,
+    )
+    export_parser = dashboard_subparsers.add_parser("export")
+    export_parser.add_argument("--output", required=True)
+
     return parser.parse_args(argv)
 
 
@@ -35,6 +44,14 @@ def main(argv: list[str] | None = None) -> None:
     config = load_config()
 
     configure_logging(config)
+
+    if arguments.command == "dashboard":
+        output_path = Path(arguments.output)
+        try:
+            export_dashboard_data(config, output_path)
+        except DashboardSchemaError as exc:
+            raise SystemExit(f"error: {exc}") from None
+        return
 
     if arguments.command == "report":
         report_arguments = {
