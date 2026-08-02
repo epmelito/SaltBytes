@@ -26,6 +26,11 @@ location, and UTC hour.
 
 The MVP provides a local readable output over the integrated hourly view.
 
+View the committed [sample visual report](docs/sample-report/index.html) to
+inspect forecast conditions, revision history, ingestion monitoring,
+provenance, and limitations without installing or running the project.
+GitHub Pages publication is intentionally deferred to a separate follow-up.
+
 See [the roadmap](docs/roadmap.md) for the delivery sequence.
 
 ## Locations
@@ -66,6 +71,12 @@ Azure setup, recovery behavior, and manual-run procedure.
 
 ```powershell
 saltbytes report
+```
+
+Generate one self contained HTML report:
+
+```powershell
+saltbytes report --format html --output report.html
 ```
 
 The report selects the latest attempted run, including a failed or partial run,
