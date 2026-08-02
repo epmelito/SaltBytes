@@ -163,14 +163,22 @@ before the research and scoring work support those claims.
 After hosted ingestion, research consolidation, and initial attribute expansion,
 define the derived features needed for later deterministic scoring.
 
-Potential work includes:
+The integrated hourly view already exposes tide-relative timing and range plus
+site-relative wind and wave angles. Preserve those implemented fields rather
+than redefining them as future work.
 
-- pressure trends
-- time relative to tide changes
-- daylight categories
-- rolling or lagged weather context
-- completeness indicators
-- scoring eligibility
+The first implementation-ready feature set is:
+
+- recent precipitation accumulation with explicit trailing-window and
+  incomplete-window semantics
+- source completeness or availability indicators
+- technical eligibility for later deterministic calculations
+
+Solar timing or daylight category remains deferred until immutable location
+coordinate and timezone provenance is retained for each run location.
+
+The milestone continues to require:
+
 - separation of biological conditions, fishability, and safety
 
 Do not create scoring weights in this milestone.
