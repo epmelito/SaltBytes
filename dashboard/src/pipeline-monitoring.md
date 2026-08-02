@@ -166,7 +166,7 @@ Plot.plot({
 ## Recent runs
 
 ```js
-Inputs.table(
+html`<div class="table-scroll">${Inputs.table(
   runs.map((run) => ({
     run_id: run.run_id,
     started: formatTimestamp(run.started_at, manifest.display_timezone),
@@ -198,7 +198,7 @@ Inputs.table(
     rows: 20,
     select: false
   }
-)
+)}</div>`
 ```
 
 ## Source success rates
@@ -221,7 +221,7 @@ Plot.plot({
 ```
 
 ```js
-Inputs.table(
+html`<div class="table-scroll">${Inputs.table(
   sourceHealth.summary.map((row) => ({
     source: sourceName(row.source),
     success: row.success_count,
@@ -241,13 +241,13 @@ Inputs.table(
     rows: 10,
     select: false
   }
-)
+)}</div>`
 ```
 
 ## Run and location coverage
 
 ```js
-Inputs.table(
+html`<div class="table-scroll">${Inputs.table(
   coverageRows.map((row) => ({
     location: locationName(row.location_id, locations),
     source: sourceName(row.source),
@@ -259,7 +259,7 @@ Inputs.table(
     rows: 20,
     select: false
   }
-)
+)}</div>`
 ```
 
 ## Recent source failures
@@ -267,7 +267,7 @@ Inputs.table(
 ```js
 sourceHealth.failures.length === 0
   ? html`<div class="notice">No recent source failures.</div>`
-  : Inputs.table(
+  : html`<div class="table-scroll">${Inputs.table(
       sourceHealth.failures.map((row) => ({
         run_id: row.run_id,
         location: locationName(row.location_id, locations),
@@ -287,5 +287,5 @@ sourceHealth.failures.length === 0
         rows: 20,
         select: false
       }
-    )
+    )}</div>`
 ```

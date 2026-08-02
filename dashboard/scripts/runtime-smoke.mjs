@@ -104,6 +104,23 @@ async function selectOption(page, index, optionIndex, label) {
   await select.selectOption({index: optionIndex});
 }
 
+async function assertScrollableTables(page, label) {
+  try {
+    await page.waitForFunction(() => {
+      const tables = [...document.querySelectorAll("table")];
+      return tables.length > 0 && tables.every((table) => {
+        const container = table.closest(".table-scroll");
+        const cell = table.querySelector("th, td");
+        return container
+          && getComputedStyle(container).overflowX === "auto"
+          && (!cell || getComputedStyle(cell).whiteSpace === "nowrap");
+      });
+    });
+  } catch {
+    throw new Error(`${label}: tables are not protected by horizontal scrolling`);
+  }
+}
+
 async function run() {
   const {server, port} = await startServer();
   const browser = await chromium.launch({
@@ -164,6 +181,7 @@ async function run() {
       (before) => document.querySelector("table thead")?.innerText !== before,
       tableHeader
     );
+    await assertScrollableTables(page, "Forecast revisions");
     await assertHealthy(page, errors, "Forecast revisions");
 
     await openPage(page, `${base}/pipeline-monitoring`, errors);
@@ -175,17 +193,39 @@ async function run() {
     });
     await selectOption(page, 0, 1, "Pipeline coverage control");
     await page.waitForFunction(() => window.__saltbytesMutations > 0);
+    await assertScrollableTables(page, "Pipeline monitoring");
     await assertHealthy(page, errors, "Pipeline monitoring");
 
     await openPage(page, `${base}/data-provenance`, errors);
     await page.waitForFunction(() => document.querySelectorAll("select").length === 2);
     const metricValues = page.locator(".metric-card .metric-value");
+    await page.waitForFunction(() =>
+      document.body.innerText.includes("Tide relationship metadata is available")
+    );
+    const initialProvenance = await page.locator("body").textContent();
+    if (
+      initialProvenance.includes("${isTide ? html`")
+      || initialProvenance.includes("Prediction location")
+    ) {
+      throw new Error("Data provenance tide content did not initialize correctly");
+    }
     const sourceValue = await metricValues.nth(1).innerText();
-    await selectOption(page, 1, 1, "Data provenance source control");
+    const sourceControl = page.locator("select").nth(1);
+    const sourceLabels = await sourceControl.locator("option").allTextContents();
+    const tideIndex = sourceLabels.findIndex((label) => label.trim() === "Tide");
+    if (tideIndex < 0) {
+      throw new Error("Data provenance Tide source option is not populated");
+    }
+    await sourceControl.selectOption({index: tideIndex});
     await page.waitForFunction(
       (before) => document.querySelectorAll(".metric-card .metric-value")[1]?.innerText !== before,
       sourceValue
     );
+    await page.waitForFunction(() => {
+      const text = document.body.textContent;
+      return text.includes("Prediction location")
+        && !text.includes("Tide relationship metadata is available");
+    });
     const provenanceLocation = await metricValues.nth(0).innerText();
     await selectOption(page, 0, 1, "Data provenance location control");
     await page.waitForFunction(
