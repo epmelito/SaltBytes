@@ -26,12 +26,11 @@ location, and UTC hour.
 
 The MVP provides local text and HTML reports over the retained DuckDB state.
 
-View the committed [sample report site](docs/sample-report/index.html) to open
-separate coastal conditions and pipeline operations snapshots without installing
-or running the project. The hosted workflow is configured to publish the same
-three-page site after successful scheduled or manual ingestion. This publication
-path remains pending hosted verification, and the stable Pages URL will be added
-only after that verification succeeds.
+View the [public report site](https://epmelito.github.io/SaltBytes/) for the
+latest successfully published coastal conditions and pipeline operations reports.
+The site refreshes after successful scheduled or manual ingestion. View the
+committed [sample report site](docs/sample-report/index.html) for a fixed reviewed
+snapshot that does not change with hosted runs.
 
 See [the roadmap](docs/roadmap.md) for the delivery sequence.
 

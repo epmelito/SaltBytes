@@ -77,8 +77,8 @@ deployment job uses the `github-pages` environment and Pages-specific
 permissions. Report generation, artifact upload, or deployment failure fails the
 workflow without rolling back canonical state or removing the previously
 published site. Scheduled and manual runs use the same ingestion and publication
-path. This Pages path remains pending hosted verification until it is merged and
-run successfully from `main`.
+path. This path has been verified by a successful manual run from `main`. The
+stable public site is <https://epmelito.github.io/SaltBytes/>.
 
 To recover from a failed run, inspect its Action log, correct the source or
 Azure permission problem, and manually run the workflow from `main`. Do not

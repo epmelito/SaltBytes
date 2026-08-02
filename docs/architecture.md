@@ -102,8 +102,7 @@ current cloud database canonical. A failed pipeline can still publish its
 readable completed failure record when synchronization succeeds, but its nonzero
 exit status prevents report generation and Pages deployment.
 
-After successful ingestion and canonical state publication, the workflow is
-configured to build a static landing page plus separate conditions and operations
-reports, upload only the generated `site` directory, and deploy it through GitHub
-Pages. Publication remains incomplete until this path is merged and verified by a
-successful hosted run from `main`.
+After successful ingestion and canonical state publication, the workflow builds
+a static landing page plus separate conditions and operations reports, uploads
+only the generated `site` directory, and deploys it through GitHub Pages. This
+publication path has been verified by a successful manual run from `main`.

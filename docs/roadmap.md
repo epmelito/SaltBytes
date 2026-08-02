@@ -3,15 +3,11 @@
 ## Current milestone
 
 SaltBytes has completed hosted periodic ingestion, forecast history retention,
-the fishing-factor registry, the first research-backed attributes, and the
-static HTML portfolio report site.
+the fishing-factor registry, the first research-backed attributes, the static
+HTML portfolio report site, and automated GitHub Pages publication. The committed
+sample site remains a fixed reviewed snapshot.
 
-Automated Pages publication is the current completion step. The workflow
-implementation is present, but publication remains incomplete until it is merged
-and verified through a successful hosted run from `main`. The committed sample
-site remains a fixed reviewed snapshot.
-
-Analysis-ready feature preparation is next. It should define deterministic
+Analysis-ready feature preparation is current. It should define deterministic
 derived features and missing-data rules without introducing scoring weights or
 unsupported fishing recommendations.
 
@@ -129,7 +125,7 @@ scoping.
 
 ## 5. Build and publish the first portfolio report
 
-Status: Report site complete; automated publication verification pending.
+Status: Complete.
 
 SaltBytes generates separate self contained HTML reports from stored DuckDB
 data. The coastal conditions report presents current conditions and forecast
@@ -137,12 +133,12 @@ trends. The pipeline operations report presents revisions, source completeness,
 pipeline history, provenance, freshness, and limitations.
 
 After successful ingestion and canonical state publication, the hosted workflow
-is configured to generate a landing page plus `site/conditions/index.html` and
-`site/operations/index.html`, upload only the generated site, and deploy it
+generates a landing page plus `site/conditions/index.html` and
+`site/operations/index.html`, uploads only the generated site, and deploys it
 through GitHub Pages. Failed ingestion or report publication leaves the
 previously published site available. The site follows the six hour ingestion
-cadence and is not real time. Publication is not complete until this behavior is
-verified from `main`.
+cadence and is not real time. This publication path has been verified from
+`main`.
 
 The committed `docs/sample-report/` site remains the fixed reviewed portfolio
 snapshot.
@@ -193,11 +189,8 @@ Hosted periodic ingestion
 → site-orientation metadata
 → wind and wave directional interactions
 → static portfolio report site
+→ automated report publication verification
 
 Current:
-
-Automated report publication verification
-
-Next:
 
 Analysis-ready feature preparation
