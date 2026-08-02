@@ -117,7 +117,7 @@ if (chartRows.length < 2) {
 ## Persisted values
 
 ```js
-Inputs.table(
+html`<div class="table-scroll">${Inputs.table(
   selectedRows.map((row) => ({
     run_id: row.run_id,
     run_started: formatTimestamp(row.run_started_at, manifest.display_timezone),
@@ -135,5 +135,5 @@ Inputs.table(
     rows: 10,
     select: false
   }
-)
+)}</div>`
 ```

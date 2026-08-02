@@ -126,7 +126,8 @@ outcomes.
 
 ## Tide prediction relationship
 
-${isTide ? html`
+```js
+display(isTide ? html`
 <div class="detail-grid">
   <div class="detail-card">
     <div class="detail-label">Prediction location</div>
@@ -163,7 +164,8 @@ ${isTide ? html`
 </div>` : html`
 <div class="notice">
   Tide relationship metadata is available when the Tide source is selected.
-</div>`}
+</div>`);
+```
 
 <p class="page-note">
   The public export excludes raw file paths, database paths, credentials,
