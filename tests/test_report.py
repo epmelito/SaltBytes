@@ -180,6 +180,8 @@ def test_render_report_uses_latest_attempted_run_and_preserves_failures(
     assert "wave: fetch_failed (provider unavailable)" in report
     assert "sst: validation_failed (returned coordinate)" in report
     assert "2026-07-30 09:00 EDT | 4.5 | 135 | 6.0 | 20 | 1.5 | - | - | - | - | -" in report
+    assert "Wind km/h | Dir deg | Gust km/h" in report
+    assert "Wind m/s" not in report
     assert "old-run" not in report
 
 

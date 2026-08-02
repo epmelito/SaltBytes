@@ -165,7 +165,7 @@ def render_report(
         )
 
     header = (
-        "Time | Wind m/s | Dir deg | Gust m/s | Precip % | Rain mm | "
+        "Time | Wind km/h | Dir deg | Gust km/h | Precip % | Rain mm | "
         "Wave m | Wave dir deg | Period s | SST C | Tide"
     )
     for location in selected_locations:
