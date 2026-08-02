@@ -5,7 +5,7 @@ title: Forecast revisions
 ```js
 import * as Inputs from "@observablehq/inputs";
 import * as Plot from "@observablehq/plot";
-import {html} from "htl";
+import {html} from "npm:htl";
 
 import {
   asDate,
@@ -28,7 +28,9 @@ const metrics = [
   {field: "sea_surface_temperature", label: "Sea surface temperature", unit: "°C", digits: 1},
   {field: "tide_predicted_range", label: "Predicted tide range", unit: "m", digits: 2}
 ];
+```
 
+```js
 const locationId = view(Inputs.select(
   locations.map((location) => location.location_id),
   {
@@ -37,6 +39,9 @@ const locationId = view(Inputs.select(
     value: locations[0].location_id
   }
 ));
+```
+
+```js
 const locationRows = rows.filter((row) => row.location_id === locationId);
 const validTimes = [...new Set(locationRows.map((row) => row.forecast_time))].sort();
 const validTime = view(Inputs.select(validTimes, {
@@ -44,11 +49,17 @@ const validTime = view(Inputs.select(validTimes, {
   format: (value) => formatTimestamp(value, manifest.display_timezone),
   value: validTimes[0]
 }));
+```
+
+```js
 const metricField = view(Inputs.select(metrics.map((metric) => metric.field), {
   label: "Metric",
   format: (value) => metrics.find((metric) => metric.field === value)?.label ?? value,
   value: metrics[0].field
 }));
+```
+
+```js
 const metric = metrics.find((item) => item.field === metricField);
 const selectedRows = locationRows
   .filter((row) => row.forecast_time === validTime)

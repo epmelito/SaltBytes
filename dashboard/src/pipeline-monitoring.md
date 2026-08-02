@@ -5,7 +5,7 @@ title: Pipeline monitoring
 ```js
 import * as Inputs from "@observablehq/inputs";
 import * as Plot from "@observablehq/plot";
-import {html} from "htl";
+import {html} from "npm:htl";
 
 import {
   asDate,
@@ -29,6 +29,9 @@ const successfulRuns = runs.filter((run) => run.status === "success").length;
 const failedRuns = runs.filter((run) => run.status === "failed").length;
 const partialRuns = runs.filter((run) => run.partial_data).length;
 const coverageRunIds = [...new Set(sourceHealth.coverage.map((row) => row.run_id))];
+```
+
+```js
 const coverageRunId = view(Inputs.select(coverageRunIds, {
   label: "Source coverage run",
   format: (value) => {
@@ -37,6 +40,9 @@ const coverageRunId = view(Inputs.select(coverageRunIds, {
   },
   value: coverageRunIds[0]
 }));
+```
+
+```js
 const coverageRows = sourceHealth.coverage.filter((row) => row.run_id === coverageRunId);
 ```
 

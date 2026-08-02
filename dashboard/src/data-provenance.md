@@ -4,7 +4,7 @@ title: Data provenance
 
 ```js
 import * as Inputs from "@observablehq/inputs";
-import {html} from "htl";
+import {html} from "npm:htl";
 
 import {
   formatNumber,
@@ -16,7 +16,9 @@ import {
 const manifest = await FileAttachment("./data/manifest.json").json();
 const locations = await FileAttachment("./data/locations.json").json();
 const provenance = await FileAttachment("./data/provenance.json").json();
+```
 
+```js
 const locationId = view(Inputs.select(
   locations.map((location) => location.location_id),
   {
@@ -25,6 +27,9 @@ const locationId = view(Inputs.select(
     value: locations[0].location_id
   }
 ));
+```
+
+```js
 const locationRows = provenance.filter((row) => row.location_id === locationId);
 const source = view(Inputs.select(
   locationRows.map((row) => row.source),
@@ -34,6 +39,9 @@ const source = view(Inputs.select(
     value: locationRows[0]?.source
   }
 ));
+```
+
+```js
 const selected = locationRows.find((row) => row.source === source);
 const isTide = source === "tide";
 ```
