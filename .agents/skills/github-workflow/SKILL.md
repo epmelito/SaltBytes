@@ -83,6 +83,9 @@ depends on local state.
   instructed otherwise.
 - Link completed work using `Closes #<issue>` when the pull request should close
   the active issue.
+- Before merge, recommend `Squash and merge` for normal feature, fix,
+  documentation, and maintenance pull requests unless a concrete reason
+  justifies another method.
 - Preserve existing issue or pull request content unless a change is authorized.
 - After creating or updating a pull request, verify:
   - target branch
@@ -99,6 +102,8 @@ depends on local state.
 ## Branches and commits
 
 - Follow repository branch and commit conventions.
+- Avoid hyphenating words in commit messages, pull request descriptions, and
+  GitHub comments.
 - Stage only files authorized by the active work package.
 - Do not include unrelated working tree changes.
 - Confirm the commit contains the intended paths before pushing.

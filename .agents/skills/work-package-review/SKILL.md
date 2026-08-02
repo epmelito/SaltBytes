@@ -21,7 +21,7 @@ reviewing.
 
 ## Workflow
 
-1. Retrieve and read the completed GitHub issue using read-only access.
+1. Retrieve and read the governing GitHub issue using read-only access.
 2. Read the applicable `AGENTS.md`.
 3. Inspect the exact review target and changed paths:
    - in revision mode, inspect the immutable `base..head` diff

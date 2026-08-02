@@ -15,6 +15,8 @@ return one concise report.
 
 Do not turn routine engineering work into a general security audit.
 
+When asked only to review, do not edit files or perform mutations.
+
 ## Workflow
 
 1. Read the active issue and applicable repository guidance.
@@ -54,9 +56,10 @@ remains unresolved.
 When work affects Azure hosted ingestion, read and enforce the active issue and
 accepted project decisions.
 
-Preserve identity based authentication, least privilege access, private
-authenticated storage, minimal workflow permissions, immutable raw state, safe
-canonical state publication, concurrency protection, and secret free logging.
+Preserve identity based authentication, least privilege access, storage with
+anonymous access disabled, minimal workflow permissions, immutable raw state,
+safe canonical state publication, concurrency protection, and secret free
+logging.
 
 Do not introduce excluded enterprise controls unless the active issue requires
 them.
