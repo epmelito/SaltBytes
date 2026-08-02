@@ -7,7 +7,11 @@ import duckdb
 import pytest
 
 from saltbytes.database import initialize_database
-from saltbytes.reporting.html import _line_chart_html, render_html_report
+from saltbytes.reporting.html import (
+    _line_chart_html,
+    render_conditions_html_report,
+    render_operations_html_report,
+)
 
 
 def _config(database_path: Path) -> dict[str, Any]:
@@ -178,16 +182,20 @@ def _insert_run(database_path: Path) -> None:
         )
 
 
-def test_render_html_report_shows_run_sources_and_first_hour_conditions(
+def test_render_conditions_html_report_shows_forecast_output(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     _insert_run(database_path)
 
-    report = render_html_report(_config(database_path), location_id="test_coast")
+    report = render_conditions_html_report(
+        _config(database_path),
+        location_id="test_coast",
+    )
 
     assert report.startswith("<!doctype html>")
+    assert "<title>SaltBytes coastal conditions</title>" in report
     assert "run-1" in report
     assert "failed" in report
     assert "2026-08-01 08:00 EDT" in report
@@ -207,7 +215,6 @@ def test_render_html_report_shows_run_sources_and_first_hour_conditions(
     assert "rising" in report
     assert "low at 2026-08-01 08:30 EDT (0.2 m)" in report
     assert "high at 2026-08-01 14:30 EDT (1.4 m)" in report
-    assert "1.2 m" in report
     assert "90 degrees" in report
     assert "<dt>Precipitation</dt><dd>Unavailable</dd>" in report
     assert "88.8 km/h" not in report
@@ -217,25 +224,56 @@ def test_render_html_report_shows_run_sources_and_first_hour_conditions(
     assert "Tide phase and adjacent extrema" in report
     assert "Wind and wave angle to shore trend" in report
     assert "Angle reference: 0 degrees is directly onshore" in report
-    assert 'id="revisions"' in report
+    assert 'class="reference"' in report
+    assert report.count("<svg") == 5
+    assert 'id="revisions"' not in report
+    assert 'id="monitoring"' not in report
+    assert 'id="source-monitoring"' not in report
+    assert 'id="sources"' not in report
+    assert 'id="provenance"' not in report
+    assert "reviewed method" not in report
+    assert "weather-1" not in report
+    assert "Other Coast" not in report
+    assert "https://" not in report
+
+
+def test_render_operations_html_report_shows_pipeline_output(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    _insert_run(database_path)
+
+    report = render_operations_html_report(
+        _config(database_path),
+        location_id="test_coast",
+    )
+
+    assert report.startswith("<!doctype html>")
+    assert "<title>SaltBytes pipeline operations</title>" in report
+    assert "run-1" in report
+    assert "failed" in report
+    assert "Rows loaded" in report
+    assert "Time since completion" in report
+    assert "Generated" in report
     assert 'href="#revisions"' in report
+    assert 'id="revisions"' in report
     assert 'href="#monitoring"' in report
     assert 'id="monitoring"' in report
     assert 'href="#source-monitoring"' in report
     assert 'id="source-monitoring"' in report
+    assert 'href="#sources"' in report
+    assert 'id="sources"' in report
     assert 'href="#provenance"' in report
     assert 'id="provenance"' in report
     assert "reviewed method" in report
     assert "reviewed source" in report
-    assert "2026-08-01" in report
     assert "review limitation" in report
     assert "weather-1" in report
     assert "wave-1" in report
     assert "sst-1" in report
     assert "tide-1" in report
     assert "raw/weather.json" not in report
-    assert "Time since completion" in report
-    assert "Generated" in report
     assert "Forecast valid time:</strong> 2026-08-01 09:00 EDT" in report
     assert "Pipeline run start time remains distinct" in report
     assert "2026-08-01 02:00 EDT" in report
@@ -246,22 +284,36 @@ def test_render_html_report_shows_run_sources_and_first_hour_conditions(
     assert "999.0 km/h" not in report
     assert "777.0 km/h" not in report
     assert "778.0 km/h" not in report
-    assert 'class="reference"' in report
-    assert report.count("<svg") == 9
-    assert "2026-08-01 10:00 EDT" in report
+    assert report.count("<svg") == 4
+    assert 'id="conditions"' not in report
+    assert 'id="condition-trends"' not in report
+    assert "Wind speed and gust trend" not in report
     assert "Other Coast" not in report
     assert "https://" not in report
 
 
-def test_render_html_report_escapes_stored_failure_detail(tmp_path: Path) -> None:
+def test_render_operations_html_report_escapes_stored_failure_detail(
+    tmp_path: Path,
+) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     _insert_run(database_path)
 
-    report = render_html_report(_config(database_path))
+    report = render_operations_html_report(_config(database_path))
 
     assert "<script>" not in report
     assert "&lt;script&gt;wave failed&lt;/script&gt;" in report
+
+
+def test_render_conditions_html_report_marks_missing_location_data(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    _insert_run(database_path)
+
+    report = render_conditions_html_report(_config(database_path))
+
     assert "No integrated forecast hour" in report
     assert "Wind speed and gust trend: Unavailable" in report
     assert "Wave height trend: Unavailable" in report
@@ -270,26 +322,34 @@ def test_render_html_report_escapes_stored_failure_detail(tmp_path: Path) -> Non
     assert "Wind and wave angle to shore trend: Unavailable" in report
 
 
-def test_render_html_report_rejects_invalid_selection_and_database(
+@pytest.mark.parametrize(
+    "renderer",
+    (
+        render_conditions_html_report,
+        render_operations_html_report,
+    ),
+)
+def test_html_reports_reject_invalid_selection_and_database(
     tmp_path: Path,
+    renderer: Any,
 ) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
 
     with pytest.raises(ValueError, match="no pipeline run found"):
-        render_html_report(_config(database_path))
+        renderer(_config(database_path))
 
     with pytest.raises(ValueError, match="unknown location"):
-        render_html_report(_config(database_path), location_id="missing")
+        renderer(_config(database_path), location_id="missing")
 
     with pytest.raises(ValueError, match="hours must be greater than zero"):
-        render_html_report(_config(database_path), hours=0)
+        renderer(_config(database_path), hours=0)
 
     with pytest.raises(ValueError, match="database does not exist"):
-        render_html_report(_config(tmp_path / "missing.duckdb"))
+        renderer(_config(tmp_path / "missing.duckdb"))
 
 
-def test_render_html_report_shows_insufficient_revision_history(
+def test_render_operations_html_report_shows_insufficient_revision_history(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
@@ -326,7 +386,10 @@ def test_render_html_report_shows_insufficient_revision_history(
             """
         )
 
-    report = render_html_report(_config(database_path), location_id="test_coast")
+    report = render_operations_html_report(
+        _config(database_path),
+        location_id="test_coast",
+    )
 
     assert "Insufficient persisted history" in report
 

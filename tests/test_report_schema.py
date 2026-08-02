@@ -6,7 +6,10 @@ import pytest
 
 from saltbytes.cli import main
 from saltbytes.database import initialize_database
-from saltbytes.reporting.html import render_html_report
+from saltbytes.reporting.html import (
+    render_conditions_html_report,
+    render_operations_html_report,
+)
 from saltbytes.reporting.schema import ReportSchemaError
 
 
@@ -26,8 +29,16 @@ def _config(database_path: Path) -> dict[str, Any]:
     }
 
 
-def test_render_html_report_rejects_outdated_schema(
+@pytest.mark.parametrize(
+    "renderer",
+    (
+        render_conditions_html_report,
+        render_operations_html_report,
+    ),
+)
+def test_html_reports_reject_outdated_schema(
     tmp_path: Path,
+    renderer: Any,
 ) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
@@ -61,7 +72,7 @@ def test_render_html_report_rejects_outdated_schema(
     with pytest.raises(
         ReportSchemaError
     ) as error:
-        render_html_report(
+        renderer(
             _config(database_path)
         )
 
@@ -106,7 +117,7 @@ def test_main_reports_outdated_schema_without_traceback(
         raise ReportSchemaError(message)
 
     monkeypatch.setattr(
-        "saltbytes.cli.render_html_report",
+        "saltbytes.cli.render_operations_html_report",
         reject_schema,
     )
 
@@ -114,6 +125,7 @@ def test_main_reports_outdated_schema_without_traceback(
         main(
             [
                 "report",
+                "operations",
                 "--format",
                 "html",
                 "--output",

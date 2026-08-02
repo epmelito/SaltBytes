@@ -2,16 +2,18 @@
 
 ## Current milestone
 
-SaltBytes has completed its local MVP.
+SaltBytes has completed hosted periodic ingestion, forecast history retention,
+the fishing-factor registry, the first research-backed attributes, and the
+static HTML portfolio report site.
 
-The platform can ingest atmospheric, wave, sea-surface-temperature, and tide
-forecast data for five North Carolina coastal locations, preserve raw snapshots
-and provenance, store normalized data in DuckDB, expose integrated hourly
-conditions, and render a readable local report.
+Automated Pages publication is the current completion step. The workflow
+implementation is present, but publication remains incomplete until it is merged
+and verified through a successful hosted run from `main`. The committed sample
+site remains a fixed reviewed snapshot.
 
-The next milestone is to operate the pipeline automatically, accumulate forecast
-history, and prepare the first research-backed data expansion and portfolio
-report.
+Analysis-ready feature preparation is next. It should define deterministic
+derived features and missing-data rules without introducing scoring weights or
+unsupported fishing recommendations.
 
 ## 1. Run hosted periodic ingestion
 
@@ -125,35 +127,36 @@ scoping.
 - missing data remains distinguishable from bad conditions
 - each addition is documented and tested
 
-## 5. Build the first portfolio report
+## 5. Build and publish the first portfolio report
 
-Create a lightweight visual report that demonstrates the first major SaltBytes
-checkpoint.
+Status: Report site complete; automated publication verification pending.
 
-The initial report should focus on:
+SaltBytes generates separate self contained HTML reports from stored DuckDB
+data. The coastal conditions report presents current conditions and forecast
+trends. The pipeline operations report presents revisions, source completeness,
+pipeline history, provenance, freshness, and limitations.
 
-- current conditions by location
-- wind, wave, SST, and tide context
-- forecast revisions
-- source completeness
-- pipeline-run history
-- source failures and partial coverage
+After successful ingestion and canonical state publication, the hosted workflow
+is configured to generate a landing page plus `site/conditions/index.html` and
+`site/operations/index.html`, upload only the generated site, and deploy it
+through GitHub Pages. Failed ingestion or report publication leaves the
+previously published site available. The site follows the six hour ingestion
+cadence and is not real time. Publication is not complete until this behavior is
+verified from `main`.
 
-The report must clearly distinguish forecast snapshots from observations.
-
-Use the smallest format that communicates the platform effectively. Prefer a
-generated static report or lightweight prototype before adopting a dashboard
-framework.
+The committed `docs/sample-report/` site remains the fixed reviewed portfolio
+snapshot.
 
 Do not present fishing scores, catch predictions, or optimal fishing windows
 before the research and scoring work support those claims.
 
 ### Exit criteria
 
-- the report can be regenerated from stored SaltBytes data
-- it communicates the data-platform architecture, not only isolated charts
-- provenance, freshness, and limitations are visible
-- it is suitable for a first LinkedIn project post
+- both reports can be regenerated from stored SaltBytes data
+- the public conditions report uses the latest successful run
+- the operations report uses retained hosted history and provenance
+- freshness and limitations are visible in both report contexts
+- failed ingestion or publication does not replace the previous site
 
 ## 6. Prepare the analysis-ready feature layer
 
@@ -182,13 +185,19 @@ Do not create scoring weights in this milestone.
 
 ## Immediate sequence
 
-Hosted periodic ingestion  
-→ complete fishing-factor registry  
-→ tidal-state completion  
-→ site-orientation metadata  
-→ wind and wave directional interactions  
-→ prototype portfolio report  
-→ analysis-ready feature preparation
+Completed:
 
-The attribute additions and report may overlap once enough snapshots have
-accumulated, but hosted ingestion should begin first.
+Hosted periodic ingestion
+→ fishing-factor registry
+→ tidal-state completion
+→ site-orientation metadata
+→ wind and wave directional interactions
+→ static portfolio report site
+
+Current:
+
+Automated report publication verification
+
+Next:
+
+Analysis-ready feature preparation

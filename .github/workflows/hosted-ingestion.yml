@@ -1,13 +1,9 @@
-name: hosted ingestion
+name: hosted ingestion and report publication
 
 on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
-
-permissions:
-  contents: read
-  id-token: write
 
 concurrency:
   group: saltbytes-hosted-ingestion
@@ -16,6 +12,9 @@ concurrency:
 jobs:
   ingest:
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -44,3 +43,51 @@ jobs:
 
       - name: restore, ingest, and publish state
         run: bash scripts/hosted_ingestion.sh
+
+      - name: generate published site
+        run: |
+          mkdir -p site/conditions site/operations
+          cat > site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>SaltBytes reports</title>
+          </head>
+          <body>
+            <main>
+              <h1>SaltBytes reports</h1>
+              <p>Upcoming coastal conditions and pipeline operations.</p>
+              <ul>
+                <li><a href="conditions/">Coastal conditions</a></li>
+                <li><a href="operations/">Pipeline operations</a></li>
+              </ul>
+            </main>
+          </body>
+          </html>
+          HTML
+          saltbytes report conditions --format html --output site/conditions/index.html
+          saltbytes report operations --format html --output site/operations/index.html
+
+      - name: upload published site
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: ingest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: deploy published site
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

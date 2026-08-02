@@ -371,18 +371,42 @@ def _condition_summary_html(
 
     return (
         f'<article id="conditions-{location_id}">{heading}'
+        f"<p>{_text(location['fishing_context'])}</p>"
         f"<p><strong>First valid forecast hour:</strong> "
         f"{_time(forecast_time, display_timezone)}</p>"
         f'<dl class="summary">{metric_html}</dl></article>'
     )
 
 
-def render_html_report(
+_CSS = """
+body { margin: 0 auto; max-width: 72rem; padding: 2rem; font-family: sans-serif; }
+nav a { margin-right: 1rem; }
+.summary { display: flex; flex-wrap: wrap; gap: 1rem; }
+.summary div { min-width: 12rem; max-width: 24rem; }
+article { border-top: 1px solid #bbb; margin-top: 1.5rem; padding-top: .5rem; }
+dt { font-weight: 700; }
+dd { margin: .25rem 0 0; }
+.source-status { line-height: 1.6; }
+.chart { margin: 1rem 0 2rem; }
+.chart svg { display: block; max-width: 100%; }
+.chart polyline, .chart circle { fill: none; stroke: currentColor; stroke-width: 2; }
+.chart circle { fill: currentColor; }
+.chart .axis, .chart .tide-segment, .chart .reference { stroke: currentColor; stroke-width: 1; }
+.chart .reference { stroke-dasharray: 4 4; }
+.chart text { font-size: 12px; }
+.legend { display: flex; flex-wrap: wrap; gap: 1rem; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border-bottom: 1px solid #bbb; padding: .5rem; text-align: left; }
+@media (max-width: 40rem) { body { padding: 1rem; } .summary div { min-width: 100%; } }
+"""
+
+
+def _report_inputs(
     config: dict[str, Any],
-    run_id: str | None = None,
-    hours: int = 24,
-    location_id: str | None = None,
-) -> str:
+    hours: int,
+    location_id: str | None,
+) -> tuple[list[dict[str, Any]], Path, ZoneInfo, datetime]:
     if hours <= 0:
         raise ValueError("hours must be greater than zero")
 
@@ -396,33 +420,92 @@ def render_html_report(
     if not database_path.is_file():
         raise ValueError(f"database does not exist: {database_path}")
 
-    display_timezone = ZoneInfo(config["display_timezone"])
-    generated_at = datetime.now(timezone.utc)
+    return (
+        selected_locations,
+        database_path,
+        ZoneInfo(config["display_timezone"]),
+        datetime.now(timezone.utc),
+    )
+
+
+def _forecast_window(
+    connection: duckdb.DuckDBPyConnection,
+    run_id: str,
+    started_at: datetime,
+    hours: int,
+) -> tuple[datetime | None, datetime | None]:
+    first_hour = connection.execute(
+        """
+        select min(forecast_time)
+        from coastal_conditions_hourly
+        where run_id = ? and forecast_time >= ?
+        """,
+        [run_id, started_at],
+    ).fetchone()[0]
+    window_end = first_hour + timedelta(hours=hours) if first_hour else None
+    return first_hour, window_end
+
+
+def _window_text(
+    first_hour: datetime | None,
+    window_end: datetime | None,
+    display_timezone: ZoneInfo,
+) -> str:
+    if first_hour is None or window_end is None:
+        return "No integrated forecast hours at or after the selected run start."
+
+    final_hour = window_end - timedelta(hours=1)
+    return (
+        f"{_time(first_hour, display_timezone)} through "
+        f"{_time(final_hour, display_timezone)}"
+    )
+
+
+def _page_html(
+    title: str,
+    introduction: str,
+    navigation: tuple[tuple[str, str], ...],
+    content: str,
+) -> str:
+    links = "".join(
+        f'<a href="#{escape(target)}">{_text(label)}</a>'
+        for target, label in navigation
+    )
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<title>{_text(title)}</title><style>{_CSS}</style></head><body>"
+        f"<header><h1>{_text(title)}</h1><p>{_text(introduction)}</p>"
+        f"<nav>{links}</nav></header><main>{content}</main></body></html>\n"
+    )
+
+
+def render_conditions_html_report(
+    config: dict[str, Any],
+    run_id: str | None = None,
+    hours: int = 24,
+    location_id: str | None = None,
+) -> str:
+    (
+        selected_locations,
+        database_path,
+        display_timezone,
+        generated_at,
+    ) = _report_inputs(config, hours, location_id)
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
         connection.execute("set TimeZone = 'UTC'")
         validate_report_schema(connection)
-        selected_run_id, started_at, completed_at, status, rows_loaded = _select_run(
+        selected_run_id, started_at, completed_at, status, _ = _select_run(
             connection,
             run_id,
         )
-        first_hour = connection.execute(
-            """
-            select min(forecast_time)
-            from coastal_conditions_hourly
-            where run_id = ? and forecast_time >= ?
-            """,
-            [selected_run_id, started_at],
-        ).fetchone()[0]
-        window_end = first_hour + timedelta(hours=hours) if first_hour else None
-        source_rows = connection.execute(
-            """
-            select location_id, source, status, detail
-            from source_results
-            where run_id = ?
-            """,
-            [selected_run_id],
-        ).fetchall()
+        first_hour, window_end = _forecast_window(
+            connection,
+            selected_run_id,
+            started_at,
+            hours,
+        )
         condition_rows = []
         if first_hour is not None:
             condition_rows = connection.execute(
@@ -466,6 +549,7 @@ def render_html_report(
                 """,
                 [selected_run_id, first_hour, window_end],
             ).fetchall()
+
         trend_rows = []
         if first_hour is not None:
             trend_rows = connection.execute(
@@ -494,73 +578,24 @@ def render_html_report(
                 """,
                 [selected_run_id, first_hour, window_end],
             ).fetchall()
-        monitoring_section = render_monitoring_section(
-            connection,
-            generated_at,
-            display_timezone,
-        )
-        source_monitoring_section = render_source_monitoring_section(
-            connection,
-            selected_locations,
-            display_timezone,
-        )
-        provenance_section = render_provenance_section(
-            connection,
-            selected_run_id,
-            selected_locations,
-            first_hour,
-            window_end,
-            display_timezone,
-        )
-        revision_section = render_revision_section(
-            connection,
-            selected_locations,
-            first_hour,
-            window_end,
-            display_timezone,
-        )
-
-    source_results: dict[str, dict[str, tuple[str, str | None]]] = {}
-    for result_location_id, source, source_status, detail in source_rows:
-        source_results.setdefault(result_location_id, {})[source] = (
-            source_status,
-            detail,
-        )
 
     conditions_by_location = {row[0]: row for row in condition_rows}
     trends_by_location: dict[str, list[tuple[Any, ...]]] = {}
     for row in trend_rows:
         trends_by_location.setdefault(row[0], []).append(row)
 
-    if first_hour is None:
-        window_text = "No integrated forecast hours at or after the selected run start."
-    else:
-        final_hour = window_end - timedelta(hours=1)
-        window_text = (
-            f"{_time(first_hour, display_timezone)} through "
-            f"{_time(final_hour, display_timezone)}"
-        )
-
-    source_sections = []
     condition_sections = []
     trend_sections = []
     for location in selected_locations:
-        current_location_id = location["id"]
-        source_sections.append(
-            f'<article id="source-{escape(current_location_id)}">'
-            f"<h3>{_text(location['name'])}</h3>"
-            f"<p>{_text(location['fishing_context'])}</p>"
-            f"{_source_status_html(current_location_id, source_results)}"
-            "</article>"
-        )
+        location_id_value = location["id"]
         condition_sections.append(
             _condition_summary_html(
                 location,
-                conditions_by_location.get(current_location_id),
+                conditions_by_location.get(location_id_value),
                 display_timezone,
             )
         )
-        location_trends = trends_by_location.get(current_location_id, [])
+        location_trends = trends_by_location.get(location_id_value, [])
         wind_chart = _line_chart_html(
             "Wind speed and gust trend",
             location_trends,
@@ -597,51 +632,138 @@ def render_html_report(
             reference_value=0,
         )
         trend_sections.append(
-            f'<article id="trends-{escape(current_location_id)}">'
+            f'<article id="trends-{escape(location_id_value)}">'
             f'<h3>{_text(location["name"])}</h3>'
             f"{wind_chart}{wave_chart}{sst_chart}{tide_chart}{angle_chart}"
             "<p>Angle reference: 0 degrees is directly onshore; "
             "-180 degrees is directly offshore.</p></article>"
         )
 
-    css = """
-body { margin: 0 auto; max-width: 72rem; padding: 2rem; font-family: sans-serif; }
-nav a { margin-right: 1rem; }
-.summary { display: flex; flex-wrap: wrap; gap: 1rem; }
-.summary div { min-width: 12rem; max-width: 24rem; }
-article { border-top: 1px solid #bbb; margin-top: 1.5rem; padding-top: .5rem; }
-dt { font-weight: 700; }
-dd { margin: .25rem 0 0; }
-.source-status { line-height: 1.6; }
-.chart { margin: 1rem 0 2rem; }
-.chart svg { display: block; max-width: 100%; }
-.chart polyline, .chart circle { fill: none; stroke: currentColor; stroke-width: 2; }
-.chart circle { fill: currentColor; }
-.chart .axis, .chart .tide-segment, .chart .reference { stroke: currentColor; stroke-width: 1; }
-.chart .reference { stroke-dasharray: 4 4; }
-.chart text { font-size: 12px; }
-.legend { display: flex; flex-wrap: wrap; gap: 1rem; }
-.table-scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; }
-th, td { border-bottom: 1px solid #bbb; padding: .5rem; text-align: left; }
-@media (max-width: 40rem) { body { padding: 1rem; } .summary div { min-width: 100%; } }
-"""
+    overview = (
+        '<section id="overview"><h2>Selected forecast run</h2>'
+        '<dl class="summary">'
+        f"<div><dt>Run ID</dt><dd>{_text(selected_run_id)}</dd></div>"
+        f"<div><dt>Status</dt><dd>{_text(status)}</dd></div>"
+        f"<div><dt>Started</dt><dd>{_time(started_at, display_timezone)}</dd></div>"
+        f"<div><dt>Completed</dt><dd>{_time(completed_at, display_timezone)}</dd></div>"
+        f"<div><dt>Time since completion</dt>"
+        f"<dd>{_elapsed(completed_at, generated_at)}</dd></div>"
+        f"<div><dt>Generated</dt><dd>"
+        f"{_time(generated_at, display_timezone)}</dd></div>"
+        f"<div><dt>Forecast window</dt>"
+        f"<dd>{_window_text(first_hour, window_end, display_timezone)}</dd></div>"
+        f"<div><dt>Display timezone</dt><dd>{_text(display_timezone.key)}</dd></div>"
+        "</dl></section>"
+    )
+    conditions = (
+        '<section id="conditions"><h2>First forecast hour by location</h2>'
+        f'{"".join(condition_sections)}</section>'
+    )
+    trends = (
+        '<section id="condition-trends"><h2>Forecast trends</h2>'
+        f'{"".join(trend_sections)}</section>'
+    )
+    limitations = (
+        '<section id="limitations"><h2>Limitations</h2>'
+        "<p>Unavailable values remain unavailable. SaltBytes stores forecasts and "
+        "predictions, not historical observations or fishing recommendations.</p>"
+        "</section>"
+    )
 
-    return (
-        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>SaltBytes report</title><style>{css}</style></head><body>"
-        "<header><h1>SaltBytes report</h1>"
-        "<p>Forecasts and predictions, not observations or fishing recommendations.</p>"
-        '<nav><a href="#overview">Overview</a>'
-        '<a href="#conditions">Conditions</a>'
-        '<a href="#revisions">Forecast revisions</a>'
-        '<a href="#monitoring">Monitoring</a>'
-        '<a href="#source-monitoring">Source monitoring</a>'
-        '<a href="#sources">Source status</a>'
-        '<a href="#provenance">Provenance</a>'
-        '<a href="#limitations">Limitations</a></nav></header><main>'
-        '<section id="overview"><h2>Selected run</h2><dl class="summary">'
+    return _page_html(
+        "SaltBytes coastal conditions",
+        "Forecasts and predictions, not observations or fishing recommendations.",
+        (
+            ("overview", "Overview"),
+            ("conditions", "Conditions"),
+            ("condition-trends", "Forecast trends"),
+            ("limitations", "Limitations"),
+        ),
+        overview + conditions + trends + limitations,
+    )
+
+
+def render_operations_html_report(
+    config: dict[str, Any],
+    run_id: str | None = None,
+    hours: int = 24,
+    location_id: str | None = None,
+) -> str:
+    (
+        selected_locations,
+        database_path,
+        display_timezone,
+        generated_at,
+    ) = _report_inputs(config, hours, location_id)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        connection.execute("set TimeZone = 'UTC'")
+        validate_report_schema(connection)
+        selected_run_id, started_at, completed_at, status, rows_loaded = _select_run(
+            connection,
+            run_id,
+        )
+        first_hour, window_end = _forecast_window(
+            connection,
+            selected_run_id,
+            started_at,
+            hours,
+        )
+        source_rows = connection.execute(
+            """
+            select location_id, source, status, detail
+            from source_results
+            where run_id = ?
+            """,
+            [selected_run_id],
+        ).fetchall()
+        revision_section = render_revision_section(
+            connection,
+            selected_locations,
+            first_hour,
+            window_end,
+            display_timezone,
+        )
+        monitoring_section = render_monitoring_section(
+            connection,
+            generated_at,
+            display_timezone,
+        )
+        source_monitoring_section = render_source_monitoring_section(
+            connection,
+            selected_locations,
+            display_timezone,
+        )
+        provenance_section = render_provenance_section(
+            connection,
+            selected_run_id,
+            selected_locations,
+            first_hour,
+            window_end,
+            display_timezone,
+        )
+
+    source_results: dict[str, dict[str, tuple[str, str | None]]] = {}
+    for result_location_id, source, source_status, detail in source_rows:
+        source_results.setdefault(result_location_id, {})[source] = (
+            source_status,
+            detail,
+        )
+
+    source_sections = []
+    for location in selected_locations:
+        location_id_value = location["id"]
+        source_sections.append(
+            f'<article id="source-{escape(location_id_value)}">'
+            f"<h3>{_text(location['name'])}</h3>"
+            f"<p>{_text(location['fishing_context'])}</p>"
+            f"{_source_status_html(location_id_value, source_results)}"
+            "</article>"
+        )
+
+    overview = (
+        '<section id="overview"><h2>Selected pipeline run</h2>'
+        '<dl class="summary">'
         f"<div><dt>Run ID</dt><dd>{_text(selected_run_id)}</dd></div>"
         f"<div><dt>Status</dt><dd>{_text(status)}</dd></div>"
         f"<div><dt>Started</dt><dd>{_time(started_at, display_timezone)}</dd></div>"
@@ -651,19 +773,42 @@ th, td { border-bottom: 1px solid #bbb; padding: .5rem; text-align: left; }
         f"<dd>{_elapsed(completed_at, generated_at)}</dd></div>"
         f"<div><dt>Generated</dt><dd>"
         f"{_time(generated_at, display_timezone)}</dd></div>"
-        f"<div><dt>Forecast window</dt><dd>{window_text}</dd></div>"
+        f"<div><dt>Forecast window</dt>"
+        f"<dd>{_window_text(first_hour, window_end, display_timezone)}</dd></div>"
         f"<div><dt>Display timezone</dt><dd>{_text(display_timezone.key)}</dd></div>"
         f"<div><dt>Database source</dt><dd>{_text(database_path.name)}</dd></div>"
-        '</dl></section><section id="conditions"><h2>First forecast hour by location</h2>'
-        f'{"".join(condition_sections)}</section>'
-        '<section id="condition-trends"><h2>Forecast trends</h2>'
-        f'{"".join(trend_sections)}</section>'
-        f"{revision_section}{monitoring_section}{source_monitoring_section}"
-        f"{provenance_section}"
+        "</dl></section>"
+    )
+    sources = (
         '<section id="sources"><h2>Source status</h2>'
         f'{"".join(source_sections)}</section>'
+    )
+    limitations = (
         '<section id="limitations"><h2>Limitations</h2>'
-        "<p>Unavailable values remain unavailable. SaltBytes stores forecasts and "
-        "predictions, not historical observations or fishing recommendations.</p>"
-        "</section></main></body></html>\n"
+        "<p>Operational metrics describe pipeline behavior and retained forecast "
+        "evidence. They do not measure forecast accuracy or fishing outcomes.</p>"
+        "</section>"
+    )
+
+    return _page_html(
+        "SaltBytes pipeline operations",
+        "Ingestion health, source coverage, revision history, and provenance.",
+        (
+            ("overview", "Overview"),
+            ("revisions", "Forecast revisions"),
+            ("monitoring", "Monitoring"),
+            ("source-monitoring", "Source monitoring"),
+            ("sources", "Source status"),
+            ("provenance", "Provenance"),
+            ("limitations", "Limitations"),
+        ),
+        (
+            overview
+            + revision_section
+            + monitoring_section
+            + source_monitoring_section
+            + sources
+            + provenance_section
+            + limitations
+        ),
     )

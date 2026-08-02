@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import duckdb
 import pytest
 
 from saltbytes.database import initialize_database
-from saltbytes.report import render_report
+from saltbytes.report import render_conditions_report, render_operations_report
 
 
 def _config(database_path: Path) -> dict[str, object]:
@@ -164,33 +165,71 @@ def _insert_run_data(database_path: Path) -> None:
         )
 
 
-def test_render_report_uses_latest_attempted_run_and_preserves_failures(
+def test_render_conditions_report_uses_latest_attempted_run(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     _insert_run_data(database_path)
 
-    report = render_report(_config(database_path), hours=1)
+    report = render_conditions_report(_config(database_path), hours=1)
 
     assert "Run: latest-run" in report
     assert "Status: failed" in report
-    assert "Forecast window: 2026-07-30 09:00 EDT through 2026-07-30 09:00 EDT" in report
-    assert "weather: success" in report
-    assert "wave: fetch_failed (provider unavailable)" in report
-    assert "sst: validation_failed (returned coordinate)" in report
-    assert "2026-07-30 09:00 EDT | 4.5 | 135 | 6.0 | 20 | 1.5 | - | - | - | - | -" in report
+    assert (
+        "Forecast window: 2026-07-30 09:00 EDT through "
+        "2026-07-30 09:00 EDT"
+    ) in report
+    assert (
+        "2026-07-30 09:00 EDT | 4.5 | 135 | 6.0 | 20 | 1.5 | "
+        "- | - | - | - | -"
+    ) in report
     assert "Wind km/h | Dir deg | Gust km/h" in report
-    assert "Wind m/s" not in report
+    assert "Rows loaded:" not in report
+    assert "Sources:" not in report
+    assert "provider unavailable" not in report
     assert "old-run" not in report
 
 
-def test_render_report_supports_run_and_location_filters(tmp_path: Path) -> None:
+def test_render_operations_report_preserves_source_failures(
+    tmp_path: Path,
+) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
     _insert_run_data(database_path)
 
-    report = render_report(
+    report = render_operations_report(_config(database_path), hours=1)
+
+    assert "Run: latest-run" in report
+    assert "Status: failed" in report
+    assert "Rows loaded: 1" in report
+    assert (
+        "Forecast window: 2026-07-30 09:00 EDT through "
+        "2026-07-30 09:00 EDT"
+    ) in report
+    assert "weather: success" in report
+    assert "wave: fetch_failed (provider unavailable)" in report
+    assert "sst: validation_failed (returned coordinate)" in report
+    assert "Wind km/h | Dir deg | Gust km/h" not in report
+    assert "2026-07-30 09:00 EDT | 4.5" not in report
+
+
+@pytest.mark.parametrize(
+    "renderer",
+    (
+        render_conditions_report,
+        render_operations_report,
+    ),
+)
+def test_text_reports_support_run_and_location_filters(
+    tmp_path: Path,
+    renderer: Any,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    _insert_run_data(database_path)
+
+    report = renderer(
         _config(database_path),
         run_id="old-run",
         hours=2,
@@ -200,18 +239,27 @@ def test_render_report_supports_run_and_location_filters(tmp_path: Path) -> None
     assert "Run: old-run" in report
     assert "Jennette's Pier (pier)" in report
     assert "Fort Fisher" not in report
-    assert "2026-07-30 06:00 EDT | 1.0 | 90 | 2.0 | 10 | 0.0" in report
 
 
-def test_render_report_rejects_unknown_selection(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "renderer",
+    (
+        render_conditions_report,
+        render_operations_report,
+    ),
+)
+def test_text_reports_reject_unknown_selection(
+    tmp_path: Path,
+    renderer: Any,
+) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
     initialize_database(database_path)
 
     with pytest.raises(ValueError, match="unknown location"):
-        render_report(_config(database_path), location_id="unknown")
+        renderer(_config(database_path), location_id="unknown")
 
     with pytest.raises(ValueError, match="hours must be greater than zero"):
-        render_report(_config(database_path), hours=0)
+        renderer(_config(database_path), hours=0)
 
     with pytest.raises(ValueError, match="no pipeline run found"):
-        render_report(_config(database_path), run_id="missing")
+        renderer(_config(database_path), run_id="missing")

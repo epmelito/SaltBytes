@@ -4,8 +4,11 @@ from pathlib import Path
 from saltbytes.config import load_config
 from saltbytes.logging import configure_logging
 from saltbytes.pipeline import run_pipeline
-from saltbytes.report import render_report
-from saltbytes.reporting.html import render_html_report
+from saltbytes.report import render_conditions_report, render_operations_report
+from saltbytes.reporting.html import (
+    render_conditions_html_report,
+    render_operations_html_report,
+)
 from saltbytes.reporting.schema import ReportSchemaError
 
 
@@ -13,6 +16,10 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
     report_parser = subparsers.add_parser("report")
+    report_parser.add_argument(
+        "report_type",
+        choices=("conditions", "operations"),
+    )
     report_parser.add_argument("--run-id")
     report_parser.add_argument("--hours", type=int, default=24)
     report_parser.add_argument("--location")
@@ -39,7 +46,12 @@ def main(argv: list[str] | None = None) -> None:
         if arguments.format == "text":
             if arguments.output is not None:
                 raise ValueError("--output is only supported with --format html")
-            print(render_report(**report_arguments))
+            renderer = (
+                render_conditions_report
+                if arguments.report_type == "conditions"
+                else render_operations_report
+            )
+            print(renderer(**report_arguments))
             return
 
         if arguments.output is None:
@@ -51,10 +63,13 @@ def main(argv: list[str] | None = None) -> None:
         if output_path.is_dir():
             raise ValueError(f"output path must be a file: {output_path}")
 
+        renderer = (
+            render_conditions_html_report
+            if arguments.report_type == "conditions"
+            else render_operations_html_report
+        )
         try:
-            report = render_html_report(
-                **report_arguments
-            )
+            report = renderer(**report_arguments)
         except ReportSchemaError as exc:
             raise SystemExit(f"error: {exc}") from None
 
@@ -75,6 +90,9 @@ def main(argv: list[str] | None = None) -> None:
     print(f"status: {result['status']}")
     print(f"snapshots written: {result['snapshots_written']}")
     print(f"rows loaded: {result['rows_loaded']}")
+
+    if result["status"] != "success":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
