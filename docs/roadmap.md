@@ -2,16 +2,17 @@
 
 ## Current milestone
 
-SaltBytes has completed its local MVP.
+SaltBytes has completed hosted periodic ingestion, forecast history retention,
+the fishing-factor registry, the first research-backed attributes, and the
+static HTML portfolio report.
 
-The platform can ingest atmospheric, wave, sea-surface-temperature, and tide
-forecast data for five North Carolina coastal locations, preserve raw snapshots
-and provenance, store normalized data in DuckDB, expose integrated hourly
-conditions, and render a readable local report.
+After each successful scheduled or manual ingestion, the hosted workflow
+generates and publishes the latest successful report. The committed sample
+report remains a fixed reviewed snapshot.
 
-The next milestone is to operate the pipeline automatically, accumulate forecast
-history, and prepare the first research-backed data expansion and portfolio
-report.
+The current milestone is analysis-ready feature preparation. It should define
+deterministic derived features and missing-data rules without introducing
+scoring weights or unsupported fishing recommendations.
 
 ## 1. Run hosted periodic ingestion
 
@@ -125,25 +126,22 @@ scoping.
 - missing data remains distinguishable from bad conditions
 - each addition is documented and tested
 
-## 5. Build the first portfolio report
+## 5. Build and publish the first portfolio report
 
-Create a lightweight visual report that demonstrates the first major SaltBytes
-checkpoint.
+Status: Complete.
 
-The initial report should focus on:
+SaltBytes generates a self contained HTML report from stored DuckDB data. It
+presents current conditions, forecast trends, revisions, source completeness,
+pipeline history, provenance, freshness, and limitations.
 
-- current conditions by location
-- wind, wave, SST, and tide context
-- forecast revisions
-- source completeness
-- pipeline-run history
-- source failures and partial coverage
+After successful ingestion and canonical state publication, the hosted workflow
+generates `site/index.html`, uploads only the generated site, and deploys it
+through GitHub Pages. Failed ingestion or report publication leaves the
+previously published page available. The page follows the six hour ingestion
+cadence and is not real time.
 
-The report must clearly distinguish forecast snapshots from observations.
-
-Use the smallest format that communicates the platform effectively. Prefer a
-generated static report or lightweight prototype before adopting a dashboard
-framework.
+The committed `docs/sample-report/index.html` remains the fixed reviewed
+portfolio snapshot.
 
 Do not present fishing scores, catch predictions, or optimal fishing windows
 before the research and scoring work support those claims.
@@ -151,9 +149,10 @@ before the research and scoring work support those claims.
 ### Exit criteria
 
 - the report can be regenerated from stored SaltBytes data
-- it communicates the data-platform architecture, not only isolated charts
+- the public report uses the latest successful run for current conditions
+- monitoring and revisions use the retained hosted history
 - provenance, freshness, and limitations are visible
-- it is suitable for a first LinkedIn project post
+- failed ingestion or publication does not replace the previous page
 
 ## 6. Prepare the analysis-ready feature layer
 
@@ -182,13 +181,16 @@ Do not create scoring weights in this milestone.
 
 ## Immediate sequence
 
-Hosted periodic ingestion  
-→ complete fishing-factor registry  
-→ tidal-state completion  
-→ site-orientation metadata  
-→ wind and wave directional interactions  
-→ prototype portfolio report  
-→ analysis-ready feature preparation
+Completed:
 
-The attribute additions and report may overlap once enough snapshots have
-accumulated, but hosted ingestion should begin first.
+Hosted periodic ingestion
+→ fishing-factor registry
+→ tidal-state completion
+→ site-orientation metadata
+→ wind and wave directional interactions
+→ static portfolio report
+→ automated report publication
+
+Current:
+
+Analysis-ready feature preparation
