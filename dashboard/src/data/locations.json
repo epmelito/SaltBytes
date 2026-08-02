@@ -1,0 +1,27 @@
+[
+  {
+    "fishing_context": "pier",
+    "location_id": "jennettes_pier",
+    "name": "Jennette's Pier"
+  },
+  {
+    "fishing_context": "surf",
+    "location_id": "ocracoke_ramp_72",
+    "name": "Beach Access Ramp 72, Ocracoke Island"
+  },
+  {
+    "fishing_context": "surf",
+    "location_id": "fort_macon_ocean",
+    "name": "Fort Macon State Park, ocean side"
+  },
+  {
+    "fishing_context": "pier",
+    "location_id": "bogue_inlet_pier",
+    "name": "Bogue Inlet Pier"
+  },
+  {
+    "fishing_context": "surf",
+    "location_id": "fort_fisher",
+    "name": "Fort Fisher State Recreation Area"
+  }
+]
