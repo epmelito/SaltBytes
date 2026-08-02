@@ -2,10 +2,15 @@
 
 ## Goal
 
-Build the smallest safe MVP that works end to end.
+Deliver the current roadmap milestone using the smallest safe change.
 
 The active delivery sequence is owned by `docs/roadmap.md`. Do not expand scope
 unless explicitly approved.
+
+The active issue defines the work package scope. Applicable accepted decisions
+define durable constraints. Current code and tests establish implementation
+behavior. Do not let stale documentation, handoffs, or older prompts override
+them.
 
 ## Default context
 

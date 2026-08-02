@@ -25,7 +25,8 @@ When requirements are clear:
    requirement.
 4. Implement the change using existing project patterns unless evidence
    justifies changing them.
-5. Add or update focused tests and directly affected documentation.
+5. Add or update focused tests and documentation only when the changed behavior
+   or active issue requires them.
 6. Use focused checks while developing. Run repository-required broad checks
    once after the implementation stabilizes.
 7. Fix failures introduced by the change or required for issue conformance.
