@@ -19,7 +19,9 @@ const manifest = await FileAttachment("./data/manifest.json").json();
 const locations = await FileAttachment("./data/locations.json").json();
 const conditions = await FileAttachment("./data/conditions.json").json();
 const rows = conditions.map((row) => ({...row, forecastDate: asDate(row.forecast_time)}));
+```
 
+```js
 const locationId = view(Inputs.select(
   locations.map((location) => location.location_id),
   {
@@ -28,6 +30,9 @@ const locationId = view(Inputs.select(
     value: locations[0].location_id
   }
 ));
+```
+
+```js
 const locationRows = rows.filter((row) => row.location_id === locationId);
 const forecastTime = view(Inputs.select(
   locationRows.map((row) => row.forecast_time),
@@ -37,6 +42,9 @@ const forecastTime = view(Inputs.select(
     value: locationRows[0]?.forecast_time
   }
 ));
+```
+
+```js
 const selected = locationRows.find((row) => row.forecast_time === forecastTime);
 const windSeries = locationRows.flatMap((row) => [
   {forecastDate: row.forecastDate, metric: "Wind", value: row.wind_speed_10m},

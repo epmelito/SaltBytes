@@ -58,3 +58,7 @@ jobs:
       - name: build dashboard from fixture data
         working-directory: dashboard
         run: npm run build
+
+      - name: run dashboard runtime smoke check
+        working-directory: dashboard
+        run: npm run test:runtime

@@ -4,13 +4,17 @@
   "type": "module",
   "scripts": {
     "build": "observable build",
-    "dev": "observable preview"
+    "dev": "observable preview",
+    "test:runtime": "node scripts/runtime-smoke.mjs"
   },
   "dependencies": {
     "@observablehq/framework": "1.13.4",
     "@observablehq/inputs": "0.12.0",
     "@observablehq/plot": "0.6.17",
     "htl": "1.0.0"
+  },
+  "devDependencies": {
+    "playwright-core": "1.55.1"
   },
   "engines": {
     "node": ">=18"
