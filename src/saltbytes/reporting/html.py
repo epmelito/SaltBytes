@@ -6,11 +6,11 @@ from zoneinfo import ZoneInfo
 
 import duckdb
 
-from saltbytes.html_monitoring import render_monitoring_section
-from saltbytes.html_provenance import render_provenance_section
-from saltbytes.html_revisions import render_revision_section
-from saltbytes.html_source_monitoring import render_source_monitoring_section
 from saltbytes.report import _select_run
+from saltbytes.reporting.monitoring import render_monitoring_section
+from saltbytes.reporting.provenance import render_provenance_section
+from saltbytes.reporting.revisions import render_revision_section
+from saltbytes.reporting.source_monitoring import render_source_monitoring_section
 
 _SOURCES = ("weather", "wave", "sst", "tide")
 

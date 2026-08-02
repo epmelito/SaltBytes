@@ -7,7 +7,7 @@ import duckdb
 import pytest
 
 from saltbytes.database import initialize_database
-from saltbytes.html_report import _line_chart_html, render_html_report
+from saltbytes.reporting.html import _line_chart_html, render_html_report
 
 
 def _config(database_path: Path) -> dict[str, Any]:

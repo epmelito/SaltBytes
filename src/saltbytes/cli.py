@@ -2,10 +2,10 @@ import argparse
 from pathlib import Path
 
 from saltbytes.config import load_config
-from saltbytes.html_report import render_html_report
 from saltbytes.logging import configure_logging
 from saltbytes.pipeline import run_pipeline
 from saltbytes.report import render_report
+from saltbytes.reporting.html import render_html_report
 
 
 def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:

@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import duckdb
 
 from saltbytes.database import initialize_database
-from saltbytes.html_monitoring import render_monitoring_section
+from saltbytes.reporting.monitoring import render_monitoring_section
 
 
 def test_monitoring_uses_recent_twenty_runs_and_preserves_status(tmp_path: Path) -> None:

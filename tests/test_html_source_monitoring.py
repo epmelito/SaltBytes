@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 import duckdb
 
 from saltbytes.database import initialize_database
-from saltbytes.html_source_monitoring import render_source_monitoring_section
+from saltbytes.reporting.source_monitoring import render_source_monitoring_section
 
 
 def test_source_monitoring_reports_rates_failures_and_missing_coverage(
