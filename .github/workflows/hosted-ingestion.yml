@@ -1,13 +1,9 @@
-name: hosted ingestion
+name: hosted ingestion and report publication
 
 on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
-
-permissions:
-  contents: read
-  id-token: write
 
 concurrency:
   group: saltbytes-hosted-ingestion
@@ -16,6 +12,9 @@ concurrency:
 jobs:
   ingest:
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -44,3 +43,30 @@ jobs:
 
       - name: restore, ingest, and publish state
         run: bash scripts/hosted_ingestion.sh
+
+      - name: generate published report
+        run: |
+          mkdir -p site
+          saltbytes report --format html --output site/index.html
+
+      - name: upload published report
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: ingest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: deploy published report
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
