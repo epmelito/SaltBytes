@@ -161,12 +161,6 @@ async function run() {
     await openPage(page, `${base}/forecast-revisions`, errors);
     await page.waitForFunction(() => document.querySelectorAll("select").length === 3);
     const detailValues = page.locator(".detail-card .detail-value");
-    const revisionLocation = await detailValues.nth(0).innerText();
-    await selectOption(page, 0, 1, "Forecast revisions location control");
-    await page.waitForFunction(
-      (before) => document.querySelector(".detail-card .detail-value")?.innerText !== before,
-      revisionLocation
-    );
     const revisionTime = await detailValues.nth(1).innerText();
     await page.waitForFunction(() => document.querySelectorAll("select")[1]?.options.length > 1);
     const validOptions = await page.locator("select").nth(1).locator("option").count();
@@ -174,6 +168,12 @@ async function run() {
     await page.waitForFunction(
       (before) => document.querySelectorAll(".detail-card .detail-value")[1]?.innerText !== before,
       revisionTime
+    );
+    const revisionLocation = await detailValues.nth(0).innerText();
+    await selectOption(page, 0, 1, "Forecast revisions location control");
+    await page.waitForFunction(
+      (before) => document.querySelector(".detail-card .detail-value")?.innerText !== before,
+      revisionLocation
     );
     const tableHeader = await page.locator("table thead").innerText();
     await selectOption(page, 2, 1, "Forecast revisions metric control");
