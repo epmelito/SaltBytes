@@ -1,210 +1,170 @@
 # Roadmap
 
-## Current milestone
+## Current position
 
-SaltBytes has completed hosted periodic ingestion, forecast history retention,
-the fishing-factor registry, the first research-backed attributes, the static
-HTML portfolio report site, and automated GitHub Pages publication. The committed
-sample site remains a fixed reviewed snapshot.
+SaltBytes has completed:
 
-Analysis-ready feature preparation is current. It should define deterministic
-derived features and missing-data rules without introducing scoring weights or
-unsupported fishing recommendations.
+- hosted six hour ingestion with durable Azure state
+- forecast history and revision retention
+- the species agnostic fishing factor registry
+- the first research backed coastal attributes
+- static and interactive public reporting
+- the first analysis ready feature layer
 
-The interactive Observable dashboard is complete and hosted. `/dashboard/`,
-`/conditions/`, and `/operations/` are published using curated static data.
-The dashboard has passed browser runtime and live hosted verification.
+The next objective is to complete solar and ambient light context, then define
+the first target species scope.
 
-## 1. Run hosted periodic ingestion
+SaltBytes does not yet provide species opportunity assessments, ranked fishing
+windows, or catch probability.
 
-Run SaltBytes automatically without relying on a personal laptop.
+## 1. Add solar and ambient light context
 
-Initial implementation:
+### Objective
 
-- schedule ingestion every six hours with GitHub Actions
-- support manual workflow execution
-- prevent overlapping ingestion runs
-- use Azure Blob Storage for durable DuckDB and raw-snapshot state
-- download current state before execution
-- upload updated state after execution
-- keep secrets outside the repository
-- preserve failed and partial runs for inspection
+Add the remaining low effort contextual inputs needed before target species
+rules are defined.
 
-Do not add Container Apps, Functions, virtual machines, alerting systems,
-complex retries, or enterprise orchestration in this milestone.
+### Scope
 
-### Exit criteria
+- persist immutable display latitude
+- persist immutable display longitude
+- persist immutable display timezone
+- derive sunrise and sunset
+- derive civil dawn and civil dusk
+- derive hourly solar state
+- derive time relative to sunrise and sunset
+- ingest hourly cloud cover
+- preserve source and calculation provenance
 
-- scheduled and manual workflow runs both work
-- state survives between hosted runners
-- overlapping writers are prevented
-- source failures remain visible
-- the workflow does not depend on a local machine
+### Boundaries
 
-## 2. Accumulate forecast history
-
-Build a useful archive of forecast snapshots and revisions through repeated
-hosted runs.
-
-The archive should support analysis of:
-
-- forecast vintages
-- revisions for the same valid time
-- source reliability
-- location coverage
-- run completeness
-- partial and failed ingestion over time
-
-This is forecast history, not historical observations.
+- do not assign universal positive or negative values to dawn, daylight, dusk,
+  or night
+- do not claim cloud cover directly measures underwater light
+- do not add moon phase, solunar indexes, or barometric pressure as universal
+  predictors
+- do not introduce scoring weights
+- do not add a new external provider unless repository discovery proves it is
+  necessary
 
 ### Exit criteria
 
-- multiple forecast vintages are retained
-- revisions can be compared by run, source, location, and forecast hour
-- historical runs remain queryable
-- storage growth is understood and manageable
+- location and timezone inputs are retained immutably
+- solar calculations are deterministic and reproducible
+- solar state is available at the existing hourly grain
+- cloud cover is validated and source attributable
+- missing solar or cloud inputs remain explicit
+- documentation and tests define the new semantics
 
-## 3. Complete the fishing-factor registry
+## 2. Select priority North Carolina shore species
 
-Consolidate species-agnostic coastal fishing research into:
+### Objective
 
-`docs/research/fishing-factor-registry.md`
+Choose a small, evidence based first set of target species.
 
-Classify each factor by:
+### Scope
 
-- expected fishing value
+Use recent multi year evidence where possible, including:
+
+- North Carolina shore mode recreational catch estimates
+- directed fishing effort where available
+- North Carolina recreational fishing reports
+- surf and pier occurrence
+- relevance across the five SaltBytes locations
+- applicability to surf, pier, or both
+- quality of species specific research
+- compatibility with existing or feasible SaltBytes inputs
+- regulatory complications affecting public presentation
+
+### Expected output
+
+Produce a concise selection reference that:
+
+- identifies approximately five to eight initial species
+- explains why each species was selected
+- identifies surf, pier, or mixed applicability
+- records excluded candidates and reasons
+- distinguishes fishing popularity from management importance
+- identifies one pilot species
+
+### Boundaries
+
+- do not select species from generic popularity articles alone
+- do not mix shore fishing with offshore or private boat catch without
+  qualification
+- do not treat harvest regulations as evidence of environmental opportunity
+- do not define implementation rules in this work package
+
+### Exit criteria
+
+- the selection method is documented
+- selected species are relevant to North Carolina shore fishing
+- location and fishing context applicability is explicit
+- one pilot species is justified
+- major evidence gaps remain visible
+
+## 3. Build the species opportunity research registry
+
+### Objective
+
+Define the evidence supported factors and interpretations for the selected
+species.
+
+### Scope
+
+For each selected species, document:
+
+- seasonal availability
+- North Carolina geographic applicability
+- surf, pier, inlet, sound, or structure relevance
+- SST relationships
+- solar and diel behavior
+- tide and water movement relationships
+- habitat associations
+- migration and spawning timing
+- salinity, turbidity, or freshwater influence where relevant
 - evidence strength
-- species dependence
-- public data availability
-- source stability
-- spatial and temporal resolution
-- implementation effort
-- scoring suitability
+- transferability limitations
+- supported and unsupported interpretations
 - current SaltBytes coverage
+- missing high value inputs
 
-The registry should identify the strongest 2 to 3 near-term attribute additions.
+### Required distinctions
 
-Do not define scoring weights or unsupported thresholds.
+Keep separate:
 
-### Exit criteria
+- biological availability
+- environmental alignment
+- practical fishability
+- evidence confidence
+- safety information
+- regulations and harvest opportunity
 
-- researched factors are classified consistently
-- biological effects remain separate from fishability and safety
-- public data feasibility is documented
-- near-term candidates are justified
-- deferred and species-specific factors remain recorded for later use
+### Boundaries
 
-## 4. Add the first research-backed attributes
-
-Add only the highest-value feasible attributes selected from the factor registry.
-
-Use small, bounded implementation packages.
-
-Each attribute addition must:
-
-- have a clear analytical purpose
-- use an appropriate public source
-- preserve raw evidence and provenance
-- include quality validation
-- maintain source-level failure isolation
-- integrate at the correct grain
-- avoid unnecessary refactoring
-
-The current leading candidates are:
-
-- predicted water level, time to tide extrema, and predicted tidal range
-- reviewed shoreline-orientation metadata
-- wind-to-shore and wave-to-shore relationships derived from existing
-  direction fields
-
-These candidates remain subject to final registry review and implementation
-scoping.
+- do not create catch probability
+- do not invent precise thresholds from broad qualitative evidence
+- do not convert angler folklore into deterministic rules
+- do not double count SST, photoperiod, migration, and seasonal timing
+- do not require every species to use every factor
+- preserve contradictory findings
 
 ### Exit criteria
 
-- selected attributes are ingested and stored reliably
-- integrated conditions expose the new values where appropriate
-- missing data remains distinguishable from bad conditions
-- each addition is documented and tested
-
-## 5. Build and publish the first portfolio report
-
-Status: Complete.
-
-SaltBytes generates separate self contained HTML reports from stored DuckDB
-data. The coastal conditions report presents current conditions and forecast
-trends. The pipeline operations report presents revisions, source completeness,
-pipeline history, provenance, freshness, and limitations.
-
-After successful ingestion and canonical state publication, the hosted workflow
-generates a landing page plus `site/conditions/index.html` and
-`site/operations/index.html`, uploads only the generated site, and deploys it
-through GitHub Pages. Failed ingestion or report publication leaves the
-previously published site available. The site follows the six hour ingestion
-cadence and is not real time. This publication path has been verified from
-`main`.
-
-The committed `docs/sample-report/` site remains the fixed reviewed portfolio
-snapshot.
-
-Do not present fishing scores, catch predictions, or optimal fishing windows
-before the research and scoring work support those claims.
-
-### Exit criteria
-
-- both reports can be regenerated from stored SaltBytes data
-- the public conditions report uses the latest successful run
-- the operations report uses retained hosted history and provenance
-- freshness and limitations are visible in both report contexts
-- failed ingestion or publication does not replace the previous site
-
-## 6. Prepare the analysis-ready feature layer
-
-After hosted ingestion, research consolidation, and initial attribute expansion,
-define the derived features needed for later deterministic scoring.
-
-The integrated hourly view already exposes tide-relative timing and range plus
-site-relative wind and wave angles. Preserve those implemented fields rather
-than redefining them as future work.
-
-The first implementation-ready feature set is:
-
-- recent precipitation accumulation with explicit trailing-window and
-  incomplete-window semantics
-- source completeness or availability indicators
-- technical eligibility for later deterministic calculations
-
-Solar timing or daylight category remains deferred until immutable location
-coordinate and timezone provenance is retained for each run location.
-
-The milestone continues to require:
-
-- separation of biological conditions, fishability, and safety
-
-Do not create scoring weights in this milestone.
-
-### Exit criteria
-
-- feature definitions are documented
-- derived features are deterministic and reproducible
-- missing-data rules are explicit
-- the hourly grain remains suitable for later scoring
-- scoring readiness can be evaluated honestly
+- every selected species has an evidence profile
+- shared common metrics are identified
+- species specific metrics remain explicit
+- unsupported rules are excluded
+- the pilot species has an implementation ready contract
+- remaining research gaps are documented
 
 ## Immediate sequence
 
-Completed:
+```text
+Solar and ambient light context
+→ priority North Carolina shore species selection
+→ species opportunity research registry
+```
 
-Hosted periodic ingestion
-→ fishing-factor registry
-→ tidal-state completion
-→ site-orientation metadata
-→ wind and wave directional interactions
-→ static portfolio report site
-→ automated report publication verification
-
-→ interactive Observable dashboard
-
-Current:
-
-Analysis-ready feature preparation
+After these milestones, replace this roadmap group with the next bounded set
+based on the approved pilot species and implementation contract.
