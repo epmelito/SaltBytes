@@ -16,8 +16,16 @@ WEATHER_API = {
         "wind_gusts_10m",
         "precipitation_probability",
         "precipitation",
+        "cloud_cover",
     ),
 }
+WEATHER_REQUIRED_HOURLY_FIELDS = (
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+    "precipitation_probability",
+    "precipitation",
+)
 WAVE_API = {
     "base_url": "https://marine-api.open-meteo.com/v1/marine",
     "model": "meteofrance_wave",

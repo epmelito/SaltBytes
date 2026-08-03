@@ -21,6 +21,12 @@ alignment, review method, source, date, and stated limitation that were active
 when the run began. Historical forecasts therefore remain tied to the
 orientation used for that run even if the configuration changes later.
 
+### `run_location_solar_context`
+
+One immutable display-coordinate, IANA-timezone, and Astral calculation
+provenance record per new run location. Legacy runs have no record and are not
+backfilled from current configuration.
+
 ### `forecast_snapshots`
 
 Accepted atmospheric, wave, and sea-surface-temperature source responses.
@@ -47,6 +53,10 @@ rows, but do not prevent independent source attempts from continuing.
 - `wave_hourly` stores wave forecast values
 - `sst_hourly` stores sea-surface-temperature values
 - `tide_phase_hourly` stores deterministic hourly tide phase
+- `cloud_cover_hourly` stores optional source-attributable cloud-cover percent
+- `solar_context_hourly` stores deterministic morning-twilight start and
+  evening-twilight end at the civil-twilight boundary (sun six degrees below
+  the horizon), sunrise, sunset, solar state, and signed relative solar minutes
 
 Rows use stable location identity and UTC forecast time.
 
@@ -118,6 +128,20 @@ Failure detail remains in `source_results`; it is not repeated in the hourly
 view. Missing normalized values and unavailable bracketing tide context remain
 null. The views do not interpolate, carry values forward, round, tolerate, or
 generate timestamps.
+
+Cloud cover is optional weather context. Missing, null, invalid, or incomplete
+cloud values remain null and do not change weather availability or technical
+eligibility. Solar values remain null for legacy or unavailable display context.
+
+Solar events use the forecast hour's local calendar date in the persisted IANA
+timezone. `minutes_from_sunrise` and `minutes_from_sunset` are signed elapsed
+minutes between UTC-normalized instants: negative is before the event, zero is
+during the event minute, and positive is after the event. `night` is before
+`morning_twilight_start` and at or after `evening_twilight_end`;
+`morning_twilight` runs from `morning_twilight_start` until sunrise; `daylight`
+runs from sunrise until sunset; and `evening_twilight` runs from sunset until
+`evening_twilight_end`. The twilight boundaries use civil twilight, when the
+sun is six degrees below the horizon.
 
 Site relative angles subtract the persisted seaward shore normal from the
 incoming compass direction and normalize the result to `[-180, 180)`. Zero is

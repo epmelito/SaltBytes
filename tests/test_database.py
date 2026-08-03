@@ -21,10 +21,13 @@ from saltbytes.database import (
 )
 
 EXPECTED_TABLES = {
+    "cloud_cover_hourly",
     "forecast_hourly",
     "forecast_snapshots",
     "pipeline_runs",
     "run_locations",
+    "run_location_solar_context",
+    "solar_context_hourly",
     "source_results",
     "sst_hourly",
     "tide_events",
@@ -421,6 +424,40 @@ def test_initialize_database_can_run_more_than_once(
         ).fetchone()
 
     assert table_count == (len(EXPECTED_TABLES),)
+
+
+def test_optional_cloud_cover_preserves_weather_rows_and_availability(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    metadata = snapshot_metadata(snapshot_id="cloud-weather")
+    insert_forecast_snapshot(database_path, metadata)
+    payload = atmospheric_payload()
+    payload["hourly"]["cloud_cover"] = [25.0, None, "invalid"]
+    payload["hourly"]["time"] = [
+        "2026-07-29T12:00",
+        "2026-07-29T13:00",
+        "2026-07-29T14:00",
+    ]
+    for field_name in (
+        "wind_speed_10m",
+        "wind_direction_10m",
+        "wind_gusts_10m",
+        "precipitation_probability",
+        "precipitation",
+    ):
+        payload["hourly"][field_name] = payload["hourly"][field_name] * 3
+
+    assert insert_forecast_hourly(database_path, "cloud-weather", "jennettes_pier", payload) == 3
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        cloud_rows = connection.execute(
+            "select cloud_cover from cloud_cover_hourly order by forecast_time"
+        ).fetchall()
+
+    assert cloud_rows == [(25.0,), (None,), (None,)]
 
 
 def test_forecast_hourly_rejects_duplicate_business_key(
@@ -1867,19 +1904,32 @@ def test_initialize_database_upgrades_legacy_orientation_schema(
                 and table_type = 'BASE TABLE'
             """
         ).fetchone()
+        solar_table_count = connection.execute(
+            """
+            select count(*)
+            from information_schema.tables
+            where table_schema = 'main'
+                and table_name = 'run_location_solar_context'
+                and table_type = 'BASE TABLE'
+            """
+        ).fetchone()
         row = connection.execute(
             """
             select
                 run_id,
                 wind_direction_10m,
                 shore_normal_azimuth_degrees,
-                wind_to_shore_angle_degrees
+                wind_to_shore_angle_degrees,
+                morning_twilight_start,
+                evening_twilight_end,
+                solar_state
             from coastal_conditions_hourly
             """
         ).fetchone()
 
     assert run_location_table_count == (1,)
-    assert row == ("legacy-run", 75.0, None, None)
+    assert solar_table_count == (1,)
+    assert row == ("legacy-run", 75.0, None, None, None, None, None)
 
 
 def test_analysis_ready_features_require_complete_windows_and_hourly_values(
@@ -1933,6 +1983,12 @@ def test_analysis_ready_features_require_complete_windows_and_hourly_values(
             """,
             ["sst-features", "jennettes_pier", target_time],
         )
+        connection.execute(
+            """
+            insert into cloud_cover_hourly values (?, ?, ?, 50.0)
+            """,
+            ["weather-features", "jennettes_pier", target_time],
+        )
 
     insert_tide_events(
         database_path,
@@ -1981,6 +2037,7 @@ def test_analysis_ready_features_require_complete_windows_and_hourly_values(
                 sst_available,
                 tide_available,
                 tide_context_available,
+                cloud_cover_available,
                 technically_eligible
             from analysis_ready_features_hourly
             where forecast_time = ?
@@ -1988,7 +2045,7 @@ def test_analysis_ready_features_require_complete_windows_and_hourly_values(
             [target_time],
         ).fetchone()
 
-    assert row == (6.0, True, None, False, True, True, True, True, True, False)
+    assert row == (6.0, True, None, False, True, True, True, True, True, True, False)
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
         missing_hour_row = connection.execute(
@@ -2003,6 +2060,7 @@ def test_analysis_ready_features_require_complete_windows_and_hourly_values(
                 tide_status,
                 tide_available,
                 tide_context_available,
+                cloud_cover_available,
                 technically_eligible
             from analysis_ready_features_hourly
             where forecast_time = ?
@@ -2021,4 +2079,17 @@ def test_analysis_ready_features_require_complete_windows_and_hourly_values(
         False,
         False,
         False,
+        False,
     )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        cloud_column_count = connection.execute(
+            """
+            select count(*)
+            from information_schema.columns
+            where table_name = 'analysis_ready_features_hourly'
+                and column_name = 'cloud_cover_available'
+            """
+        ).fetchone()
+
+    assert cloud_column_count == (1,)
