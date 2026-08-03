@@ -1,10 +1,13 @@
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 
-_OPEN_METEO_RETRY_BACKOFF_SECONDS = 0.25
+_OPEN_METEO_RETRY_BACKOFF_SECONDS = (1.0, 2.0)
+
+logger = logging.getLogger(__name__)
 
 WEATHER_API = {
     "base_url": "https://api.open-meteo.com/v1/forecast",
@@ -54,14 +57,19 @@ def _get_open_meteo_response(
     client: httpx.Client,
     url: str,
     params: dict[str, Any],
-) -> httpx.Response:
-    for attempt in range(2):
+) -> tuple[httpx.Response, int, str | None]:
+    previous_error: str | None = None
+
+    for attempt in range(3):
         try:
-            return client.get(url, params=params)
-        except (httpx.ConnectTimeout, httpx.ReadTimeout):
-            if attempt == 1:
+            response = client.get(url, params=params)
+        except (httpx.ConnectTimeout, httpx.ReadTimeout) as error:
+            if attempt == 2:
                 raise
-            time.sleep(_OPEN_METEO_RETRY_BACKOFF_SECONDS)
+            previous_error = type(error).__name__
+            time.sleep(_OPEN_METEO_RETRY_BACKOFF_SECONDS[attempt])
+        else:
+            return response, attempt + 1, previous_error
 
     raise AssertionError("Open-Meteo request retry loop ended unexpectedly")
 
@@ -71,18 +79,33 @@ def _fetch_open_meteo_payload(
     params: dict[str, Any],
     timeout_seconds: float,
     client: httpx.Client | None,
+    source: str,
+    location_id: str,
 ) -> Any:
     if client is None:
         with httpx.Client(timeout=timeout_seconds) as request_client:
-            response = _get_open_meteo_response(
+            response, attempts, previous_error = _get_open_meteo_response(
                 request_client,
                 url,
                 params,
             )
     else:
-        response = _get_open_meteo_response(client, url, params)
+        response, attempts, previous_error = _get_open_meteo_response(
+            client,
+            url,
+            params,
+        )
 
     response.raise_for_status()
+    if previous_error is not None:
+        logger.info(
+            "open meteo request recovered source=%s location=%s "
+            "attempts=%s previous_error=%s",
+            source,
+            location_id,
+            attempts,
+            previous_error,
+        )
     return response.json()
 
 # build the open meteo request parameters for one location
@@ -116,6 +139,8 @@ def fetch_forecast(
         params,
         timeout_seconds,
         client,
+        "weather",
+        location["id"],
     )
 
     if not isinstance(payload, dict):
@@ -155,6 +180,8 @@ def fetch_wave_forecast(
         params,
         timeout_seconds,
         client,
+        "wave",
+        location["id"],
     )
 
     if not isinstance(payload, dict):
@@ -196,6 +223,8 @@ def fetch_sst_forecast(
         params,
         timeout_seconds,
         client,
+        "sst",
+        location["id"],
     )
 
     if not isinstance(payload, dict):
