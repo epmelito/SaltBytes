@@ -126,7 +126,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: Any | None = None,
     ) -> dict[str, Any]:
         value_offset = float(
@@ -144,7 +143,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
-        wave_api_config: dict[str, Any],
         client: Any | None = None,
     ) -> dict[str, Any]:
         value_offset = float(
@@ -162,7 +160,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
 
     def fake_fetch_sst_forecast(
         location: dict[str, Any],
-        sst_api_config: dict[str, Any],
         client: Any | None = None,
     ) -> dict[str, Any]:
         value_offset = float(
@@ -192,7 +189,6 @@ def test_run_pipeline_ingests_all_five_coastal_locations(
     )
 
     def fake_fetch_tide_predictions(
-        tide_api_config: dict[str, Any],
         params: dict[str, Any],
     ) -> dict[str, Any]:
         location = next(

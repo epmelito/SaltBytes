@@ -302,7 +302,6 @@ def tide_payload(params: dict[str, Any]) -> dict[str, Any]:
 def stub_later_source_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_fetch_sst_forecast(
         location: dict[str, Any],
-        sst_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return sst_payload(location)
@@ -313,7 +312,6 @@ def stub_later_source_fetches(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     def fake_fetch_tide_predictions(
-        tide_api_config: dict[str, Any],
         params: dict[str, Any],
     ) -> dict[str, Any]:
         return tide_payload(params)
@@ -346,7 +344,6 @@ def test_pipeline_reuses_and_closes_open_meteo_client(
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         request_clients.append(client)
@@ -354,7 +351,6 @@ def test_pipeline_reuses_and_closes_open_meteo_client(
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
-        wave_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         request_clients.append(client)
@@ -362,7 +358,6 @@ def test_pipeline_reuses_and_closes_open_meteo_client(
 
     def fake_fetch_sst_forecast(
         location: dict[str, Any],
-        sst_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         request_clients.append(client)
@@ -422,7 +417,6 @@ def test_source_quality_failures_are_independent_and_collected(
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_weather_locations.append(location["id"])
@@ -435,7 +429,6 @@ def test_source_quality_failures_are_independent_and_collected(
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
-        wave_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_wave_locations.append(location["id"])
@@ -448,7 +441,6 @@ def test_source_quality_failures_are_independent_and_collected(
 
     def fake_fetch_sst_forecast(
         location: dict[str, Any],
-        sst_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_sst_locations.append(location["id"])
@@ -580,15 +572,14 @@ def test_rejected_tide_payload_does_not_block_later_location(
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
-        lambda location, api_config, client: atmospheric_payload(location),
+        lambda location, client: atmospheric_payload(location),
     )
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_wave_forecast",
-        lambda location, wave_api_config, client: wave_payload(location),
+        lambda location, client: wave_payload(location),
     )
 
     def fetch_tide_with_first_result_invalid(
-        tide_api_config: dict[str, Any],
         params: dict[str, Any],
     ) -> dict[str, Any]:
         fetched_tide_stations.append(params["station"])
@@ -666,7 +657,6 @@ def test_weather_api_failure_is_isolated_and_recorded(
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_locations.append(location["id"])
@@ -678,7 +668,7 @@ def test_weather_api_failure_is_isolated_and_recorded(
     )
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_wave_forecast",
-        lambda location, wave_api_config, client: wave_payload(location),
+        lambda location, client: wave_payload(location),
     )
 
     with pytest.raises(ValueError) as error:
@@ -726,14 +716,12 @@ def test_wave_api_failure_is_isolated_and_recorded(
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
     def fail_fetch_wave_forecast(
         location: dict[str, Any],
-        wave_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_wave_locations.append(location["id"])
@@ -778,54 +766,6 @@ def test_wave_api_failure_is_isolated_and_recorded(
     ]
 
 
-def test_source_result_persistence_failure_aborts_immediately(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = pipeline_config(tmp_path)
-    fetched_locations: list[str] = []
-
-    def fake_fetch_forecast(
-        location: dict[str, Any],
-        api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        fetched_locations.append(location["id"])
-        return atmospheric_payload(location)
-
-    def fail_source_persistence(**kwargs: Any) -> int:
-        raise RuntimeError("source result database unavailable")
-
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_forecast",
-        fake_fetch_forecast,
-    )
-    monkeypatch.setattr(
-        "saltbytes.pipeline.persist_source_success",
-        fail_source_persistence,
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="source result database unavailable",
-    ):
-        run_pipeline(config)
-
-    database_path = Path(config["storage"]["database_path"])
-    with duckdb.connect(str(database_path), read_only=True) as connection:
-        run = connection.execute(
-            "select status, rows_loaded, error_message from pipeline_runs"
-        ).fetchone()
-
-    assert fetched_locations == ["jennettes_pier"]
-    assert run == (
-        "failed",
-        0,
-        "weather source persistence failed for jennettes_pier at "
-        "snapshot metadata: source result database unavailable",
-    )
-
-
 def test_raw_storage_failure_aborts_immediately(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -837,7 +777,6 @@ def test_raw_storage_failure_aborts_immediately(
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_locations.append(location["id"])
@@ -891,255 +830,6 @@ def test_raw_storage_failure_aborts_immediately(
     assert "pipeline failed" in caplog.text
 
 
-def test_snapshot_database_failure_aborts_immediately(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = pipeline_config(tmp_path)
-    fetched_locations: list[str] = []
-
-    def fake_fetch_forecast(
-        location: dict[str, Any],
-        api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        fetched_locations.append(location["id"])
-        return atmospheric_payload(location)
-
-    def fail_source_persistence(**kwargs: Any) -> int:
-        raise RuntimeError("database unavailable")
-
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_forecast",
-        fake_fetch_forecast,
-    )
-    monkeypatch.setattr(
-        "saltbytes.pipeline.persist_source_success",
-        fail_source_persistence,
-    )
-
-    with pytest.raises(RuntimeError, match="database unavailable"):
-        run_pipeline(config)
-
-    database_path = Path(config["storage"]["database_path"])
-
-    with duckdb.connect(str(database_path), read_only=True) as connection:
-        run = connection.execute(
-            """
-            select status, rows_loaded, error_message
-            from pipeline_runs
-            """
-        ).fetchone()
-
-    assert fetched_locations == ["jennettes_pier"]
-    assert run == (
-        "failed",
-        0,
-        "weather source persistence failed for jennettes_pier at "
-        "snapshot metadata: database unavailable",
-    )
-
-
-def test_atmospheric_normalized_failure_aborts_immediately(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = pipeline_config(tmp_path)
-    message = "atmospheric normalized storage unavailable"
-
-    def fake_fetch_forecast(
-        location: dict[str, Any],
-        api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        return atmospheric_payload(location)
-
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_forecast",
-        fake_fetch_forecast,
-    )
-    monkeypatch.setattr(
-        database,
-        "insert_forecast_hourly",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
-    )
-
-    with pytest.raises(RuntimeError, match="weather source persistence failed"):
-        run_pipeline(config)
-
-    database_path = Path(config["storage"]["database_path"])
-    with duckdb.connect(str(database_path), read_only=True) as connection:
-        run = connection.execute(
-            "select status, rows_loaded, error_message from pipeline_runs"
-        ).fetchone()
-        source_result = connection.execute(
-            """
-            select status, detail from source_results
-            where source = 'weather' and location_id = 'jennettes_pier'
-            """
-        ).fetchone()
-        persisted_rows = connection.execute(
-            """
-            select
-                (select count(*) from forecast_snapshots),
-                (select count(*) from forecast_hourly),
-                (select count(*) from source_results where status = 'success')
-            """
-        ).fetchone()
-
-    detail = f"normalized rows: {message}"
-    assert run == (
-        "failed",
-        0,
-        f"weather source persistence failed for jennettes_pier at {detail}",
-    )
-    assert source_result == ("persistence_failed", detail)
-    assert persisted_rows == (0, 0, 0)
-
-
-def _test_wave_raw_storage_failure_aborts_immediately(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = pipeline_config(tmp_path)
-    raw_write_count = 0
-
-    def fake_fetch_forecast(
-        location: dict[str, Any],
-        api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        return atmospheric_payload(location)
-
-    def fake_fetch_wave_forecast(
-        location: dict[str, Any],
-        wave_api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        return wave_payload(location)
-
-    from saltbytes.storage import write_raw_snapshot as real_write
-
-    def fail_second_raw_write(**kwargs: Any) -> dict[str, Any]:
-        nonlocal raw_write_count
-        raw_write_count += 1
-        if raw_write_count == 2:
-            raise OSError("wave raw storage unavailable")
-        return real_write(**kwargs)
-
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_forecast",
-        fake_fetch_forecast,
-    )
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_wave_forecast",
-        fake_fetch_wave_forecast,
-    )
-    monkeypatch.setattr(
-        "saltbytes.pipeline.write_raw_snapshot",
-        fail_second_raw_write,
-    )
-
-    with pytest.raises(OSError, match="wave raw storage unavailable"):
-        run_pipeline(config)
-
-
-def _test_wave_snapshot_database_failure_aborts_immediately(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = pipeline_config(tmp_path)
-
-    def fake_fetch_forecast(
-        location: dict[str, Any],
-        api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        return atmospheric_payload(location)
-
-    def fake_fetch_wave_forecast(
-        location: dict[str, Any],
-        wave_api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        return wave_payload(location)
-
-    from saltbytes.database import (
-        insert_forecast_snapshot as real_insert_snapshot,
-    )
-
-    def fail_wave_snapshot_insert(
-        database_path: Path | str,
-        metadata: dict[str, Any],
-    ) -> None:
-        if metadata["model_selector"] == "meteofrance_wave":
-            raise RuntimeError("wave snapshot database unavailable")
-        real_insert_snapshot(database_path, metadata)
-
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_forecast",
-        fake_fetch_forecast,
-    )
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_wave_forecast",
-        fake_fetch_wave_forecast,
-    )
-    monkeypatch.setattr(
-        "saltbytes.pipeline.insert_forecast_snapshot",
-        fail_wave_snapshot_insert,
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="wave snapshot database unavailable",
-    ):
-        run_pipeline(config)
-
-
-def test_wave_normalized_failure_aborts_immediately(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = pipeline_config(tmp_path)
-
-    def fake_fetch_forecast(
-        location: dict[str, Any],
-        api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        return atmospheric_payload(location)
-
-    def fake_fetch_wave_forecast(
-        location: dict[str, Any],
-        wave_api_config: dict[str, Any],
-        client: httpx.Client | None = None,
-    ) -> dict[str, Any]:
-        return wave_payload(location)
-
-    from saltbytes.database import persist_source_success as real_persist_source_success
-
-    def fail_wave_persistence(**kwargs: Any) -> int:
-        if kwargs["source"] == "wave":
-            raise RuntimeError("wave normalized storage unavailable")
-        return real_persist_source_success(**kwargs)
-
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_forecast",
-        fake_fetch_forecast,
-    )
-    monkeypatch.setattr(
-        "saltbytes.pipeline.fetch_wave_forecast",
-        fake_fetch_wave_forecast,
-    )
-    monkeypatch.setattr(
-        "saltbytes.pipeline.persist_source_success",
-        fail_wave_persistence,
-    )
-
-    with pytest.raises(RuntimeError, match="wave source persistence failed"):
-        run_pipeline(config)
-
-
 def test_sst_api_failure_is_isolated_and_recorded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1149,21 +839,18 @@ def test_sst_api_failure_is_isolated_and_recorded(
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
-        wave_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         return wave_payload(location)
 
     def fail_fetch_sst_forecast(
         location: dict[str, Any],
-        sst_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         fetched_sst_locations.append(location["id"])
@@ -1212,26 +899,74 @@ def test_sst_api_failure_is_isolated_and_recorded(
     ]
 
 
-def test_sst_normalized_failure_aborts_immediately(
+@pytest.mark.parametrize(
+    (
+        "source",
+        "database_helper",
+        "model_selector",
+        "normalized_table",
+        "completed_sources",
+    ),
+    [
+        (
+            "weather",
+            "insert_forecast_hourly",
+            "ncep_nbm_conus",
+            "forecast_hourly",
+            [],
+        ),
+        (
+            "wave",
+            "insert_wave_hourly",
+            "meteofrance_wave",
+            "wave_hourly",
+            ["weather"],
+        ),
+        (
+            "sst",
+            "insert_sst_hourly",
+            "meteofrance_currents",
+            "sst_hourly",
+            ["weather", "wave"],
+        ),
+    ],
+)
+def test_normalized_persistence_failure_rolls_back_source_attempt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    database_helper: str,
+    model_selector: str,
+    normalized_table: str,
+    completed_sources: list[str],
 ) -> None:
     config = pipeline_config(tmp_path)
-    message = "sst normalized storage unavailable"
+    fetched_sources: list[str] = []
+    message = f"{source} normalized storage unavailable"
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
+        fetched_sources.append(f"weather:{location['id']}")
         return atmospheric_payload(location)
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
-        wave_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
+        fetched_sources.append(f"wave:{location['id']}")
         return wave_payload(location)
+
+    def fake_fetch_sst_forecast(
+        location: dict[str, Any],
+        client: httpx.Client | None = None,
+    ) -> dict[str, Any]:
+        fetched_sources.append(f"sst:{location['id']}")
+        return sst_payload(location)
+
+    def fail_normalized_write(*args: Any, **kwargs: Any) -> int:
+        raise RuntimeError(message)
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
@@ -1241,33 +976,72 @@ def test_sst_normalized_failure_aborts_immediately(
         "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
-
-    from saltbytes.database import persist_source_success as real_persist_source_success
-
-    def fail_sst_persistence(**kwargs: Any) -> int:
-        if kwargs["source"] == "sst":
-            raise RuntimeError(message)
-        return real_persist_source_success(**kwargs)
-
     monkeypatch.setattr(
-        "saltbytes.pipeline.persist_source_success",
-        fail_sst_persistence,
+        "saltbytes.pipeline.fetch_sst_forecast",
+        fake_fetch_sst_forecast,
     )
+    monkeypatch.setattr(database, database_helper, fail_normalized_write)
 
-    with pytest.raises(RuntimeError, match="sst source persistence failed"):
+    with pytest.raises(RuntimeError, match=f"{source} source persistence failed"):
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
+    detail = f"normalized rows: {message}"
     with duckdb.connect(str(database_path), read_only=True) as connection:
         run = connection.execute(
-            "select status, rows_loaded, error_message from pipeline_runs"
+            "select status, error_message from pipeline_runs"
         ).fetchone()
+        source_result = connection.execute(
+            """
+            select status, detail
+            from source_results
+            where source = ? and location_id = 'jennettes_pier'
+            """,
+            [source],
+        ).fetchone()
+        failed_snapshot_count = connection.execute(
+            """
+            select count(*) from forecast_snapshots
+            where model_selector = ?
+            """,
+            [model_selector],
+        ).fetchone()[0]
+        failed_normalized_count = connection.execute(
+            f"""
+            select count(*) from {normalized_table}
+            where snapshot_id in (
+                select snapshot_id from forecast_snapshots
+                where model_selector = ?
+            )
+            """,
+            [model_selector],
+        ).fetchone()[0]
+        successful_failed_source_count = connection.execute(
+            """
+            select count(*) from source_results
+            where source = ? and status = 'success'
+            """,
+            [source],
+        ).fetchone()[0]
+        successful_sources = connection.execute(
+            """
+            select distinct source from source_results
+            where status = 'success'
+            order by source
+            """
+        ).fetchall()
+
     assert run == (
         "failed",
-        336,
-        "sst source persistence failed for jennettes_pier at "
-        f"snapshot metadata: {message}",
+        f"{source} source persistence failed for jennettes_pier at {detail}",
     )
+    assert source_result == ("persistence_failed", detail)
+    assert failed_snapshot_count == 0
+    assert failed_normalized_count == 0
+    assert successful_failed_source_count == 0
+    assert successful_sources == [(name,) for name in sorted(completed_sources)]
+    assert fetched_sources[-1] == f"{source}:jennettes_pier"
+    assert f"{source}:fort_fisher" not in fetched_sources
 
 
 def test_tide_api_failure_is_isolated_and_recorded(
@@ -1279,15 +1053,14 @@ def test_tide_api_failure_is_isolated_and_recorded(
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
-        lambda location, api_config, client: atmospheric_payload(location),
+        lambda location, client: atmospheric_payload(location),
     )
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_wave_forecast",
-        lambda location, wave_api_config, client: wave_payload(location),
+        lambda location, client: wave_payload(location),
     )
 
     def fail_fetch_tide_predictions(
-        tide_api_config: dict[str, Any],
         params: dict[str, Any],
     ) -> dict[str, Any]:
         fetched_tide_stations.append(params["station"])
@@ -1348,11 +1121,11 @@ def test_tide_persistence_failures_abort_immediately(
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
-        lambda location, api_config, client: atmospheric_payload(location),
+        lambda location, client: atmospheric_payload(location),
     )
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_wave_forecast",
-        lambda location, wave_api_config, client: wave_payload(location),
+        lambda location, client: wave_payload(location),
     )
 
     target = {
@@ -1419,27 +1192,23 @@ def test_pipeline_persists_run_locations_before_all_sources_fail(
 
     def fail_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         raise RuntimeError("weather unavailable")
 
     def fail_wave(
         location: dict[str, Any],
-        wave_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         raise RuntimeError("wave unavailable")
 
     def fail_sst(
         location: dict[str, Any],
-        sst_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         raise RuntimeError("sst unavailable")
 
     def fail_tide(
-        tide_api_config: dict[str, Any],
         params: dict[str, Any],
     ) -> dict[str, Any]:
         raise RuntimeError("tide unavailable")
@@ -1524,6 +1293,13 @@ def test_pipeline_persists_run_locations_before_all_sources_fail(
     [
         (
             "weather",
+            "wind_speed_10m",
+            float("nan"),
+            "forecast_hourly",
+            "weather:wind_speed_10m_values_are_finite",
+        ),
+        (
+            "weather",
             "wind_direction_10m",
             -1.0,
             "forecast_hourly",
@@ -1554,7 +1330,6 @@ def test_invalid_direction_fails_before_normalized_storage(
 
     def fake_fetch_forecast(
         location: dict[str, Any],
-        api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         payload = atmospheric_payload(location)
@@ -1564,7 +1339,6 @@ def test_invalid_direction_fails_before_normalized_storage(
 
     def fake_fetch_wave_forecast(
         location: dict[str, Any],
-        wave_api_config: dict[str, Any],
         client: httpx.Client | None = None,
     ) -> dict[str, Any]:
         payload = wave_payload(location)
@@ -1609,7 +1383,15 @@ def test_invalid_direction_fails_before_normalized_storage(
             where location_id = 'fort_fisher'
             """
         ).fetchone()
+        rejected_snapshot_count = connection.execute(
+            """
+            select count(*) from forecast_snapshots
+            where location_id = 'jennettes_pier' and model_selector = 'ncep_nbm_conus'
+            """
+        ).fetchone()
 
     assert source_result == ("validation_failed", expected_detail)
     assert rejected_location_count == (0,)
     assert accepted_location_count == (168,)
+    if source == "weather":
+        assert rejected_snapshot_count == (0,)

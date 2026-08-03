@@ -41,76 +41,6 @@ def _parse_coordinate(value: Any) -> float | None:
         return None
 
 
-def _sst_coordinate_is_usable(value: Any) -> bool:
-    if not isinstance(value, dict):
-        return False
-
-    latitude = value.get("latitude")
-    longitude = value.get("longitude")
-
-    return (
-        not isinstance(latitude, bool)
-        and isinstance(latitude, int | float)
-        and -90 <= latitude <= 90
-        and not isinstance(longitude, bool)
-        and isinstance(longitude, int | float)
-        and -180 <= longitude <= 180
-    )
-
-
-# validate location-specific SST prerequisites before fetching the source
-def run_sst_preflight_checks(
-    location: dict[str, Any],
-) -> list[dict[str, str | datetime]]:
-    checked_at = datetime.now(timezone.utc)
-    sst_config = location.get("sst")
-    relationship_present = isinstance(sst_config, dict)
-    relationship = sst_config if relationship_present else {}
-    request_coordinate = relationship.get("request_coordinate")
-    expected_returned_coordinate = relationship.get(
-        "expected_returned_coordinate"
-    )
-    coastal_regime = relationship.get("coastal_regime")
-    coastal_regime_present = (
-        isinstance(coastal_regime, str) and bool(coastal_regime.strip())
-    )
-
-    return [
-        _quality_result(
-            "sst",
-            "relationship_present",
-            relationship_present,
-            type(sst_config).__name__,
-            "dict",
-            checked_at,
-        ),
-        _quality_result(
-            "sst",
-            "request_coordinate_usable",
-            _sst_coordinate_is_usable(request_coordinate),
-            request_coordinate,
-            "numeric latitude and longitude in range",
-            checked_at,
-        ),
-        _quality_result(
-            "sst",
-            "expected_returned_coordinate_usable",
-            _sst_coordinate_is_usable(expected_returned_coordinate),
-            expected_returned_coordinate,
-            "numeric latitude and longitude in range",
-            checked_at,
-        ),
-        _quality_result(
-            "sst",
-            "coastal_regime_present",
-            coastal_regime_present,
-            coastal_regime,
-            "nonempty string",
-            checked_at,
-        ),
-    ]
-
-
 def _is_nonempty_string(value: Any) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
@@ -142,121 +72,6 @@ def build_tide_forecast_times(
         start + timedelta(hours=index)
         for index in range(forecast_days * 24)
     ]
-
-
-# validate location-specific tide prerequisites before fetching the source
-def run_tide_preflight_checks(
-    location: dict[str, Any],
-    tide_api_config: dict[str, Any],
-) -> list[dict[str, str | datetime]]:
-    checked_at = datetime.now(timezone.utc)
-    tide_config = location.get("tide")
-    relationship_present = isinstance(tide_config, dict)
-    relationship = tide_config if relationship_present else {}
-    relationship_type = relationship.get("relationship_type")
-    reference_station = relationship.get("reference_station")
-    subordinate_values = (
-        relationship.get("high_time_offset_minutes"),
-        relationship.get("low_time_offset_minutes"),
-        relationship.get("high_multiplier"),
-        relationship.get("low_multiplier"),
-    )
-    nullable_metadata_present = all(
-        field_name in relationship
-        for field_name in (
-            "reference_station",
-            "high_time_offset_minutes",
-            "low_time_offset_minutes",
-            "high_multiplier",
-            "low_multiplier",
-        )
-    )
-    subordinate_metadata_usable = nullable_metadata_present and (
-        (
-            reference_station is None
-            and all(value is None for value in subordinate_values)
-        )
-        or (
-            _is_nonempty_string(reference_station)
-            and all(
-                _is_finite_number(value)
-                for value in subordinate_values
-            )
-        )
-    )
-    required_metadata_present = all(
-        field_name in relationship
-        for field_name in (
-            "prediction_location",
-            "relationship_type",
-            "distance_km",
-            "coastal_relationship",
-            "known_limitation",
-        )
-    )
-    relationship_metadata_usable = (
-        required_metadata_present
-        and _is_nonempty_string(relationship.get("prediction_location"))
-        and relationship_type in {"direct", "transfer"}
-        and _is_finite_number(relationship.get("distance_km"))
-        and float(relationship["distance_km"]) >= 0
-        and _is_nonempty_string(
-            relationship.get("coastal_relationship")
-        )
-        and _is_nonempty_string(relationship.get("known_limitation"))
-        and subordinate_metadata_usable
-    )
-    results = [
-        _quality_result(
-            "tide",
-            "relationship_present",
-            relationship_present,
-            type(tide_config).__name__,
-            "dict",
-            checked_at,
-        ),
-        _quality_result(
-            "tide",
-            "station_id_present",
-            _is_nonempty_string(relationship.get("station_id")),
-            relationship.get("station_id"),
-            "nonempty string",
-            checked_at,
-        ),
-        _quality_result(
-            "tide",
-            "relationship_metadata_usable",
-            relationship_metadata_usable,
-            relationship,
-            "accepted direct or transfer relationship metadata",
-            checked_at,
-        ),
-    ]
-
-    for field_name, expected_value in EXPECTED_TIDE_REQUEST.items():
-        results.append(
-            _quality_result(
-                "tide",
-                f"configured_{field_name}",
-                tide_api_config.get(field_name) == expected_value,
-                tide_api_config.get(field_name),
-                expected_value,
-                checked_at,
-            )
-        )
-
-    results.append(
-        _quality_result(
-            "tide",
-            "configured_forecast_days",
-            tide_api_config.get("forecast_days") == 7,
-            tide_api_config.get("forecast_days"),
-            7,
-            checked_at,
-        )
-    )
-
-    return results
 
 
 def normalize_tide_events(
@@ -595,27 +410,15 @@ def run_tide_quality_checks(
 def run_payload_quality_checks(
     payload: dict[str, Any],
     expected_hourly_fields: list[str],
-    model_selector: str,
     expected_returned_coordinate: dict[str, Any],
-    expected_model_selector: str = "ncep_nbm_conus",
-    source_label: str = "weather",
+    source_label: str,
+    optional_hourly_fields: tuple[str, ...] = (),
 ) -> list[dict[str, str | datetime]]:
     if source_label not in VALID_SOURCE_LABELS:
         raise ValueError(f"unsupported quality source label: {source_label}")
 
     checked_at = datetime.now(timezone.utc)
     results: list[dict[str, str | datetime]] = []
-
-    results.append(
-        _quality_result(
-            source_label,
-            "configured_model_selector",
-            model_selector == expected_model_selector,
-            model_selector,
-            expected_model_selector,
-            checked_at,
-        )
-    )
 
     for coordinate_name in ("latitude", "longitude"):
         returned_coordinate = _parse_coordinate(payload.get(coordinate_name))
@@ -791,7 +594,15 @@ def run_payload_quality_checks(
         )
     )
 
-    for field_name in expected_hourly_fields:
+    field_names = list(expected_hourly_fields)
+    field_names.extend(
+        field_name
+        for field_name in optional_hourly_fields
+        if isinstance(hourly.get(field_name), list)
+        and len(hourly[field_name]) == EXPECTED_HOURLY_INSTANTS
+    )
+
+    for field_name in field_names:
         field_exists = field_name in hourly
         values = hourly.get(field_name)
         values_are_list = isinstance(values, list)
@@ -855,22 +666,22 @@ def run_payload_quality_checks(
             )
         )
 
-        if field_name in {"wind_direction_10m", "wave_direction"}:
-            values_are_finite = values_are_numeric and all(
-                math.isfinite(float(value))
-                for value in values
+        values_are_finite = values_are_numeric and all(
+            math.isfinite(float(value))
+            for value in values
+        )
+        results.append(
+            _quality_result(
+                source_label,
+                f"{field_name}_values_are_finite",
+                values_are_finite,
+                values_are_finite,
+                True,
+                checked_at,
             )
-            results.append(
-                _quality_result(
-                    source_label,
-                    f"{field_name}_values_are_finite",
-                    values_are_finite,
-                    values_are_finite,
-                    True,
-                    checked_at,
-                )
-            )
+        )
 
+        if field_name in {"wind_direction_10m", "wave_direction"}:
             values_are_in_range = values_are_finite and all(
                 0 <= float(value) <= 360
                 for value in values
@@ -879,6 +690,21 @@ def run_payload_quality_checks(
                 _quality_result(
                     source_label,
                     f"{field_name}_values_are_in_range",
+                    values_are_in_range,
+                    values_are_in_range,
+                    True,
+                    checked_at,
+                )
+            )
+        elif field_name == "cloud_cover":
+            values_are_in_range = values_are_finite and all(
+                0 <= float(value) <= 100
+                for value in values
+            )
+            results.append(
+                _quality_result(
+                    source_label,
+                    "cloud_cover_values_are_in_range",
                     values_are_in_range,
                     values_are_in_range,
                     True,
