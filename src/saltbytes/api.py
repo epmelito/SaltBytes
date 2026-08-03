@@ -111,7 +111,6 @@ def _fetch_open_meteo_payload(
 # build the open meteo request parameters for one location
 def build_forecast_params(
     location: dict[str, Any],
-    api_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     request_coordinate = location["weather"]["request_coordinate"]
 
@@ -128,7 +127,6 @@ def build_forecast_params(
 # fetch forecast data for one configured location
 def fetch_forecast(
     location: dict[str, Any],
-    api_config: dict[str, Any] | None = None,
     timeout_seconds: float = 10.0,
     client: httpx.Client | None = None,
 ) -> dict[str, Any]:
@@ -152,7 +150,6 @@ def fetch_forecast(
 # build the open meteo marine request parameters for one location
 def build_wave_params(
     location: dict[str, Any],
-    wave_api_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     request_coordinate = location["wave"]["request_coordinate"]
 
@@ -169,7 +166,6 @@ def build_wave_params(
 # fetch wave data for one configured location
 def fetch_wave_forecast(
     location: dict[str, Any],
-    wave_api_config: dict[str, Any] | None = None,
     timeout_seconds: float = 10.0,
     client: httpx.Client | None = None,
 ) -> dict[str, Any]:
@@ -195,7 +191,6 @@ def fetch_wave_forecast(
 # build the open meteo marine SST request parameters for one location
 def build_sst_params(
     location: dict[str, Any],
-    sst_api_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     request_coordinate = location["sst"]["request_coordinate"]
 
@@ -212,7 +207,6 @@ def build_sst_params(
 # fetch sea surface temperature data for one configured location
 def fetch_sst_forecast(
     location: dict[str, Any],
-    sst_api_config: dict[str, Any] | None = None,
     timeout_seconds: float = 10.0,
     client: httpx.Client | None = None,
 ) -> dict[str, Any]:
@@ -238,11 +232,8 @@ def fetch_sst_forecast(
 # build the accepted NOAA high and low prediction request
 def build_tide_params(
     location: dict[str, Any],
-    tide_api_config: dict[str, Any] | None = None,
-    forecast_start: datetime | None = None,
+    forecast_start: datetime,
 ) -> dict[str, Any]:
-    if forecast_start is None:
-        raise ValueError("forecast_start is required")
     if forecast_start.tzinfo is None or forecast_start.utcoffset() is None:
         raise ValueError("forecast_start must include timezone information")
 
@@ -267,12 +258,9 @@ def build_tide_params(
 
 # fetch NOAA high and low tide predictions for one configured relationship
 def fetch_tide_predictions(
-    tide_api_config: dict[str, Any] | None = None,
-    params: dict[str, Any] | None = None,
+    params: dict[str, Any],
     timeout_seconds: float = 10.0,
 ) -> dict[str, Any]:
-    if params is None:
-        raise ValueError("tide request parameters are required")
     with httpx.Client(timeout=timeout_seconds) as client:
         response = client.get(
             TIDE_API["base_url"],

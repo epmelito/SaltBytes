@@ -8,8 +8,6 @@ from saltbytes.quality import (
     derive_tide_phases,
     normalize_tide_events,
     run_payload_quality_checks,
-    run_sst_preflight_checks,
-    run_tide_preflight_checks,
     run_tide_quality_checks,
 )
 
@@ -103,58 +101,6 @@ def valid_sst_payload(hour_count: int = 168) -> dict[str, Any]:
     }
 
 
-def valid_sst_location() -> dict[str, Any]:
-    return {
-        "sst": {
-            "request_coordinate": {
-                "latitude": 33.93,
-                "longitude": -77.9,
-            },
-            "expected_returned_coordinate": EXPECTED_SST_COORDINATE,
-            "coastal_regime": (
-                "Atlantic-facing marine grid distinct from wave grid"
-            ),
-        }
-    }
-
-
-def valid_tide_location() -> dict[str, Any]:
-    return {
-        "tide": {
-            "prediction_location": (
-                "Jennettes Pier, Nags Head (ocean)"
-            ),
-            "station_id": "8652226",
-            "relationship_type": "direct",
-            "reference_station": "8651370",
-            "high_time_offset_minutes": -5,
-            "low_time_offset_minutes": 1,
-            "high_multiplier": 1.04,
-            "low_multiplier": 1.43,
-            "distance_km": 0.448,
-            "coastal_relationship": (
-                "Direct use at the Atlantic-facing pier"
-            ),
-            "known_limitation": (
-                "Prediction behavior remains distinct from observed "
-                "water levels"
-            ),
-        }
-    }
-
-
-def valid_tide_api_config() -> dict[str, Any]:
-    return {
-        "product": "predictions",
-        "interval": "hilo",
-        "datum": "MLLW",
-        "time_zone": "gmt",
-        "units": "metric",
-        "format": "json",
-        "forecast_days": 7,
-    }
-
-
 def valid_tide_payload() -> dict[str, Any]:
     start = datetime(2026, 7, 27, 18)
     predictions = []
@@ -202,42 +148,34 @@ def valid_tide_provenance() -> dict[str, Any]:
 
 def run_checks(
     payload: dict[str, Any],
-    model_selector: str = "ncep_nbm_conus",
 ) -> list[dict[str, Any]]:
     return run_payload_quality_checks(
         payload=payload,
         expected_hourly_fields=REQUIRED_FIELDS,
-        model_selector=model_selector,
         expected_returned_coordinate=EXPECTED_COORDINATE,
-        expected_model_selector="ncep_nbm_conus",
         source_label="weather",
+        optional_hourly_fields=("cloud_cover",),
     )
 
 
 def run_wave_checks(
     payload: dict[str, Any],
-    model_selector: str = "meteofrance_wave",
 ) -> list[dict[str, Any]]:
     return run_payload_quality_checks(
         payload=payload,
         expected_hourly_fields=WAVE_FIELDS,
-        model_selector=model_selector,
         expected_returned_coordinate=EXPECTED_WAVE_COORDINATE,
-        expected_model_selector="meteofrance_wave",
         source_label="wave",
     )
 
 
 def run_sst_checks(
     payload: dict[str, Any],
-    model_selector: str = "meteofrance_currents",
 ) -> list[dict[str, Any]]:
     return run_payload_quality_checks(
         payload=payload,
         expected_hourly_fields=SST_FIELDS,
-        model_selector=model_selector,
         expected_returned_coordinate=EXPECTED_SST_COORDINATE,
-        expected_model_selector="meteofrance_currents",
         source_label="sst",
     )
 
@@ -265,15 +203,6 @@ def test_valid_168_hour_payload_passes() -> None:
         f"weather:{field_name}_exists"
         for field_name in REQUIRED_FIELDS
     }
-
-
-def test_invalid_configured_selector_fails() -> None:
-    results = run_checks(valid_payload(), model_selector="auto")
-
-    assert result_for(
-        results,
-        "configured_model_selector",
-    )["status"] == "fail"
 
 
 @pytest.mark.parametrize("field_name", ["wind_speed_10m"])
@@ -311,6 +240,63 @@ def test_nonnumeric_required_value_fails() -> None:
         results,
         "wind_speed_10m_values_are_numeric",
     )["status"] == "fail"
+
+
+@pytest.mark.parametrize(
+    ("payload_factory", "runner", "field_name", "source_label"),
+    [
+        (valid_payload, run_checks, field_name, "weather")
+        for field_name in REQUIRED_FIELDS
+    ]
+    + [
+        (valid_wave_payload, run_wave_checks, field_name, "wave")
+        for field_name in WAVE_FIELDS
+    ]
+    + [(valid_sst_payload, run_sst_checks, "sea_surface_temperature", "sst")],
+)
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_nonfinite_normalized_values_fail(
+    payload_factory: Any,
+    runner: Any,
+    field_name: str,
+    source_label: str,
+    value: float,
+) -> None:
+    payload = payload_factory()
+    payload["hourly"][field_name][0] = value
+
+    results = runner(payload)
+
+    assert result_for(
+        results,
+        f"{field_name}_values_are_finite",
+        source_label,
+    )["status"] == "fail"
+
+
+def test_missing_or_incomplete_cloud_cover_is_not_required() -> None:
+    payload = valid_payload()
+    payload["hourly"]["cloud_cover"] = [50.0]
+
+    assert all(result["status"] == "pass" for result in run_checks(payload))
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["overcast", float("nan"), float("inf"), -1.0, 101.0],
+)
+def test_invalid_complete_cloud_cover_fails(value: Any) -> None:
+    payload = valid_payload()
+    payload["hourly"]["cloud_cover"] = [50.0] * 168
+    payload["hourly"]["cloud_cover"][0] = value
+
+    results = run_checks(payload)
+
+    assert any(
+        result["status"] == "fail"
+        and result["check_name"].startswith("weather:cloud_cover")
+        for result in results
+    )
 
 
 @pytest.mark.parametrize(
@@ -508,21 +494,8 @@ def test_valid_168_hour_wave_payload_passes_without_selector_echo() -> None:
     )
 
 
-def _test_invalid_configured_wave_selector_fails() -> None:
-    results = run_wave_checks(
-        valid_wave_payload(),
-        model_selector="auto",
-    )
-
-    assert result_for(
-        results,
-        "configured_model_selector",
-        source_label="wave",
-    )["status"] == "fail"
-
-
 @pytest.mark.parametrize("field_name", WAVE_FIELDS)
-def _test_missing_required_wave_field_fails(field_name: str) -> None:
+def test_missing_required_wave_field_fails(field_name: str) -> None:
     payload = valid_wave_payload()
     del payload["hourly"][field_name]
 
@@ -543,7 +516,7 @@ def _test_missing_required_wave_field_fails(field_name: str) -> None:
         ("high", "wave_height_values_are_numeric"),
     ],
 )
-def _test_invalid_wave_values_fail(
+def test_invalid_wave_values_fail(
     value: Any,
     check_name: str,
 ) -> None:
@@ -559,7 +532,7 @@ def _test_invalid_wave_values_fail(
     )["status"] == "fail"
 
 
-def _test_wave_field_length_mismatch_fails() -> None:
+def test_wave_field_length_mismatch_fails() -> None:
     payload = valid_wave_payload()
     payload["hourly"]["wave_period"].pop()
 
@@ -572,7 +545,7 @@ def _test_wave_field_length_mismatch_fails() -> None:
     )["status"] == "fail"
 
 
-def _test_wave_coordinate_comparison_uses_parsed_numeric_equality() -> None:
+def test_wave_coordinate_comparison_uses_parsed_numeric_equality() -> None:
     payload = valid_wave_payload()
     payload["latitude"] = "34.6250000"
     payload["longitude"] = "-76.7083300"
@@ -598,7 +571,7 @@ def _test_wave_coordinate_comparison_uses_parsed_numeric_equality() -> None:
         ("longitude", "returned_longitude_matches_expected"),
     ],
 )
-def _test_unexpected_returned_wave_coordinate_fails(
+def test_unexpected_returned_wave_coordinate_fails(
     coordinate_name: str,
     check_name: str,
 ) -> None:
@@ -614,7 +587,7 @@ def _test_unexpected_returned_wave_coordinate_fails(
     )["status"] == "fail"
 
 
-def _test_invalid_wave_timezone_fails() -> None:
+def test_invalid_wave_timezone_fails() -> None:
     payload = valid_wave_payload()
     payload["timezone"] = "Not/A_Timezone"
 
@@ -627,7 +600,7 @@ def _test_invalid_wave_timezone_fails() -> None:
     )["status"] == "fail"
 
 
-def _test_unparsable_wave_valid_time_fails() -> None:
+def test_unparsable_wave_valid_time_fails() -> None:
     payload = valid_wave_payload()
     payload["hourly"]["time"][12] = "not-a-time"
 
@@ -640,7 +613,7 @@ def _test_unparsable_wave_valid_time_fails() -> None:
     )["status"] == "fail"
 
 
-def _test_duplicate_wave_utc_valid_times_fail() -> None:
+def test_duplicate_wave_utc_valid_times_fail() -> None:
     payload = valid_wave_payload()
     payload["hourly"]["time"][12] = payload["hourly"]["time"][11]
 
@@ -653,7 +626,7 @@ def _test_duplicate_wave_utc_valid_times_fail() -> None:
     )["status"] == "fail"
 
 
-def _test_unordered_wave_utc_valid_times_fail() -> None:
+def test_unordered_wave_utc_valid_times_fail() -> None:
     payload = valid_wave_payload()
     times = payload["hourly"]["time"]
     times[12], times[13] = times[13], times[12]
@@ -667,7 +640,7 @@ def _test_unordered_wave_utc_valid_times_fail() -> None:
     )["status"] == "fail"
 
 
-def _test_non_hourly_wave_utc_spacing_fails() -> None:
+def test_non_hourly_wave_utc_spacing_fails() -> None:
     payload = valid_wave_payload()
     payload["hourly"]["time"][12] = "2026-07-28T12:30"
 
@@ -681,7 +654,7 @@ def _test_non_hourly_wave_utc_spacing_fails() -> None:
 
 
 @pytest.mark.parametrize("hour_count", [167, 169])
-def _test_wave_result_requires_exactly_168_utc_instants(
+def test_wave_result_requires_exactly_168_utc_instants(
     hour_count: int,
 ) -> None:
     results = run_wave_checks(
@@ -713,85 +686,7 @@ def test_valid_168_hour_sst_payload_passes_without_selector_echo() -> None:
     )
 
 
-def _test_valid_sst_preflight_passes() -> None:
-    assert all(
-        result["status"] == "pass"
-        for result in run_sst_preflight_checks(valid_sst_location())
-    )
-
-
-@pytest.mark.parametrize(
-    ("sst_config", "failed_check"),
-    [
-        (None, "relationship_present"),
-        (
-            {
-                "expected_returned_coordinate": EXPECTED_SST_COORDINATE,
-                "coastal_regime": "Atlantic-facing marine grid",
-            },
-            "request_coordinate_usable",
-        ),
-        (
-            {
-                "request_coordinate": {
-                    "latitude": True,
-                    "longitude": -77.9,
-                },
-                "expected_returned_coordinate": EXPECTED_SST_COORDINATE,
-                "coastal_regime": "Atlantic-facing marine grid",
-            },
-            "request_coordinate_usable",
-        ),
-        (
-            {
-                "request_coordinate": {
-                    "latitude": 33.93,
-                    "longitude": -77.9,
-                },
-                "coastal_regime": "Atlantic-facing marine grid",
-            },
-            "expected_returned_coordinate_usable",
-        ),
-        (
-            {
-                "request_coordinate": {
-                    "latitude": 33.93,
-                    "longitude": -77.9,
-                },
-                "expected_returned_coordinate": EXPECTED_SST_COORDINATE,
-                "coastal_regime": " ",
-            },
-            "coastal_regime_present",
-        ),
-    ],
-)
-def _test_sst_preflight_rejects_missing_or_unusable_prerequisite(
-    sst_config: Any,
-    failed_check: str,
-) -> None:
-    results = run_sst_preflight_checks({"sst": sst_config})
-
-    assert result_for(
-        results,
-        failed_check,
-        source_label="sst",
-    )["status"] == "fail"
-
-
-def _test_invalid_configured_sst_selector_fails() -> None:
-    results = run_sst_checks(
-        valid_sst_payload(),
-        model_selector="auto",
-    )
-
-    assert result_for(
-        results,
-        "configured_model_selector",
-        source_label="sst",
-    )["status"] == "fail"
-
-
-def _test_missing_required_sst_field_fails() -> None:
+def test_missing_required_sst_field_fails() -> None:
     payload = valid_sst_payload()
     del payload["hourly"]["sea_surface_temperature"]
 
@@ -812,7 +707,7 @@ def _test_missing_required_sst_field_fails() -> None:
         ("warm", "sea_surface_temperature_values_are_numeric"),
     ],
 )
-def _test_invalid_sst_values_fail(
+def test_invalid_sst_values_fail(
     value: Any,
     check_name: str,
 ) -> None:
@@ -828,7 +723,7 @@ def _test_invalid_sst_values_fail(
     )["status"] == "fail"
 
 
-def _test_unexpected_returned_sst_coordinate_fails() -> None:
+def test_unexpected_returned_sst_coordinate_fails() -> None:
     payload = valid_sst_payload()
     payload["latitude"] = "0"
 
@@ -841,7 +736,7 @@ def _test_unexpected_returned_sst_coordinate_fails() -> None:
     )["status"] == "fail"
 
 
-def _test_invalid_sst_timezone_and_timeline_fail() -> None:
+def test_invalid_sst_timezone_and_timeline_fail() -> None:
     payload = valid_sst_payload()
     payload["timezone"] = "Not/A_Timezone"
     payload["hourly"]["time"][12] = payload["hourly"]["time"][11]
@@ -872,59 +767,6 @@ def test_valid_tide_payload_passes() -> None:
         str(result["check_name"]).startswith("tide:")
         for result in payload_results
     )
-
-
-@pytest.mark.parametrize(
-    ("tide_config", "failed_check"),
-    [
-        (None, "relationship_present"),
-        (
-            {
-                "prediction_location": "Ocracoke Inlet",
-                "relationship_type": "transfer",
-                "reference_station": "8654400",
-                "high_time_offset_minutes": 9,
-                "low_time_offset_minutes": 11,
-                "high_multiplier": 0.63,
-                "low_multiplier": 0.83,
-                "distance_km": 3.697,
-                "coastal_relationship": "Ocean-side transfer",
-                "known_limitation": "No current interpretation",
-            },
-            "station_id_present",
-        ),
-        (
-            {
-                "prediction_location": "Ocracoke Inlet",
-                "station_id": "TEC2793",
-                "relationship_type": "fallback",
-                "reference_station": "8654400",
-                "high_time_offset_minutes": 9,
-                "low_time_offset_minutes": 11,
-                "high_multiplier": 0.63,
-                "low_multiplier": 0.83,
-                "distance_km": 3.697,
-                "coastal_relationship": "Ocean-side transfer",
-                "known_limitation": "No current interpretation",
-            },
-            "relationship_metadata_usable",
-        ),
-    ],
-)
-def _test_tide_preflight_rejects_missing_or_unusable_relationship(
-    tide_config: Any,
-    failed_check: str,
-) -> None:
-    results = run_tide_preflight_checks(
-        {"tide": tide_config},
-        valid_tide_api_config(),
-    )
-
-    assert result_for(
-        results,
-        failed_check,
-        source_label="tide",
-    )["status"] == "fail"
 
 
 def test_tide_events_normalize_gmt_and_phase_boundaries() -> None:

@@ -139,7 +139,6 @@ def _run_pipeline(
             try:
                 weather_payload = fetch_forecast(
                     location=location,
-                    api_config=WEATHER_API,
                     client=open_meteo_client,
                 )
             except Exception as error:
@@ -166,11 +165,11 @@ def _run_pipeline(
                 weather_quality_results = run_payload_quality_checks(
                     payload=weather_payload,
                     expected_hourly_fields=WEATHER_REQUIRED_HOURLY_FIELDS,
-                    model_selector=WEATHER_API["model"],
                     expected_returned_coordinate=location["weather"][
                         "expected_returned_coordinate"
                     ],
                     source_label="weather",
+                    optional_hourly_fields=("cloud_cover",),
                 )
 
             failed_weather_checks = [
@@ -295,7 +294,6 @@ def _run_pipeline(
             try:
                 wave_payload = fetch_wave_forecast(
                     location=location,
-                    wave_api_config=WAVE_API,
                     client=open_meteo_client,
                 )
             except Exception as error:
@@ -322,11 +320,9 @@ def _run_pipeline(
                 wave_quality_results = run_payload_quality_checks(
                     payload=wave_payload,
                     expected_hourly_fields=WAVE_API["hourly_fields"],
-                    model_selector=WAVE_API["model"],
                     expected_returned_coordinate=location["wave"][
                         "expected_returned_coordinate"
                     ],
-                    expected_model_selector="meteofrance_wave",
                     source_label="wave",
                 )
 
@@ -441,158 +437,154 @@ def _run_pipeline(
                 location["id"],
             )
 
-            if location["sst"]:
-                sst_config = location["sst"]
-                sst_request_coordinate = sst_config["request_coordinate"]
-                sst_payload = None
-                sst_quality_results: list[dict[str, Any]] = []
+            sst_config = location["sst"]
+            sst_request_coordinate = sst_config["request_coordinate"]
+            sst_payload = None
+            sst_quality_results: list[dict[str, Any]] = []
+            try:
+                sst_payload = fetch_sst_forecast(
+                    location=location,
+                    client=open_meteo_client,
+                )
+            except Exception as error:
+                location_failure = (
+                    f"sst API fetch failed for {location['id']}: {error}"
+                )
+                location_failures.append(location_failure)
+                logger.exception(
+                    "sst API fetch failed run_id=%s location=%s",
+                    run_id,
+                    location["id"],
+                )
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="sst",
+                    status="fetch_failed",
+                    detail=str(error),
+                    recorded_at=datetime.now(timezone.utc),
+                )
+
+            if sst_payload is not None:
+                sst_quality_results = run_payload_quality_checks(
+                    payload=sst_payload,
+                    expected_hourly_fields=SST_API["hourly_fields"],
+                    expected_returned_coordinate=sst_config[
+                        "expected_returned_coordinate"
+                    ],
+                    source_label="sst",
+                )
+
+            failed_sst_checks = [
+                quality_result
+                for quality_result in sst_quality_results
+                if quality_result["status"] == "fail"
+            ]
+
+            if sst_payload is not None and failed_sst_checks:
+                failed_check_names = ", ".join(
+                    str(quality_result["check_name"])
+                    for quality_result in failed_sst_checks
+                )
+                location_failure = (
+                    f"sst quality checks failed for {location['id']}: "
+                    f"{failed_check_names}"
+                )
+                location_failures.append(location_failure)
+                logger.error(
+                    "sst quality checks failed run_id=%s location=%s "
+                    "checks=%s",
+                    run_id,
+                    location["id"],
+                    failed_check_names,
+                )
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="sst",
+                    status="validation_failed",
+                    detail=failed_check_names,
+                    recorded_at=datetime.now(timezone.utc),
+                )
+            elif sst_payload is not None:
+                logger.info(
+                    "sst quality checks passed run_id=%s location=%s "
+                    "checks=%s",
+                    run_id,
+                    location["id"],
+                    len(sst_quality_results),
+                )
+
+                persistence_stage = "raw snapshot"
                 try:
-                    sst_payload = fetch_sst_forecast(
-                        location=location,
-                        sst_api_config=SST_API,
-                        client=open_meteo_client,
+                    sst_metadata = write_raw_snapshot(
+                        payload=sst_payload,
+                        location_id=location["id"],
+                        raw_data_path=raw_data_path,
+                        run_id=run_id,
+                        run_started_at=started_at,
+                    )
+                    persistence_stage = "snapshot metadata"
+                    sst_metadata.update(
+                        {
+                            "model_selector": SST_API["model"],
+                            "request_latitude": sst_request_coordinate[
+                                "latitude"
+                            ],
+                            "request_longitude": sst_request_coordinate[
+                                "longitude"
+                            ],
+                            "returned_latitude": sst_payload["latitude"],
+                            "returned_longitude": sst_payload["longitude"],
+                        }
+                    )
+                    sst_rows_loaded = persist_source_success(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="sst",
+                        metadata=sst_metadata,
+                        payload=sst_payload,
+                        recorded_at=datetime.now(timezone.utc),
                     )
                 except Exception as error:
-                    location_failure = (
-                        f"sst API fetch failed for {location['id']}: {error}"
+                    persistence_stage, detail = _persistence_failure_detail(
+                        persistence_stage,
+                        error,
                     )
-                    location_failures.append(location_failure)
                     logger.exception(
-                        "sst API fetch failed run_id=%s location=%s",
+                        "sst source persistence failed run_id=%s location=%s "
+                        "stage=%s",
                         run_id,
                         location["id"],
+                        persistence_stage,
                     )
                     insert_source_result(
                         database_path=database_path,
                         run_id=run_id,
                         location_id=location["id"],
                         source="sst",
-                        status="fetch_failed",
-                        detail=str(error),
+                        status="persistence_failed",
+                        detail=detail,
                         recorded_at=datetime.now(timezone.utc),
                     )
+                    raise RuntimeError(
+                        "sst source persistence failed for "
+                        f"{location['id']} at {detail}"
+                    ) from error
 
-                if sst_payload is not None:
-                    sst_quality_results = run_payload_quality_checks(
-                        payload=sst_payload,
-                    expected_hourly_fields=SST_API["hourly_fields"],
-                    model_selector=SST_API["model"],
-                        expected_returned_coordinate=sst_config[
-                            "expected_returned_coordinate"
-                        ],
-                        expected_model_selector="meteofrance_currents",
-                        source_label="sst",
-                    )
+                rows_loaded += sst_rows_loaded
+                snapshots_written += 1
 
-                failed_sst_checks = [
-                    quality_result
-                    for quality_result in sst_quality_results
-                    if quality_result["status"] == "fail"
-                ]
-
-                if sst_payload is not None and failed_sst_checks:
-                    failed_check_names = ", ".join(
-                        str(quality_result["check_name"])
-                        for quality_result in failed_sst_checks
-                    )
-                    location_failure = (
-                        f"sst quality checks failed for {location['id']}: "
-                        f"{failed_check_names}"
-                    )
-                    location_failures.append(location_failure)
-                    logger.error(
-                        "sst quality checks failed run_id=%s location=%s "
-                        "checks=%s",
-                        run_id,
-                        location["id"],
-                        failed_check_names,
-                    )
-                    insert_source_result(
-                        database_path=database_path,
-                        run_id=run_id,
-                        location_id=location["id"],
-                        source="sst",
-                        status="validation_failed",
-                        detail=failed_check_names,
-                        recorded_at=datetime.now(timezone.utc),
-                    )
-                elif sst_payload is not None:
-                    logger.info(
-                        "sst quality checks passed run_id=%s location=%s "
-                        "checks=%s",
-                        run_id,
-                        location["id"],
-                        len(sst_quality_results),
-                    )
-
-                    persistence_stage = "raw snapshot"
-                    try:
-                        sst_metadata = write_raw_snapshot(
-                            payload=sst_payload,
-                            location_id=location["id"],
-                            raw_data_path=raw_data_path,
-                            run_id=run_id,
-                            run_started_at=started_at,
-                        )
-                        persistence_stage = "snapshot metadata"
-                        sst_metadata.update(
-                            {
-                                "model_selector": SST_API["model"],
-                                "request_latitude": sst_request_coordinate[
-                                    "latitude"
-                                ],
-                                "request_longitude": sst_request_coordinate[
-                                    "longitude"
-                                ],
-                                "returned_latitude": sst_payload["latitude"],
-                                "returned_longitude": sst_payload["longitude"],
-                            }
-                        )
-                        sst_rows_loaded = persist_source_success(
-                            database_path=database_path,
-                            run_id=run_id,
-                            location_id=location["id"],
-                            source="sst",
-                            metadata=sst_metadata,
-                            payload=sst_payload,
-                            recorded_at=datetime.now(timezone.utc),
-                        )
-                    except Exception as error:
-                        persistence_stage, detail = _persistence_failure_detail(
-                            persistence_stage,
-                            error,
-                        )
-                        logger.exception(
-                            "sst source persistence failed run_id=%s location=%s "
-                            "stage=%s",
-                            run_id,
-                            location["id"],
-                            persistence_stage,
-                        )
-                        insert_source_result(
-                            database_path=database_path,
-                            run_id=run_id,
-                            location_id=location["id"],
-                            source="sst",
-                            status="persistence_failed",
-                            detail=detail,
-                            recorded_at=datetime.now(timezone.utc),
-                        )
-                        raise RuntimeError(
-                            "sst source persistence failed for "
-                            f"{location['id']} at {detail}"
-                        ) from error
-
-                    rows_loaded += sst_rows_loaded
-                    snapshots_written += 1
-
-                    logger.info(
-                        "sst source persistence completed run_id=%s location=%s "
-                        "rows=%s",
-                        run_id,
-                        location["id"],
-                        sst_rows_loaded,
-                    )
+                logger.info(
+                    "sst source persistence completed run_id=%s location=%s "
+                    "rows=%s",
+                    run_id,
+                    location["id"],
+                    sst_rows_loaded,
+                )
 
             logger.info(
                 "tide processing started run_id=%s location=%s",
@@ -600,158 +592,155 @@ def _run_pipeline(
                 location["id"],
             )
 
-            if location["tide"]:
-                captured_at = datetime.now(timezone.utc)
-                tide_params = build_tide_params(
-                    location=location,
-                    tide_api_config=TIDE_API,
-                    forecast_start=tide_forecast_times[0],
+            captured_at = datetime.now(timezone.utc)
+            tide_params = build_tide_params(
+                location=location,
+                forecast_start=tide_forecast_times[0],
+            )
+            request_provenance = {
+                **tide_params,
+                "captured_at": captured_at,
+            }
+            tide_payload = None
+            tide_quality_results: list[dict[str, Any]] = []
+            try:
+                tide_payload = fetch_tide_predictions(
+                    params=tide_params,
                 )
-                request_provenance = {
-                    **tide_params,
-                    "captured_at": captured_at,
-                }
-                tide_payload = None
-                tide_quality_results: list[dict[str, Any]] = []
+            except Exception as error:
+                location_failure = (
+                    f"tide API fetch failed for {location['id']}: {error}"
+                )
+                location_failures.append(location_failure)
+                logger.exception(
+                    "tide API fetch failed run_id=%s location=%s",
+                    run_id,
+                    location["id"],
+                )
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="tide",
+                    status="fetch_failed",
+                    detail=str(error),
+                    recorded_at=datetime.now(timezone.utc),
+                )
+
+            if tide_payload is not None:
+                tide_quality_results = run_tide_quality_checks(
+                    payload=tide_payload,
+                    request_provenance=request_provenance,
+                    forecast_times=tide_forecast_times,
+                )
+
+            failed_tide_checks = [
+                quality_result
+                for quality_result in tide_quality_results
+                if quality_result["status"] == "fail"
+            ]
+
+            if tide_payload is not None and failed_tide_checks:
+                failed_check_names = ", ".join(
+                    str(quality_result["check_name"])
+                    for quality_result in failed_tide_checks
+                )
+                location_failure = (
+                    f"tide quality checks failed for {location['id']}: "
+                    f"{failed_check_names}"
+                )
+                location_failures.append(location_failure)
+                logger.error(
+                    "tide quality checks failed run_id=%s location=%s "
+                    "checks=%s",
+                    run_id,
+                    location["id"],
+                    failed_check_names,
+                )
+                insert_source_result(
+                    database_path=database_path,
+                    run_id=run_id,
+                    location_id=location["id"],
+                    source="tide",
+                    status="validation_failed",
+                    detail=failed_check_names,
+                    recorded_at=datetime.now(timezone.utc),
+                )
+            elif tide_payload is not None:
+                logger.info(
+                    "tide quality checks passed run_id=%s location=%s "
+                    "checks=%s",
+                    run_id,
+                    location["id"],
+                    len(tide_quality_results),
+                )
+                persistence_stage = "normalized events"
                 try:
-                    tide_payload = fetch_tide_predictions(
-                        tide_api_config=TIDE_API,
-                        params=tide_params,
+                    tide_events = normalize_tide_events(tide_payload)
+                    persistence_stage = "normalized phases"
+                    tide_phases = derive_tide_phases(
+                        tide_events,
+                        tide_forecast_times,
+                    )
+                    persistence_stage = "raw snapshot"
+                    tide_metadata = write_raw_snapshot(
+                        payload=tide_payload,
+                        location_id=location["id"],
+                        raw_data_path=raw_data_path,
+                        run_id=run_id,
+                        run_started_at=started_at,
+                        captured_at=captured_at,
+                    )
+                    persistence_stage = "snapshot provenance"
+                    tide_rows_loaded = persist_source_success(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="tide",
+                        metadata=tide_metadata,
+                        payload=tide_payload,
+                        recorded_at=datetime.now(timezone.utc),
+                        tide_events=tide_events,
+                        tide_phases=tide_phases,
+                        request_provenance=request_provenance,
+                        relationship=location["tide"],
                     )
                 except Exception as error:
-                    location_failure = (
-                        f"tide API fetch failed for {location['id']}: {error}"
+                    persistence_stage, detail = _persistence_failure_detail(
+                        persistence_stage,
+                        error,
                     )
-                    location_failures.append(location_failure)
                     logger.exception(
-                        "tide API fetch failed run_id=%s location=%s",
+                        "tide source persistence failed run_id=%s location=%s "
+                        "stage=%s",
                         run_id,
                         location["id"],
+                        persistence_stage,
                     )
                     insert_source_result(
                         database_path=database_path,
                         run_id=run_id,
                         location_id=location["id"],
                         source="tide",
-                        status="fetch_failed",
-                        detail=str(error),
+                        status="persistence_failed",
+                        detail=detail,
                         recorded_at=datetime.now(timezone.utc),
                     )
+                    raise RuntimeError(
+                        "tide source persistence failed for "
+                        f"{location['id']} at {detail}"
+                    ) from error
 
-                if tide_payload is not None:
-                    tide_quality_results = run_tide_quality_checks(
-                        payload=tide_payload,
-                        request_provenance=request_provenance,
-                        forecast_times=tide_forecast_times,
-                    )
+                rows_loaded += tide_rows_loaded
+                snapshots_written += 1
 
-                failed_tide_checks = [
-                    quality_result
-                    for quality_result in tide_quality_results
-                    if quality_result["status"] == "fail"
-                ]
-
-                if tide_payload is not None and failed_tide_checks:
-                    failed_check_names = ", ".join(
-                        str(quality_result["check_name"])
-                        for quality_result in failed_tide_checks
-                    )
-                    location_failure = (
-                        f"tide quality checks failed for {location['id']}: "
-                        f"{failed_check_names}"
-                    )
-                    location_failures.append(location_failure)
-                    logger.error(
-                        "tide quality checks failed run_id=%s location=%s "
-                        "checks=%s",
-                        run_id,
-                        location["id"],
-                        failed_check_names,
-                    )
-                    insert_source_result(
-                        database_path=database_path,
-                        run_id=run_id,
-                        location_id=location["id"],
-                        source="tide",
-                        status="validation_failed",
-                        detail=failed_check_names,
-                        recorded_at=datetime.now(timezone.utc),
-                    )
-                elif tide_payload is not None:
-                    logger.info(
-                        "tide quality checks passed run_id=%s location=%s "
-                        "checks=%s",
-                        run_id,
-                        location["id"],
-                        len(tide_quality_results),
-                    )
-                    persistence_stage = "normalized events"
-                    try:
-                        tide_events = normalize_tide_events(tide_payload)
-                        persistence_stage = "normalized phases"
-                        tide_phases = derive_tide_phases(
-                            tide_events,
-                            tide_forecast_times,
-                        )
-                        persistence_stage = "raw snapshot"
-                        tide_metadata = write_raw_snapshot(
-                            payload=tide_payload,
-                            location_id=location["id"],
-                            raw_data_path=raw_data_path,
-                            run_id=run_id,
-                            run_started_at=started_at,
-                            captured_at=captured_at,
-                        )
-                        persistence_stage = "snapshot provenance"
-                        tide_rows_loaded = persist_source_success(
-                            database_path=database_path,
-                            run_id=run_id,
-                            location_id=location["id"],
-                            source="tide",
-                            metadata=tide_metadata,
-                            payload=tide_payload,
-                            recorded_at=datetime.now(timezone.utc),
-                            tide_events=tide_events,
-                            tide_phases=tide_phases,
-                            request_provenance=request_provenance,
-                            relationship=location["tide"],
-                        )
-                    except Exception as error:
-                        persistence_stage, detail = _persistence_failure_detail(
-                            persistence_stage,
-                            error,
-                        )
-                        logger.exception(
-                            "tide source persistence failed run_id=%s location=%s "
-                            "stage=%s",
-                            run_id,
-                            location["id"],
-                            persistence_stage,
-                        )
-                        insert_source_result(
-                            database_path=database_path,
-                            run_id=run_id,
-                            location_id=location["id"],
-                            source="tide",
-                            status="persistence_failed",
-                            detail=detail,
-                            recorded_at=datetime.now(timezone.utc),
-                        )
-                        raise RuntimeError(
-                            "tide source persistence failed for "
-                            f"{location['id']} at {detail}"
-                        ) from error
-
-                    rows_loaded += tide_rows_loaded
-                    snapshots_written += 1
-
-                    logger.info(
-                        "tide source persistence completed run_id=%s location=%s "
-                        "rows=%s",
-                        run_id,
-                        location["id"],
-                        tide_rows_loaded,
-                    )
+                logger.info(
+                    "tide source persistence completed run_id=%s location=%s "
+                    "rows=%s",
+                    run_id,
+                    location["id"],
+                    tide_rows_loaded,
+                )
 
         if location_failures:
             raise ValueError("; ".join(location_failures))
