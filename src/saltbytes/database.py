@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -131,6 +132,43 @@ create table if not exists source_results (
     foreign key (run_id) references pipeline_runs(run_id)
 );
 
+create table if not exists solar_context_hourly (
+    run_id varchar not null,
+    location_id varchar not null,
+    forecast_time timestamptz not null,
+    morning_twilight_start timestamptz,
+    sunrise timestamptz,
+    sunset timestamptz,
+    evening_twilight_end timestamptz,
+    solar_state varchar,
+    minutes_from_sunrise integer,
+    minutes_from_sunset integer,
+    primary key (run_id, location_id, forecast_time),
+    foreign key (run_id) references pipeline_runs(run_id)
+);
+
+create table if not exists run_location_solar_context (
+    run_id varchar not null,
+    location_id varchar not null,
+    display_latitude double not null,
+    display_longitude double not null,
+    display_timezone varchar not null,
+    calculation_contract varchar not null,
+    calculation_library varchar not null,
+    calculation_library_version varchar not null,
+    primary key (run_id, location_id),
+    foreign key (run_id) references pipeline_runs(run_id)
+);
+
+create table if not exists cloud_cover_hourly (
+    snapshot_id varchar not null,
+    location_id varchar not null,
+    forecast_time timestamptz not null,
+    cloud_cover double,
+    primary key (snapshot_id, location_id, forecast_time),
+    foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
+);
+
 create or replace view tide_state_hourly as
 with event_pairs as (
     select
@@ -224,6 +262,16 @@ weather_rows as (
     inner join forecast_snapshots as snapshots
         on snapshots.snapshot_id = hourly.snapshot_id
 ),
+cloud_rows as (
+    select
+        snapshots.run_id,
+        hourly.location_id,
+        hourly.forecast_time,
+        hourly.cloud_cover
+    from cloud_cover_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+),
 wave_rows as (
     select
         snapshots.run_id,
@@ -294,6 +342,7 @@ select
     end as wind_to_shore_angle_degrees,
     weather_rows.wind_gusts_10m,
     weather_rows.precipitation,
+    cloud_rows.cloud_cover,
     weather_results.status as weather_status,
     wave_rows.snapshot_id as wave_snapshot_id,
     wave_rows.wave_height,
@@ -329,7 +378,14 @@ select
     tide_rows.minutes_until_next_extremum
         as tide_minutes_until_next_extremum,
     tide_rows.predicted_tidal_range as tide_predicted_range,
-    tide_results.status as tide_status
+    tide_results.status as tide_status,
+    solar_rows.morning_twilight_start,
+    solar_rows.sunrise,
+    solar_rows.sunset,
+    solar_rows.evening_twilight_end,
+    solar_rows.solar_state,
+    solar_rows.minutes_from_sunrise,
+    solar_rows.minutes_from_sunset
 from hourly_keys
 inner join pipeline_runs as runs
     on runs.run_id = hourly_keys.run_id
@@ -344,6 +400,10 @@ left join wave_rows
     on wave_rows.run_id = hourly_keys.run_id
     and wave_rows.location_id = hourly_keys.location_id
     and wave_rows.forecast_time = hourly_keys.forecast_time
+left join cloud_rows
+    on cloud_rows.run_id = hourly_keys.run_id
+    and cloud_rows.location_id = hourly_keys.location_id
+    and cloud_rows.forecast_time = hourly_keys.forecast_time
 left join sst_rows
     on sst_rows.run_id = hourly_keys.run_id
     and sst_rows.location_id = hourly_keys.location_id
@@ -367,7 +427,11 @@ left join source_results as sst_results
 left join source_results as tide_results
     on tide_results.run_id = hourly_keys.run_id
     and tide_results.location_id = hourly_keys.location_id
-    and tide_results.source = 'tide';
+    and tide_results.source = 'tide'
+left join solar_context_hourly as solar_rows
+    on solar_rows.run_id = hourly_keys.run_id
+    and solar_rows.location_id = hourly_keys.location_id
+    and solar_rows.forecast_time = hourly_keys.forecast_time;
 
 create or replace view analysis_ready_features_hourly as
 with feature_rows as (
@@ -402,7 +466,10 @@ with feature_rows as (
             and conditions.tide_next_predicted_water_level is not null
             and conditions.tide_minutes_since_previous_extremum is not null
             and conditions.tide_minutes_until_next_extremum is not null
-            and conditions.tide_predicted_range is not null, false) as tide_context_available
+            and conditions.tide_predicted_range is not null, false) as tide_context_available,
+        coalesce(conditions.weather_status = 'success'
+            and conditions.weather_snapshot_id is not null
+            and conditions.cloud_cover is not null, false) as cloud_cover_available
     from coastal_conditions_hourly as conditions
 ),
 six_hour_windows as (
@@ -580,6 +647,68 @@ def insert_run_locations(
             connection.execute("commit")
 
 
+def insert_solar_context_hourly(
+    database_path: Path | str,
+    run_id: str,
+    location_id: str,
+    contexts: list[dict[str, Any]],
+) -> int:
+    rows = [
+        (
+            run_id,
+            location_id,
+            context["forecast_time"],
+            context["morning_twilight_start"],
+            context["sunrise"],
+            context["sunset"],
+            context["evening_twilight_end"],
+            context["solar_state"],
+            context["minutes_from_sunrise"],
+            context["minutes_from_sunset"],
+        )
+        for context in contexts
+    ]
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.executemany(
+            """
+            insert into solar_context_hourly values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+    return len(rows)
+
+
+def insert_run_location_solar_context(
+    database_path: Path | str,
+    run_id: str,
+    locations: list[dict[str, Any]],
+    display_timezone: str,
+    solar_provenance: dict[str, str],
+) -> None:
+    rows = [
+        (
+            run_id,
+            location["id"],
+            location["display_coordinate"]["latitude"],
+            location["display_coordinate"]["longitude"],
+            display_timezone,
+            solar_provenance["calculation_contract"],
+            solar_provenance["calculation_library"],
+            solar_provenance["calculation_library_version"],
+        )
+        for location in locations
+    ]
+    with duckdb.connect(str(database_path)) as connection:
+        connection.executemany(
+            """
+            insert into run_location_solar_context values (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+
 # insert metadata for one raw forecast snapshot
 def insert_forecast_snapshot(
     database_path: Path | str,
@@ -703,6 +832,12 @@ def insert_forecast_hourly(
 
         normalized_times.append(parsed_time.replace(tzinfo=timezone.utc))
 
+    cloud_values = hourly.get("cloud_cover")
+    cloud_values_are_complete = (
+        isinstance(cloud_values, list)
+        and len(cloud_values) == len(forecast_times)
+    )
+
     rows = [
         (
             snapshot_id,
@@ -734,8 +869,33 @@ def insert_forecast_hourly(
             """,
             rows,
         )
+        connection.executemany(
+            """
+            insert into cloud_cover_hourly values (?, ?, ?, ?)
+            """,
+            [
+                (
+                    snapshot_id,
+                    location_id,
+                    forecast_time,
+                    _cloud_cover_value(cloud_values[index])
+                    if cloud_values_are_complete
+                    else None,
+                )
+                for index, forecast_time in enumerate(normalized_times)
+            ],
+        )
 
     return len(rows)
+
+
+def _cloud_cover_value(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    cloud_cover = float(value)
+    if not math.isfinite(cloud_cover) or not 0 <= cloud_cover <= 100:
+        return None
+    return cloud_cover
 
 
 # insert normalized hourly wave rows for one snapshot

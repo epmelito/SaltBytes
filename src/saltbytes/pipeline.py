@@ -10,6 +10,7 @@ from saltbytes.api import (
     TIDE_API,
     WAVE_API,
     WEATHER_API,
+    WEATHER_REQUIRED_HOURLY_FIELDS,
     build_tide_params,
     fetch_forecast,
     fetch_sst_forecast,
@@ -22,7 +23,9 @@ from saltbytes.database import (
     insert_forecast_hourly,
     insert_forecast_snapshot,
     insert_pipeline_run,
+    insert_run_location_solar_context,
     insert_run_locations,
+    insert_solar_context_hourly,
     insert_source_result,
     insert_sst_hourly,
     insert_tide_events,
@@ -37,6 +40,7 @@ from saltbytes.quality import (
     run_payload_quality_checks,
     run_tide_quality_checks,
 )
+from saltbytes.solar import derive_solar_context, solar_calculation_provenance
 from saltbytes.storage import create_run_id, write_raw_snapshot
 
 logger = logging.getLogger(__name__)
@@ -83,11 +87,36 @@ def _run_pipeline(
             run_id=run_id,
             locations=locations,
         )
+        solar_provenance = solar_calculation_provenance()
+        insert_run_location_solar_context(
+            database_path=database_path,
+            run_id=run_id,
+            locations=locations,
+            display_timezone=config["display_timezone"],
+            solar_provenance=solar_provenance,
+        )
 
         tide_forecast_times = build_tide_forecast_times(
             started_at,
             TIDE_API["forecast_days"],
         )
+
+        for location in locations:
+            display_coordinate = location["display_coordinate"]
+            insert_solar_context_hourly(
+                database_path=database_path,
+                run_id=run_id,
+                location_id=location["id"],
+                contexts=[
+                    derive_solar_context(
+                        forecast_time=forecast_time,
+                        display_latitude=display_coordinate["latitude"],
+                        display_longitude=display_coordinate["longitude"],
+                        display_timezone=config["display_timezone"],
+                    )
+                    for forecast_time in tide_forecast_times
+                ],
+            )
 
         for location in locations:
             weather_request_coordinate = location["weather"][
@@ -131,7 +160,7 @@ def _run_pipeline(
             if weather_payload is not None:
                 weather_quality_results = run_payload_quality_checks(
                     payload=weather_payload,
-                    expected_hourly_fields=WEATHER_API["hourly_fields"],
+                    expected_hourly_fields=WEATHER_REQUIRED_HOURLY_FIELDS,
                     model_selector=WEATHER_API["model"],
                     expected_returned_coordinate=location["weather"][
                         "expected_returned_coordinate"

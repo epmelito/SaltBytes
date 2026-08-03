@@ -128,7 +128,7 @@ def test_build_forecast_params_uses_weather_request_relationship() -> None:
         "forecast_days": 7,
         "hourly": (
             "wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
-            "precipitation_probability,precipitation"
+            "precipitation_probability,precipitation,cloud_cover"
         ),
         "timezone": "GMT",
     }

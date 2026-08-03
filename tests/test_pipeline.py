@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from saltbytes.pipeline import run_pipeline
+from saltbytes.solar import solar_calculation_provenance
 
 HOURLY_FIELDS = [
     "wind_speed_10m",
@@ -25,6 +26,7 @@ SST_FIELDS = ["sea_surface_temperature"]
 
 def pipeline_config(tmp_path: Path) -> dict[str, Any]:
     return {
+        "display_timezone": "America/New_York",
         "locations": [
             {
                 "id": "jennettes_pier",
@@ -375,11 +377,36 @@ def test_pipeline_reuses_and_closes_open_meteo_client(
         "saltbytes.pipeline.fetch_sst_forecast", fake_fetch_sst_forecast
     )
 
-    run_pipeline(config)
+    result = run_pipeline(config)
 
     assert len(clients) == 1
     assert request_clients == [clients[0]] * 6
     assert clients[0].closed is True
+
+    with duckdb.connect(
+        str(config["storage"]["database_path"]), read_only=True
+    ) as connection:
+        contexts = connection.execute(
+            """
+            select
+                display_latitude,
+                display_longitude,
+                display_timezone,
+                calculation_contract,
+                calculation_library,
+                calculation_library_version
+            from run_location_solar_context
+            where run_id = ?
+            order by location_id
+            """,
+            [result["run_id"]],
+        ).fetchall()
+
+    provenance = solar_calculation_provenance()
+    assert contexts == [
+        (33.9534, -77.929, "America/New_York", *provenance.values()),
+        (35.9096355, -75.5966537, "America/New_York", *provenance.values()),
+    ]
 
 
 def test_source_quality_failures_are_independent_and_collected(
