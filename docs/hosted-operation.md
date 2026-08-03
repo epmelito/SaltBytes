@@ -19,6 +19,8 @@ Create the private container `saltbytes-state` with this layout:
 ```text
 state/saltbytes.duckdb
 raw/YYYY/MM/DD/HHMMSSZ_<run_id>/<location_id>_<snapshot_id>.json
+recovery/<run_id>/saltbytes.duckdb
+recovery/<run_id>/publication-failures.txt
 ```
 
 `HHMMSSZ` comes from the persisted pipeline run start time in UTC. Existing
@@ -54,14 +56,21 @@ Each runner checks whether `state/saltbytes.duckdb` exists. It initializes a
 database only when Azure successfully reports the blob does not exist; a
 download or existence-check failure aborts before ingestion.
 
-The runner does not download old raw blobs. It uploads raw JSON created during
-the run with overwrite protection. Once raw publication succeeds, it opens the
-DuckDB file read-only, verifies the current SaltBytes schema, and requires the
-latest pipeline run to have a persisted successful or failed completion state
-before replacing the database blob. This keeps the current cloud database
-canonical if raw publication, validation, or database upload fails. Raw blobs
-that succeed before a later database failure remain as acceptable immutable
-orphans.
+The runner does not download old raw blobs. It attempts every raw JSON upload
+created during the run with overwrite protection and gives each Blob upload at
+most three total attempts. It opens the DuckDB file read-only, verifies the
+current SaltBytes schema, and requires the latest pipeline run to have a
+persisted successful or failed completion state. It also verifies that every raw
+snapshot referenced by that run has a safe local path under the configured raw
+root and was uploaded successfully. It replaces the canonical database only
+when every referenced raw snapshot is durable and validation passes.
+
+When raw or canonical database publication remains incomplete after retries,
+the runner leaves canonical state unchanged and attempts to preserve the
+validated completed database plus a concise failure manifest under the run's
+`recovery/<run_id>/` path. Recovery artifacts are noncanonical evidence: the
+workflow never restores or promotes them automatically. Raw blobs that succeed
+before a later publication failure remain as acceptable immutable orphans.
 
 The pipeline records partial and failed source outcomes in DuckDB. The workflow
 synchronizes after `saltbytes` exits, then returns its original exit status. A
@@ -94,8 +103,9 @@ Pull request validation installs the committed dashboard lock file and builds
 Observable from deterministic fixture JSON. That validation does not authenticate
 to Azure or read the hosted DuckDB database.
 
-To recover from a failed run, inspect its Action log, correct the source, build,
-or Azure permission problem, and manually run the workflow from `main`. Do not
+To recover from a failed run, inspect its Action log and any run-specific
+failure manifest, then correct the source, build, or Azure permission problem
+and manually run the workflow from `main`. Do not copy a recovery database or
 upload an unvalidated local database over `state/saltbytes.duckdb`; the workflow
 is the supported publisher. Blob soft delete permits recovery of a deleted state
 blob for seven days.

@@ -116,11 +116,17 @@ Connect with Blob data permissions scoped to the `saltbytes-state` container.
 
 Before ingestion, the runner restores only `state/saltbytes.duckdb`; it never
 downloads the historical raw archive. It uploads new immutable raw snapshots
-under `raw/` before validating and replacing the mutable database blob. A
-failed restore, raw upload, database validation, or database upload leaves the
-current cloud database canonical. A failed pipeline can still publish its
-readable completed failure record when synchronization succeeds, but its nonzero
-exit status prevents report generation and Pages deployment.
+under `raw/`, giving each upload at most three total attempts, before replacing
+the mutable database blob. Canonical replacement requires every raw snapshot
+referenced by the completed latest run to resolve safely under the configured
+raw root, be present locally, and have a successful upload, while the database
+must also pass validation. An incomplete raw or database publication leaves
+current canonical state unchanged and preserves the validated completed
+database and a failure manifest under noncanonical `recovery/<run_id>/` storage
+when possible. Recovery artifacts are never restored or promoted automatically.
+A failed pipeline can still publish its readable completed failure record when
+synchronization succeeds, but its nonzero exit status prevents report
+generation and Pages deployment.
 
 After successful ingestion and canonical state publication, the workflow builds
 the deterministic reports, exports curated dashboard data, builds Observable,
