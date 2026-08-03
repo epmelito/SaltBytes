@@ -40,6 +40,16 @@ from saltbytes.storage import create_run_id, write_raw_snapshot
 
 logger = logging.getLogger(__name__)
 
+
+def _persistence_failure_detail(
+    stage: str,
+    error: Exception,
+) -> tuple[str, str]:
+    if isinstance(error, SourcePersistenceError):
+        stage = error.stage
+    return stage, f"{stage}: {error}"
+
+
 # run the configured forecast pipeline for every location
 def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     with httpx.Client(timeout=10.0) as open_meteo_client:
@@ -237,9 +247,10 @@ def _run_pipeline(
                         recorded_at=datetime.now(timezone.utc),
                     )
                 except Exception as error:
-                    if isinstance(error, SourcePersistenceError):
-                        persistence_stage = error.stage
-                    detail = f"{persistence_stage}: {error}"
+                    persistence_stage, detail = _persistence_failure_detail(
+                        persistence_stage,
+                        error,
+                    )
                     logger.exception(
                         "weather source persistence failed run_id=%s location=%s "
                         "stage=%s",
@@ -389,9 +400,10 @@ def _run_pipeline(
                         recorded_at=datetime.now(timezone.utc),
                     )
                 except Exception as error:
-                    if isinstance(error, SourcePersistenceError):
-                        persistence_stage = error.stage
-                    detail = f"{persistence_stage}: {error}"
+                    persistence_stage, detail = _persistence_failure_detail(
+                        persistence_stage,
+                        error,
+                    )
                     logger.exception(
                         "wave source persistence failed run_id=%s location=%s "
                         "stage=%s",
@@ -546,9 +558,10 @@ def _run_pipeline(
                             recorded_at=datetime.now(timezone.utc),
                         )
                     except Exception as error:
-                        if isinstance(error, SourcePersistenceError):
-                            persistence_stage = error.stage
-                        detail = f"{persistence_stage}: {error}"
+                        persistence_stage, detail = _persistence_failure_detail(
+                            persistence_stage,
+                            error,
+                        )
                         logger.exception(
                             "sst source persistence failed run_id=%s location=%s "
                             "stage=%s",
@@ -704,9 +717,10 @@ def _run_pipeline(
                             relationship=location["tide"],
                         )
                     except Exception as error:
-                        if isinstance(error, SourcePersistenceError):
-                            persistence_stage = error.stage
-                        detail = f"{persistence_stage}: {error}"
+                        persistence_stage, detail = _persistence_failure_detail(
+                            persistence_stage,
+                            error,
+                        )
                         logger.exception(
                             "tide source persistence failed run_id=%s location=%s "
                             "stage=%s",

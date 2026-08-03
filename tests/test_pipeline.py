@@ -7,6 +7,7 @@ import duckdb
 import httpx
 import pytest
 
+import saltbytes.database as database
 from saltbytes.pipeline import run_pipeline
 from saltbytes.solar import solar_calculation_provenance
 
@@ -944,6 +945,7 @@ def test_atmospheric_normalized_failure_aborts_immediately(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = pipeline_config(tmp_path)
+    message = "atmospheric normalized storage unavailable"
 
     def fake_fetch_forecast(
         location: dict[str, Any],
@@ -952,20 +954,47 @@ def test_atmospheric_normalized_failure_aborts_immediately(
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
-    def fail_source_persistence(**kwargs: Any) -> int:
-        raise RuntimeError("atmospheric normalized storage unavailable")
-
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "saltbytes.pipeline.persist_source_success",
-        fail_source_persistence,
+        database,
+        "insert_forecast_hourly",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
     )
 
     with pytest.raises(RuntimeError, match="weather source persistence failed"):
         run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+        source_result = connection.execute(
+            """
+            select status, detail from source_results
+            where source = 'weather' and location_id = 'jennettes_pier'
+            """
+        ).fetchone()
+        persisted_rows = connection.execute(
+            """
+            select
+                (select count(*) from forecast_snapshots),
+                (select count(*) from forecast_hourly),
+                (select count(*) from source_results where status = 'success')
+            """
+        ).fetchone()
+
+    detail = f"normalized rows: {message}"
+    assert run == (
+        "failed",
+        0,
+        f"weather source persistence failed for jennettes_pier at {detail}",
+    )
+    assert source_result == ("persistence_failed", detail)
+    assert persisted_rows == (0, 0, 0)
 
 
 def _test_wave_raw_storage_failure_aborts_immediately(
@@ -1300,17 +1329,19 @@ def test_tide_api_failure_is_isolated_and_recorded(
 
 
 @pytest.mark.parametrize(
-    ("failure_point", "message"),
+    ("failure_point", "stage", "message"),
     [
-        ("snapshot", "tide snapshot database unavailable"),
-        ("events", "tide event storage unavailable"),
-        ("phase", "tide phase storage unavailable"),
+        ("snapshot", "snapshot provenance", "tide snapshot database unavailable"),
+        ("events", "normalized events", "tide event storage unavailable"),
+        ("phase", "normalized phases", "tide phase storage unavailable"),
+        ("result", "source result", "tide source result storage unavailable"),
     ],
 )
 def test_tide_persistence_failures_abort_immediately(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     failure_point: str,
+    stage: str,
     message: str,
 ) -> None:
     config = pipeline_config(tmp_path)
@@ -1324,17 +1355,27 @@ def test_tide_persistence_failures_abort_immediately(
         lambda location, wave_api_config, client: wave_payload(location),
     )
 
-    from saltbytes.database import persist_source_success as real_persist_source_success
+    target = {
+        "snapshot": "insert_tide_snapshot",
+        "events": "insert_tide_events",
+        "phase": "insert_tide_phase_hourly",
+        "result": "insert_source_result",
+    }[failure_point]
+    if failure_point == "result":
+        real_insert_source_result = database.insert_source_result
 
-    def fail_tide_persistence(**kwargs: Any) -> int:
-        if kwargs["source"] == "tide":
-            raise RuntimeError(message)
-        return real_persist_source_success(**kwargs)
+        def fail_tide_source_result(*args: Any, **kwargs: Any) -> None:
+            if kwargs["source"] == "tide":
+                raise RuntimeError(message)
+            real_insert_source_result(*args, **kwargs)
 
-    monkeypatch.setattr(
-        "saltbytes.pipeline.persist_source_success",
-        fail_tide_persistence,
-    )
+        monkeypatch.setattr(database, target, fail_tide_source_result)
+    else:
+        monkeypatch.setattr(
+            database,
+            target,
+            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
+        )
 
     with pytest.raises(RuntimeError, match="tide source persistence failed"):
         run_pipeline(config)
@@ -1344,13 +1385,31 @@ def test_tide_persistence_failures_abort_immediately(
         run = connection.execute(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
+        tide_counts = connection.execute(
+            """
+            select
+                (select count(*) from forecast_snapshots where model_selector is null),
+                (select count(*) from tide_snapshots),
+                (select count(*) from tide_events),
+                (select count(*) from tide_phase_hourly),
+                (select count(*) from source_results where source = 'tide' and status = 'success')
+            """
+        ).fetchone()
+        source_result = connection.execute(
+            """
+            select status, detail from source_results
+            where source = 'tide' and location_id = 'jennettes_pier'
+            """
+        ).fetchone()
 
+    detail = f"{stage}: {message}"
     assert run == (
         "failed",
         504,
-        "tide source persistence failed for jennettes_pier at "
-        f"snapshot provenance: {message}",
+        f"tide source persistence failed for jennettes_pier at {detail}",
     )
+    assert tide_counts == (0, 0, 0, 0, 0)
+    assert source_result == ("persistence_failed", detail)
 
 def test_pipeline_persists_run_locations_before_all_sources_fail(
     tmp_path: Path,

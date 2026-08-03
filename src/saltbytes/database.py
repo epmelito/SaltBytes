@@ -12,7 +12,7 @@ class SourcePersistenceError(RuntimeError):
 
     def __init__(self, stage: str, error: Exception) -> None:
         self.stage = stage
-        super().__init__(f"{stage}: {error}")
+        super().__init__(str(error))
 
 
 def _database_connection(
@@ -1340,6 +1340,7 @@ def persist_source_success(
 
         try:
             if source == "weather":
+                stage = "snapshot metadata"
                 insert_forecast_snapshot(
                     database_path,
                     metadata,
@@ -1354,6 +1355,7 @@ def persist_source_success(
                     connection=connection,
                 )
             elif source == "wave":
+                stage = "snapshot metadata"
                 insert_forecast_snapshot(
                     database_path,
                     metadata,
@@ -1368,6 +1370,7 @@ def persist_source_success(
                     connection=connection,
                 )
             elif source == "sst":
+                stage = "snapshot metadata"
                 insert_forecast_snapshot(
                     database_path,
                     metadata,
@@ -1389,6 +1392,7 @@ def persist_source_success(
                     or relationship is None
                 ):
                     raise ValueError("tide persistence requires provenance and rows")
+                stage = "snapshot provenance"
                 insert_tide_snapshot(
                     database_path,
                     metadata,
@@ -1427,11 +1431,14 @@ def persist_source_success(
                 recorded_at=recorded_at,
                 connection=connection,
             )
-        except Exception as error:
-            connection.execute("rollback")
-            raise SourcePersistenceError(stage, error) from error
-        else:
+            stage = "transaction commit"
             connection.execute("commit")
+        except Exception as error:
+            try:
+                connection.execute("rollback")
+            except Exception:
+                pass
+            raise SourcePersistenceError(stage, error) from error
 
     return rows_loaded
 
