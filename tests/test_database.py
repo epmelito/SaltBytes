@@ -5,7 +5,9 @@ from typing import Any
 import duckdb
 import pytest
 
+import saltbytes.database as database
 from saltbytes.database import (
+    SourcePersistenceError,
     complete_pipeline_run,
     initialize_database,
     insert_forecast_hourly,
@@ -18,6 +20,7 @@ from saltbytes.database import (
     insert_tide_phase_hourly,
     insert_tide_snapshot,
     insert_wave_hourly,
+    persist_source_success,
 )
 
 EXPECTED_TABLES = {
@@ -908,6 +911,111 @@ def test_insert_source_result_rejects_unsupported_status(
             detail="request failed",
             recorded_at=datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc),
         )
+
+
+def test_persist_source_success_rolls_back_partial_weather_writes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+
+    monkeypatch.setattr(
+        database,
+        "insert_forecast_hourly",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            RuntimeError("normalized rows unavailable")
+        ),
+    )
+
+    with pytest.raises(SourcePersistenceError, match="normalized rows"):
+        persist_source_success(
+            database_path=database_path,
+            run_id="run123",
+            location_id="jennettes_pier",
+            source="weather",
+            metadata=snapshot_metadata(),
+            payload=atmospheric_payload(),
+            recorded_at=datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc),
+        )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        counts = connection.execute(
+            """
+            select
+                (select count(*) from forecast_snapshots),
+                (select count(*) from forecast_hourly),
+                (select count(*) from source_results)
+            """
+        ).fetchone()
+
+    assert counts == (0, 0, 0)
+
+
+def test_initialize_database_migrates_existing_source_result_statuses(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(
+            """
+            create table pipeline_runs (
+                run_id varchar primary key,
+                started_at timestamptz not null,
+                completed_at timestamptz,
+                status varchar not null,
+                rows_loaded integer not null default 0,
+                error_message varchar
+            )
+            """
+        )
+        connection.execute(
+            """
+            create table source_results (
+                run_id varchar not null,
+                location_id varchar not null,
+                source varchar not null,
+                status varchar not null check (
+                    status in ('success', 'fetch_failed', 'validation_failed')
+                ),
+                detail varchar,
+                recorded_at timestamptz not null,
+                primary key (run_id, location_id, source),
+                foreign key (run_id) references pipeline_runs(run_id)
+            )
+            """
+        )
+        connection.execute(
+            "insert into pipeline_runs values ('run123', ?, null, 'failed', 0, null)",
+            [datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc)],
+        )
+        connection.execute(
+            """
+            insert into source_results values
+            ('run123', 'jennettes_pier', 'weather', 'success', null, ?)
+            """,
+            [datetime(2026, 7, 28, 10, 5, tzinfo=timezone.utc)],
+        )
+
+    initialize_database(database_path)
+    insert_source_result(
+        database_path=database_path,
+        run_id="run123",
+        location_id="jennettes_pier",
+        source="wave",
+        status="persistence_failed",
+        detail="normalized rows: unavailable",
+        recorded_at=datetime(2026, 7, 28, 10, 6, tzinfo=timezone.utc),
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        results = connection.execute(
+            "select source, status from source_results order by source"
+        ).fetchall()
+        connection.execute("select * from analysis_ready_features_hourly").fetchall()
+
+    assert results == [("wave", "persistence_failed"), ("weather", "success")]
 
 
 def test_source_results_enforce_one_result_per_run_location_and_source(

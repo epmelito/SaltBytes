@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -6,6 +7,7 @@ import duckdb
 import httpx
 import pytest
 
+import saltbytes.database as database
 from saltbytes.pipeline import run_pipeline
 from saltbytes.solar import solar_calculation_provenance
 
@@ -791,7 +793,7 @@ def test_source_result_persistence_failure_aborts_immediately(
         fetched_locations.append(location["id"])
         return atmospheric_payload(location)
 
-    def fail_source_result_insert(**kwargs: Any) -> None:
+    def fail_source_persistence(**kwargs: Any) -> int:
         raise RuntimeError("source result database unavailable")
 
     monkeypatch.setattr(
@@ -799,8 +801,8 @@ def test_source_result_persistence_failure_aborts_immediately(
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "saltbytes.pipeline.insert_source_result",
-        fail_source_result_insert,
+        "saltbytes.pipeline.persist_source_success",
+        fail_source_persistence,
     )
 
     with pytest.raises(
@@ -816,14 +818,21 @@ def test_source_result_persistence_failure_aborts_immediately(
         ).fetchone()
 
     assert fetched_locations == ["jennettes_pier"]
-    assert run == ("failed", 0, "source result database unavailable")
+    assert run == (
+        "failed",
+        0,
+        "weather source persistence failed for jennettes_pier at "
+        "snapshot metadata: source result database unavailable",
+    )
 
 
 def test_raw_storage_failure_aborts_immediately(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     config = pipeline_config(tmp_path)
+    caplog.set_level(logging.INFO, logger="saltbytes.pipeline")
     fetched_locations: list[str] = []
 
     def fake_fetch_forecast(
@@ -846,7 +855,7 @@ def test_raw_storage_failure_aborts_immediately(
         fail_raw_storage,
     )
 
-    with pytest.raises(OSError, match="raw storage unavailable"):
+    with pytest.raises(RuntimeError, match="weather source persistence failed"):
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
@@ -858,8 +867,28 @@ def test_raw_storage_failure_aborts_immediately(
             from pipeline_runs
             """
         ).fetchone()
+        source_result = connection.execute(
+            """
+            select status, detail
+            from source_results
+            where location_id = 'jennettes_pier' and source = 'weather'
+            """
+        ).fetchone()
     assert fetched_locations == ["jennettes_pier"]
-    assert run == ("failed", 0, "raw storage unavailable")
+    assert run == (
+        "failed",
+        0,
+        "weather source persistence failed for jennettes_pier at "
+        "raw snapshot: raw storage unavailable",
+    )
+    assert source_result == (
+        "persistence_failed",
+        "raw snapshot: raw storage unavailable",
+    )
+    assert "weather quality checks passed" in caplog.text
+    assert "weather source persistence failed" in caplog.text
+    assert "weather source persistence completed" not in caplog.text
+    assert "pipeline failed" in caplog.text
 
 
 def test_snapshot_database_failure_aborts_immediately(
@@ -877,7 +906,7 @@ def test_snapshot_database_failure_aborts_immediately(
         fetched_locations.append(location["id"])
         return atmospheric_payload(location)
 
-    def fail_snapshot_insert(**kwargs: Any) -> None:
+    def fail_source_persistence(**kwargs: Any) -> int:
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(
@@ -885,8 +914,8 @@ def test_snapshot_database_failure_aborts_immediately(
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "saltbytes.pipeline.insert_forecast_snapshot",
-        fail_snapshot_insert,
+        "saltbytes.pipeline.persist_source_success",
+        fail_source_persistence,
     )
 
     with pytest.raises(RuntimeError, match="database unavailable"):
@@ -903,7 +932,12 @@ def test_snapshot_database_failure_aborts_immediately(
         ).fetchone()
 
     assert fetched_locations == ["jennettes_pier"]
-    assert run == ("failed", 0, "database unavailable")
+    assert run == (
+        "failed",
+        0,
+        "weather source persistence failed for jennettes_pier at "
+        "snapshot metadata: database unavailable",
+    )
 
 
 def test_atmospheric_normalized_failure_aborts_immediately(
@@ -911,6 +945,7 @@ def test_atmospheric_normalized_failure_aborts_immediately(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = pipeline_config(tmp_path)
+    message = "atmospheric normalized storage unavailable"
 
     def fake_fetch_forecast(
         location: dict[str, Any],
@@ -919,23 +954,47 @@ def test_atmospheric_normalized_failure_aborts_immediately(
     ) -> dict[str, Any]:
         return atmospheric_payload(location)
 
-    def fail_forecast_hourly_insert(**kwargs: Any) -> int:
-        raise RuntimeError("atmospheric normalized storage unavailable")
-
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
         fake_fetch_forecast,
     )
     monkeypatch.setattr(
-        "saltbytes.pipeline.insert_forecast_hourly",
-        fail_forecast_hourly_insert,
+        database,
+        "insert_forecast_hourly",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match="atmospheric normalized storage unavailable",
-    ):
+    with pytest.raises(RuntimeError, match="weather source persistence failed"):
         run_pipeline(config)
+
+    database_path = Path(config["storage"]["database_path"])
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        run = connection.execute(
+            "select status, rows_loaded, error_message from pipeline_runs"
+        ).fetchone()
+        source_result = connection.execute(
+            """
+            select status, detail from source_results
+            where source = 'weather' and location_id = 'jennettes_pier'
+            """
+        ).fetchone()
+        persisted_rows = connection.execute(
+            """
+            select
+                (select count(*) from forecast_snapshots),
+                (select count(*) from forecast_hourly),
+                (select count(*) from source_results where status = 'success')
+            """
+        ).fetchone()
+
+    detail = f"normalized rows: {message}"
+    assert run == (
+        "failed",
+        0,
+        f"weather source persistence failed for jennettes_pier at {detail}",
+    )
+    assert source_result == ("persistence_failed", detail)
+    assert persisted_rows == (0, 0, 0)
 
 
 def _test_wave_raw_storage_failure_aborts_immediately(
@@ -1057,8 +1116,12 @@ def test_wave_normalized_failure_aborts_immediately(
     ) -> dict[str, Any]:
         return wave_payload(location)
 
-    def fail_wave_hourly_insert(**kwargs: Any) -> int:
-        raise RuntimeError("wave normalized storage unavailable")
+    from saltbytes.database import persist_source_success as real_persist_source_success
+
+    def fail_wave_persistence(**kwargs: Any) -> int:
+        if kwargs["source"] == "wave":
+            raise RuntimeError("wave normalized storage unavailable")
+        return real_persist_source_success(**kwargs)
 
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_forecast",
@@ -1069,14 +1132,11 @@ def test_wave_normalized_failure_aborts_immediately(
         fake_fetch_wave_forecast,
     )
     monkeypatch.setattr(
-        "saltbytes.pipeline.insert_wave_hourly",
-        fail_wave_hourly_insert,
+        "saltbytes.pipeline.persist_source_success",
+        fail_wave_persistence,
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match="wave normalized storage unavailable",
-    ):
+    with pytest.raises(RuntimeError, match="wave source persistence failed"):
         run_pipeline(config)
 
 
@@ -1182,15 +1242,19 @@ def test_sst_normalized_failure_aborts_immediately(
         fake_fetch_wave_forecast,
     )
 
-    def fail_sst_hourly_insert(**kwargs: Any) -> int:
-        raise RuntimeError(message)
+    from saltbytes.database import persist_source_success as real_persist_source_success
+
+    def fail_sst_persistence(**kwargs: Any) -> int:
+        if kwargs["source"] == "sst":
+            raise RuntimeError(message)
+        return real_persist_source_success(**kwargs)
 
     monkeypatch.setattr(
-        "saltbytes.pipeline.insert_sst_hourly",
-        fail_sst_hourly_insert,
+        "saltbytes.pipeline.persist_source_success",
+        fail_sst_persistence,
     )
 
-    with pytest.raises((OSError, RuntimeError), match=message):
+    with pytest.raises(RuntimeError, match="sst source persistence failed"):
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
@@ -1198,7 +1262,12 @@ def test_sst_normalized_failure_aborts_immediately(
         run = connection.execute(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
-    assert run == ("failed", 336, message)
+    assert run == (
+        "failed",
+        336,
+        "sst source persistence failed for jennettes_pier at "
+        f"snapshot metadata: {message}",
+    )
 
 
 def test_tide_api_failure_is_isolated_and_recorded(
@@ -1260,17 +1329,19 @@ def test_tide_api_failure_is_isolated_and_recorded(
 
 
 @pytest.mark.parametrize(
-    ("failure_point", "message"),
+    ("failure_point", "stage", "message"),
     [
-        ("snapshot", "tide snapshot database unavailable"),
-        ("events", "tide event storage unavailable"),
-        ("phase", "tide phase storage unavailable"),
+        ("snapshot", "snapshot provenance", "tide snapshot database unavailable"),
+        ("events", "normalized events", "tide event storage unavailable"),
+        ("phase", "normalized phases", "tide phase storage unavailable"),
+        ("result", "source result", "tide source result storage unavailable"),
     ],
 )
 def test_tide_persistence_failures_abort_immediately(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     failure_point: str,
+    stage: str,
     message: str,
 ) -> None:
     config = pipeline_config(tmp_path)
@@ -1284,23 +1355,29 @@ def test_tide_persistence_failures_abort_immediately(
         lambda location, wave_api_config, client: wave_payload(location),
     )
 
-    if failure_point == "snapshot":
-        monkeypatch.setattr(
-            "saltbytes.pipeline.insert_tide_snapshot",
-            lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
-        )
-    elif failure_point == "events":
-        monkeypatch.setattr(
-            "saltbytes.pipeline.insert_tide_events",
-            lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
-        )
+    target = {
+        "snapshot": "insert_tide_snapshot",
+        "events": "insert_tide_events",
+        "phase": "insert_tide_phase_hourly",
+        "result": "insert_source_result",
+    }[failure_point]
+    if failure_point == "result":
+        real_insert_source_result = database.insert_source_result
+
+        def fail_tide_source_result(*args: Any, **kwargs: Any) -> None:
+            if kwargs["source"] == "tide":
+                raise RuntimeError(message)
+            real_insert_source_result(*args, **kwargs)
+
+        monkeypatch.setattr(database, target, fail_tide_source_result)
     else:
         monkeypatch.setattr(
-            "saltbytes.pipeline.insert_tide_phase_hourly",
-            lambda **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
+            database,
+            target,
+            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError(message)),
         )
 
-    with pytest.raises((OSError, RuntimeError), match=message):
+    with pytest.raises(RuntimeError, match="tide source persistence failed"):
         run_pipeline(config)
 
     database_path = Path(config["storage"]["database_path"])
@@ -1308,8 +1385,31 @@ def test_tide_persistence_failures_abort_immediately(
         run = connection.execute(
             "select status, rows_loaded, error_message from pipeline_runs"
         ).fetchone()
+        tide_counts = connection.execute(
+            """
+            select
+                (select count(*) from forecast_snapshots where model_selector is null),
+                (select count(*) from tide_snapshots),
+                (select count(*) from tide_events),
+                (select count(*) from tide_phase_hourly),
+                (select count(*) from source_results where source = 'tide' and status = 'success')
+            """
+        ).fetchone()
+        source_result = connection.execute(
+            """
+            select status, detail from source_results
+            where source = 'tide' and location_id = 'jennettes_pier'
+            """
+        ).fetchone()
 
-    assert run == ("failed", 504, message)
+    detail = f"{stage}: {message}"
+    assert run == (
+        "failed",
+        504,
+        f"tide source persistence failed for jennettes_pier at {detail}",
+    )
+    assert tide_counts == (0, 0, 0, 0, 0)
+    assert source_result == ("persistence_failed", detail)
 
 def test_pipeline_persists_run_locations_before_all_sources_fail(
     tmp_path: Path,
