@@ -116,12 +116,27 @@ def test_rejects_unfinished_latest_run(tmp_path: Path) -> None:
         validate_hosted_database(database_path)
 
 
+def test_rejects_invalid_latest_run_id(tmp_path: Path) -> None:
+    database_path = tmp_path / "invalid-run-id.duckdb"
+    initialize_database(database_path)
+    complete_run(database_path, run_id="../outside")
+
+    with pytest.raises(
+        HostedDatabaseValidationError,
+        match="invalid run ID",
+    ):
+        validate_hosted_database(database_path)
+
+
 def test_accepts_completed_successful_run(tmp_path: Path) -> None:
     database_path = tmp_path / "success.duckdb"
     initialize_database(database_path)
     complete_run(database_path)
 
-    validate_hosted_database(database_path)
+    validation = validate_hosted_database(database_path)
+
+    assert validation.run_id == "run123"
+    assert validation.raw_file_paths == ()
 
 
 @pytest.mark.parametrize("rows_loaded", [0, 84])
