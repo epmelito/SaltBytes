@@ -131,3 +131,23 @@ also leaves only that source's derived angle null.
 
 Do not interpolate, carry values forward, substitute sources, or add fishing
 scores or recommendations in the MVP.
+
+## Analysis-ready feature view
+
+`analysis_ready_features_hourly` is a companion DuckDB view over
+`coastal_conditions_hourly` at the same `run_id`, `location_id`, and UTC
+`forecast_time` grain. It preserves the integrated view's source status and
+snapshot provenance.
+
+It adds `weather_available`, `wave_available`, `sst_available`, and
+`tide_available`, which require a successful source result plus its normalized
+hourly row and required values. `tide_context_available` independently requires
+the tide phase and complete adjacent-extrema fields.
+
+`precipitation_6h` and `precipitation_24h` sum the target hour and preceding 5
+or 23 exact hourly atmospheric values from the same snapshot. Their matching
+`*_complete` fields are true only when every expected timestamp and
+precipitation value exists; otherwise totals are null. `technically_eligible`
+requires all four source availability fields, both site-relative angles, tide
+derived context, and both complete precipitation windows. It expresses input
+completeness only, never fishing quality or safety.

@@ -368,6 +368,126 @@ left join source_results as tide_results
     on tide_results.run_id = hourly_keys.run_id
     and tide_results.location_id = hourly_keys.location_id
     and tide_results.source = 'tide';
+
+create or replace view analysis_ready_features_hourly as
+with feature_rows as (
+    select
+        conditions.*,
+        coalesce(conditions.weather_status = 'success'
+            and conditions.weather_snapshot_id is not null
+            and conditions.precipitation_probability is not null
+            and conditions.wind_speed_10m is not null
+            and conditions.wind_direction_10m is not null
+            and conditions.wind_gusts_10m is not null
+            and conditions.precipitation is not null, false) as weather_available,
+        coalesce(conditions.wave_status = 'success'
+            and conditions.wave_snapshot_id is not null
+            and conditions.wave_height is not null
+            and conditions.wave_direction is not null
+            and conditions.wave_period is not null, false) as wave_available,
+        coalesce(conditions.sst_status = 'success'
+            and conditions.sst_snapshot_id is not null
+            and conditions.sea_surface_temperature is not null, false) as sst_available,
+        coalesce(conditions.tide_status = 'success'
+            and conditions.tide_snapshot_id is not null
+            and conditions.tide_phase is not null, false) as tide_available,
+        coalesce(conditions.tide_status = 'success'
+            and conditions.tide_snapshot_id is not null
+            and conditions.tide_phase is not null
+            and conditions.tide_previous_extremum_time is not null
+            and conditions.tide_previous_extremum_type is not null
+            and conditions.tide_previous_predicted_water_level is not null
+            and conditions.tide_next_extremum_time is not null
+            and conditions.tide_next_extremum_type is not null
+            and conditions.tide_next_predicted_water_level is not null
+            and conditions.tide_minutes_since_previous_extremum is not null
+            and conditions.tide_minutes_until_next_extremum is not null
+            and conditions.tide_predicted_range is not null, false) as tide_context_available
+    from coastal_conditions_hourly as conditions
+),
+six_hour_windows as (
+    select
+        feature_rows.run_id,
+        feature_rows.location_id,
+        feature_rows.forecast_time,
+        count(six_hour_values.forecast_time) = 6
+            and count(six_hour_values.precipitation) = 6
+            as precipitation_6h_complete,
+        case
+            when count(six_hour_values.forecast_time) = 6
+                and count(six_hour_values.precipitation) = 6
+            then sum(six_hour_values.precipitation)
+        end as precipitation_6h
+    from feature_rows
+    cross join lateral generate_series(
+        feature_rows.forecast_time - interval '5 hours',
+        feature_rows.forecast_time,
+        interval '1 hour'
+    ) as six_hour_window(forecast_time)
+    left join coastal_conditions_hourly as six_hour_values
+        on six_hour_values.run_id = feature_rows.run_id
+        and six_hour_values.location_id = feature_rows.location_id
+        and six_hour_values.weather_snapshot_id = feature_rows.weather_snapshot_id
+        and six_hour_values.forecast_time = six_hour_window.forecast_time
+    group by
+        feature_rows.run_id,
+        feature_rows.location_id,
+        feature_rows.forecast_time
+),
+twenty_four_hour_windows as (
+    select
+        feature_rows.run_id,
+        feature_rows.location_id,
+        feature_rows.forecast_time,
+        count(twenty_four_hour_values.forecast_time) = 24
+            and count(twenty_four_hour_values.precipitation) = 24
+            as precipitation_24h_complete,
+        case
+            when count(twenty_four_hour_values.forecast_time) = 24
+                and count(twenty_four_hour_values.precipitation) = 24
+            then sum(twenty_four_hour_values.precipitation)
+        end as precipitation_24h
+    from feature_rows
+    cross join lateral generate_series(
+        feature_rows.forecast_time - interval '23 hours',
+        feature_rows.forecast_time,
+        interval '1 hour'
+    ) as twenty_four_hour_window(forecast_time)
+    left join coastal_conditions_hourly as twenty_four_hour_values
+        on twenty_four_hour_values.run_id = feature_rows.run_id
+        and twenty_four_hour_values.location_id = feature_rows.location_id
+        and twenty_four_hour_values.weather_snapshot_id = feature_rows.weather_snapshot_id
+        and twenty_four_hour_values.forecast_time = twenty_four_hour_window.forecast_time
+    group by
+        feature_rows.run_id,
+        feature_rows.location_id,
+        feature_rows.forecast_time
+)
+select
+    feature_rows.*,
+    six_hour_windows.precipitation_6h,
+    six_hour_windows.precipitation_6h_complete,
+    twenty_four_hour_windows.precipitation_24h,
+    twenty_four_hour_windows.precipitation_24h_complete,
+    feature_rows.weather_available
+        and feature_rows.wave_available
+        and feature_rows.sst_available
+        and feature_rows.tide_available
+        and feature_rows.wind_to_shore_angle_degrees is not null
+        and feature_rows.wave_to_shore_angle_degrees is not null
+        and feature_rows.tide_context_available
+        and six_hour_windows.precipitation_6h_complete
+        and twenty_four_hour_windows.precipitation_24h_complete
+        as technically_eligible
+from feature_rows
+inner join six_hour_windows
+    on six_hour_windows.run_id = feature_rows.run_id
+    and six_hour_windows.location_id = feature_rows.location_id
+    and six_hour_windows.forecast_time = feature_rows.forecast_time
+inner join twenty_four_hour_windows
+    on twenty_four_hour_windows.run_id = feature_rows.run_id
+    and twenty_four_hour_windows.location_id = feature_rows.location_id
+    and twenty_four_hour_windows.forecast_time = feature_rows.forecast_time;
 """
 
 # create the database file and required tables

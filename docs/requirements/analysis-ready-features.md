@@ -52,9 +52,13 @@ recent rainfall that could contribute to runoff where a defensible local
 relationship is later established. It must not imply that rainfall is
 universally favorable or unfavorable for fishing.
 
-The implementation must choose and document explicit trailing windows and the
-behavior of incomplete windows. Each accumulation must use precipitation from
-the same run and source provenance as the target hourly row.
+The feature view exposes 6-hour (target hour plus preceding 5 hours) and
+24-hour (target hour plus preceding 23 hours) trailing precipitation windows.
+Each window requires every exact hourly timestamp from the same run, location,
+and atmospheric snapshot, with a non-null precipitation value. A complete
+window exposes its total; an incomplete window exposes a null total and a
+separate false completeness indicator. These windows are operational context,
+not favorable or unfavorable fishing signals.
 
 ### Source completeness and availability
 
@@ -68,7 +72,8 @@ They must distinguish at least:
 - not applicable when a future context-specific feature does not apply
 
 A missing value must remain distinguishable from a recorded source failure,
-unavailable derived context, an incomplete window, and a not-applicable state.
+unavailable derived context, and an incomplete window. The current features do
+not use a not-applicable state.
 None of these states means bad fishing conditions.
 
 ### Technical eligibility
