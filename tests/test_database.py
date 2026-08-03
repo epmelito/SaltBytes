@@ -1880,3 +1880,145 @@ def test_initialize_database_upgrades_legacy_orientation_schema(
 
     assert run_location_table_count == (1,)
     assert row == ("legacy-run", 75.0, None, None)
+
+
+def test_analysis_ready_features_require_complete_windows_and_hourly_values(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    target_time = datetime(2026, 7, 29, 23, tzinfo=timezone.utc)
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_run_locations(database_path, "run123", [orientation_location()])
+
+    weather_metadata = snapshot_metadata(snapshot_id="weather-features")
+    wave_metadata = wave_snapshot_metadata(snapshot_id="wave-features")
+    wave_metadata["location_id"] = "jennettes_pier"
+    sst_metadata = sst_snapshot_metadata(snapshot_id="sst-features")
+    sst_metadata["location_id"] = "jennettes_pier"
+    insert_forecast_snapshot(database_path, weather_metadata)
+    insert_forecast_snapshot(database_path, wave_metadata)
+    insert_forecast_snapshot(database_path, sst_metadata)
+    insert_tide_snapshot(
+        database_path,
+        tide_snapshot_metadata(snapshot_id="tide-features"),
+        tide_request_provenance(),
+        tide_relationship(),
+    )
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.executemany(
+            """
+            insert into forecast_hourly values (?, ?, ?, 20, 10, 75, 15, 1)
+            """,
+            [
+                (
+                    "weather-features",
+                    "jennettes_pier",
+                    datetime(2026, 7, 29, hour, tzinfo=timezone.utc),
+                )
+                for hour in range(24)
+                if hour != 11
+            ],
+        )
+        connection.execute(
+            """
+            insert into wave_hourly values (?, ?, ?, 1.2, 75, 8)
+            """,
+            ["wave-features", "jennettes_pier", target_time],
+        )
+        connection.execute(
+            """
+            insert into sst_hourly values (?, ?, ?, 25.1)
+            """,
+            ["sst-features", "jennettes_pier", target_time],
+        )
+
+    insert_tide_events(
+        database_path,
+        "tide-features",
+        "jennettes_pier",
+        [
+            {
+                "event_time": datetime(2026, 7, 29, 0, tzinfo=timezone.utc),
+                "event_type": "low",
+                "predicted_water_level": 0.0,
+            },
+            {
+                "event_time": datetime(2026, 7, 30, 6, tzinfo=timezone.utc),
+                "event_type": "high",
+                "predicted_water_level": 1.0,
+            },
+        ],
+    )
+    insert_tide_phase_hourly(
+        database_path,
+        "tide-features",
+        "jennettes_pier",
+        [{"forecast_time": target_time, "phase": "rising"}],
+    )
+    for source in ("weather", "wave", "sst", "tide"):
+        insert_source_result(
+            database_path,
+            "run123",
+            "jennettes_pier",
+            source,
+            "success",
+            None,
+            target_time,
+        )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        row = connection.execute(
+            """
+            select
+                precipitation_6h,
+                precipitation_6h_complete,
+                precipitation_24h,
+                precipitation_24h_complete,
+                weather_available,
+                wave_available,
+                sst_available,
+                tide_available,
+                tide_context_available,
+                technically_eligible
+            from analysis_ready_features_hourly
+            where forecast_time = ?
+            """,
+            [target_time],
+        ).fetchone()
+
+    assert row == (6.0, True, None, False, True, True, True, True, True, False)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        missing_hour_row = connection.execute(
+            """
+            select
+                weather_status,
+                weather_available,
+                wave_status,
+                wave_available,
+                sst_status,
+                sst_available,
+                tide_status,
+                tide_available,
+                tide_context_available,
+                technically_eligible
+            from analysis_ready_features_hourly
+            where forecast_time = ?
+            """,
+            [datetime(2026, 7, 29, 22, tzinfo=timezone.utc)],
+        ).fetchone()
+
+    assert missing_hour_row == (
+        "success",
+        True,
+        "success",
+        False,
+        "success",
+        False,
+        "success",
+        False,
+        False,
+        False,
+    )
