@@ -651,8 +651,9 @@ def test_fetch_tide_predictions_rejects_non_object_json(
         fetch_tide_predictions(tide_api_config(), {})
 
 
-def test_fetch_forecast_retries_timeout_once_then_succeeds(
+def test_fetch_forecast_recovers_on_third_timeout_attempt(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     payload = {"hourly": {"time": []}}
     attempts = 0
@@ -685,24 +686,29 @@ def test_fetch_forecast_retries_timeout_once_then_succeeds(
         ) -> FakeResponse:
             nonlocal attempts
             attempts += 1
-            if attempts == 1:
+            if attempts < 3:
                 raise httpx.ConnectTimeout("TLS handshake timed out")
             return FakeResponse()
 
     monkeypatch.setattr(httpx, "Client", FakeClient)
     monkeypatch.setattr("saltbytes.api.time.sleep", delays.append)
+    caplog.set_level("INFO", logger="saltbytes.api")
 
     assert fetch_forecast(
         coastal_location(),
         atmospheric_api_config(),
         timeout_seconds=2.5,
     ) == payload
-    assert attempts == 2
-    assert delays == [0.25]
+    assert attempts == 3
+    assert delays == [1.0, 2.0]
     assert clients[0].closed is True
+    assert [record.getMessage() for record in caplog.records] == [
+        "open meteo request recovered source=weather "
+        "location=fort_macon_ocean attempts=3 previous_error=ConnectTimeout"
+    ]
 
 
-def test_fetch_wave_forecast_raises_after_one_timeout_retry(
+def test_fetch_wave_forecast_raises_after_timeout_retries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     attempts = 0
@@ -733,8 +739,57 @@ def test_fetch_wave_forecast_raises_after_one_timeout_retry(
     with pytest.raises(httpx.ReadTimeout, match="response timed out"):
         fetch_wave_forecast(coastal_location(), wave_api_config())
 
+    assert attempts == 3
+    assert delays == [1.0, 2.0]
+
+
+def test_timeout_followed_by_http_error_does_not_log_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    request = httpx.Request("GET", "https://api.open-meteo.com")
+    response = httpx.Response(status_code=503, request=request)
+    attempts = 0
+    delays: list[float] = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            raise httpx.HTTPStatusError(
+                "server error",
+                request=request,
+                response=response,
+            )
+
+        def json(self) -> dict[str, Any]:
+            return {}
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(self, url: str, params: dict[str, Any]) -> FakeResponse:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise httpx.ConnectTimeout("TLS handshake timed out")
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    monkeypatch.setattr("saltbytes.api.time.sleep", delays.append)
+    caplog.set_level("INFO", logger="saltbytes.api")
+
+    with pytest.raises(httpx.HTTPStatusError, match="server error"):
+        fetch_forecast(coastal_location(), atmospheric_api_config())
+
     assert attempts == 2
-    assert delays == [0.25]
+    assert delays == [1.0]
+    assert caplog.records == []
 
 
 def test_fetch_sst_forecast_does_not_retry_http_error(
@@ -784,6 +839,7 @@ def test_fetch_sst_forecast_does_not_retry_http_error(
 
 def test_open_meteo_fetches_use_caller_owned_client(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     clients: list[Any] = []
 
@@ -809,6 +865,7 @@ def test_open_meteo_fetches_use_caller_owned_client(
 
     monkeypatch.setattr(httpx, "Client", FakeClient)
     client = FakeClient(timeout=3.0)
+    caplog.set_level("INFO", logger="saltbytes.api")
 
     fetch_forecast(coastal_location(), atmospheric_api_config(), client=client)
     fetch_wave_forecast(coastal_location(), wave_api_config(), client=client)
@@ -817,3 +874,32 @@ def test_open_meteo_fetches_use_caller_owned_client(
     assert len(clients) == 1
     assert clients[0].timeout == 3.0
     assert clients[0].closed is False
+    assert caplog.records == []
+
+
+def test_fetch_forecast_does_not_retry_unrelated_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts = 0
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def get(self, url: str, params: dict[str, Any]) -> None:
+            nonlocal attempts
+            attempts += 1
+            raise RuntimeError("unexpected failure")
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+
+    with pytest.raises(RuntimeError, match="unexpected failure"):
+        fetch_forecast(coastal_location(), atmospheric_api_config())
+
+    assert attempts == 1
