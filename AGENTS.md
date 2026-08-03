@@ -21,6 +21,10 @@ For normal work, read only:
 - affected code and focused tests
 - directly relevant configuration or documentation
 
+For species research tasks, first read `docs/research/README.md`, then only the
+linked authoritative package sections needed for the task. Species research
+remains nondefault context.
+
 Do not load the full documentation set, research, requirements, decision index,
 or unrelated ADRs by default.
 
