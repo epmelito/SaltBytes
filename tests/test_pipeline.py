@@ -11,20 +11,6 @@ import saltbytes.database as database
 from saltbytes.pipeline import run_pipeline
 from saltbytes.solar import solar_calculation_provenance
 
-HOURLY_FIELDS = [
-    "wind_speed_10m",
-    "wind_direction_10m",
-    "wind_gusts_10m",
-    "precipitation_probability",
-    "precipitation",
-]
-WAVE_FIELDS = [
-    "wave_height",
-    "wave_direction",
-    "wave_period",
-]
-SST_FIELDS = ["sea_surface_temperature"]
-
 
 def pipeline_config(tmp_path: Path) -> dict[str, Any]:
     return {
@@ -174,36 +160,6 @@ def pipeline_config(tmp_path: Path) -> dict[str, Any]:
                 },
             },
         ],
-        "api": {
-            "base_url": "https://example.test/forecast",
-            "model": "ncep_nbm_conus",
-            "forecast_days": 7,
-            "hourly_fields": HOURLY_FIELDS,
-        },
-        "wave_api": {
-            "base_url": "https://example.test/marine",
-            "model": "meteofrance_wave",
-            "forecast_days": 7,
-            "hourly_fields": WAVE_FIELDS,
-        },
-        "sst_api": {
-            "base_url": "https://example.test/marine",
-            "model": "meteofrance_currents",
-            "forecast_days": 7,
-            "hourly_fields": SST_FIELDS,
-        },
-        "tide_api": {
-            "base_url": (
-                "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-            ),
-            "product": "predictions",
-            "interval": "hilo",
-            "datum": "MLLW",
-            "time_zone": "gmt",
-            "units": "metric",
-            "format": "json",
-            "forecast_days": 7,
-        },
         "storage": {
             "raw_data_path": str(tmp_path / "raw"),
             "database_path": str(tmp_path / "saltbytes.duckdb"),
