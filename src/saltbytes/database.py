@@ -1,9 +1,27 @@
 import math
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import duckdb
+
+
+class SourcePersistenceError(RuntimeError):
+    """Identify the failed stage of an atomic source persistence attempt."""
+
+    def __init__(self, stage: str, error: Exception) -> None:
+        self.stage = stage
+        super().__init__(f"{stage}: {error}")
+
+
+def _database_connection(
+    database_path: Path | str,
+    connection: duckdb.DuckDBPyConnection | None,
+) -> duckdb.DuckDBPyConnection | nullcontext[duckdb.DuckDBPyConnection]:
+    if connection is not None:
+        return nullcontext(connection)
+    return duckdb.connect(str(database_path))
 
 _SCHEMA_SQL = """
 create table if not exists pipeline_runs (
@@ -124,7 +142,12 @@ create table if not exists source_results (
     location_id varchar not null,
     source varchar not null,
     status varchar not null check (
-        status in ('success', 'fetch_failed', 'validation_failed')
+        status in (
+            'success',
+            'fetch_failed',
+            'validation_failed',
+            'persistence_failed'
+        )
     ),
     detail varchar,
     recorded_at timestamptz not null,
@@ -567,11 +590,56 @@ def initialize_database(database_path: Path | str) -> None:
 
         try:
             connection.execute(_SCHEMA_SQL)
+            _migrate_source_result_statuses(connection)
         except Exception:
             connection.execute("rollback")
             raise
         else:
             connection.execute("commit")
+
+
+def _migrate_source_result_statuses(connection: duckdb.DuckDBPyConnection) -> None:
+    supported_statuses = connection.execute(
+        """
+        select constraint_text
+        from duckdb_constraints()
+        where table_name = 'source_results'
+            and constraint_type = 'CHECK'
+        """
+    ).fetchall()
+
+    if any("persistence_failed" in constraint[0] for constraint in supported_statuses):
+        return
+
+    connection.execute("alter table source_results rename to source_results_legacy")
+    connection.execute(
+        """
+        create table source_results (
+            run_id varchar not null,
+            location_id varchar not null,
+            source varchar not null,
+            status varchar not null check (
+                status in (
+                    'success',
+                    'fetch_failed',
+                    'validation_failed',
+                    'persistence_failed'
+                )
+            ),
+            detail varchar,
+            recorded_at timestamptz not null,
+            primary key (run_id, location_id, source),
+            foreign key (run_id) references pipeline_runs(run_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        insert into source_results
+        select * from source_results_legacy
+        """
+    )
+    connection.execute("drop table source_results_legacy")
 
 
 # insert a new pipeline run
@@ -713,9 +781,10 @@ def insert_run_location_solar_context(
 def insert_forecast_snapshot(
     database_path: Path | str,
     metadata: dict[str, Any],
+    connection: duckdb.DuckDBPyConnection | None = None,
 ) -> None:
-    with duckdb.connect(str(database_path)) as connection:
-        connection.execute(
+    with _database_connection(database_path, connection) as database_connection:
+        database_connection.execute(
             """
             insert into forecast_snapshots (
                 snapshot_id,
@@ -754,14 +823,20 @@ def insert_source_result(
     status: str,
     detail: str | None,
     recorded_at: datetime,
+    connection: duckdb.DuckDBPyConnection | None = None,
 ) -> None:
-    valid_statuses = {"success", "fetch_failed", "validation_failed"}
+    valid_statuses = {
+        "success",
+        "fetch_failed",
+        "validation_failed",
+        "persistence_failed",
+    }
 
     if status not in valid_statuses:
         raise ValueError(f"unsupported source result status: {status}")
 
-    with duckdb.connect(str(database_path)) as connection:
-        connection.execute(
+    with _database_connection(database_path, connection) as database_connection:
+        database_connection.execute(
             """
             insert into source_results (
                 run_id,
@@ -790,6 +865,7 @@ def insert_forecast_hourly(
     snapshot_id: str,
     location_id: str,
     payload: dict[str, Any],
+    connection: duckdb.DuckDBPyConnection | None = None,
 ) -> int:
     hourly = payload.get("hourly")
 
@@ -852,8 +928,8 @@ def insert_forecast_hourly(
         for index, forecast_time in enumerate(normalized_times)
     ]
 
-    with duckdb.connect(str(database_path)) as connection:
-        connection.executemany(
+    with _database_connection(database_path, connection) as database_connection:
+        database_connection.executemany(
             """
             insert into forecast_hourly (
                 snapshot_id,
@@ -869,7 +945,7 @@ def insert_forecast_hourly(
             """,
             rows,
         )
-        connection.executemany(
+        database_connection.executemany(
             """
             insert into cloud_cover_hourly values (?, ?, ?, ?)
             """,
@@ -904,6 +980,7 @@ def insert_wave_hourly(
     snapshot_id: str,
     location_id: str,
     payload: dict[str, Any],
+    connection: duckdb.DuckDBPyConnection | None = None,
 ) -> int:
     hourly = payload.get("hourly")
 
@@ -956,8 +1033,8 @@ def insert_wave_hourly(
         for index, forecast_time in enumerate(normalized_times)
     ]
 
-    with duckdb.connect(str(database_path)) as connection:
-        connection.executemany(
+    with _database_connection(database_path, connection) as database_connection:
+        database_connection.executemany(
             """
             insert into wave_hourly (
                 snapshot_id,
@@ -981,6 +1058,7 @@ def insert_sst_hourly(
     snapshot_id: str,
     location_id: str,
     payload: dict[str, Any],
+    connection: duckdb.DuckDBPyConnection | None = None,
 ) -> int:
     hourly = payload.get("hourly")
 
@@ -1025,8 +1103,8 @@ def insert_sst_hourly(
         for index, forecast_time in enumerate(normalized_times)
     ]
 
-    with duckdb.connect(str(database_path)) as connection:
-        connection.executemany(
+    with _database_connection(database_path, connection) as database_connection:
+        database_connection.executemany(
             """
             insert into sst_hourly (
                 snapshot_id,
@@ -1048,6 +1126,7 @@ def insert_tide_snapshot(
     metadata: dict[str, Any],
     request_provenance: dict[str, Any],
     relationship: dict[str, Any],
+    connection: duckdb.DuckDBPyConnection | None = None,
 ) -> None:
     request_begin_date = datetime.strptime(
         request_provenance["begin_date"],
@@ -1058,11 +1137,45 @@ def insert_tide_snapshot(
         "%Y%m%d",
     ).date()
 
-    with duckdb.connect(str(database_path)) as connection:
-        connection.execute("begin transaction")
+    if connection is not None:
+        _insert_tide_snapshot(
+            connection,
+            metadata,
+            request_provenance,
+            relationship,
+            request_begin_date,
+            request_end_date,
+        )
+        return
+
+    with duckdb.connect(str(database_path)) as database_connection:
+        database_connection.execute("begin transaction")
 
         try:
-            connection.execute(
+            _insert_tide_snapshot(
+                database_connection,
+                metadata,
+                request_provenance,
+                relationship,
+                request_begin_date,
+                request_end_date,
+            )
+        except Exception:
+            database_connection.execute("rollback")
+            raise
+        else:
+            database_connection.execute("commit")
+
+
+def _insert_tide_snapshot(
+    connection: duckdb.DuckDBPyConnection,
+    metadata: dict[str, Any],
+    request_provenance: dict[str, Any],
+    relationship: dict[str, Any],
+    request_begin_date: Any,
+    request_end_date: Any,
+) -> None:
+    connection.execute(
                 """
                 insert into forecast_snapshots (
                     snapshot_id,
@@ -1081,7 +1194,7 @@ def insert_tide_snapshot(
                     metadata["raw_file_path"],
                 ],
             )
-            connection.execute(
+    connection.execute(
                 """
                 insert into tide_snapshots (
                     snapshot_id,
@@ -1132,11 +1245,6 @@ def insert_tide_snapshot(
                     relationship["known_limitation"],
                 ],
             )
-        except Exception:
-            connection.execute("rollback")
-            raise
-        else:
-            connection.execute("commit")
 
 
 # insert normalized NOAA high and low events for one tide snapshot
@@ -1145,6 +1253,7 @@ def insert_tide_events(
     snapshot_id: str,
     location_id: str,
     events: list[dict[str, Any]],
+    connection: duckdb.DuckDBPyConnection | None = None,
 ) -> int:
     rows = [
         (
@@ -1157,8 +1266,8 @@ def insert_tide_events(
         for event in events
     ]
 
-    with duckdb.connect(str(database_path)) as connection:
-        connection.executemany(
+    with _database_connection(database_path, connection) as database_connection:
+        database_connection.executemany(
             """
             insert into tide_events (
                 snapshot_id,
@@ -1181,6 +1290,7 @@ def insert_tide_phase_hourly(
     snapshot_id: str,
     location_id: str,
     phases: list[dict[str, Any]],
+    connection: duckdb.DuckDBPyConnection | None = None,
 ) -> int:
     rows = [
         (
@@ -1192,8 +1302,8 @@ def insert_tide_phase_hourly(
         for phase in phases
     ]
 
-    with duckdb.connect(str(database_path)) as connection:
-        connection.executemany(
+    with _database_connection(database_path, connection) as database_connection:
+        database_connection.executemany(
             """
             insert into tide_phase_hourly (
                 snapshot_id,
@@ -1207,6 +1317,123 @@ def insert_tide_phase_hourly(
         )
 
     return len(rows)
+
+
+def persist_source_success(
+    database_path: Path | str,
+    run_id: str,
+    location_id: str,
+    source: str,
+    metadata: dict[str, Any],
+    payload: dict[str, Any],
+    recorded_at: datetime,
+    tide_events: list[dict[str, Any]] | None = None,
+    tide_phases: list[dict[str, Any]] | None = None,
+    request_provenance: dict[str, Any] | None = None,
+    relationship: dict[str, Any] | None = None,
+) -> int:
+    """Commit one source's database evidence and success result together."""
+    stage = "snapshot metadata"
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("begin transaction")
+
+        try:
+            if source == "weather":
+                insert_forecast_snapshot(
+                    database_path,
+                    metadata,
+                    connection=connection,
+                )
+                stage = "normalized rows"
+                rows_loaded = insert_forecast_hourly(
+                    database_path,
+                    metadata["snapshot_id"],
+                    location_id,
+                    payload,
+                    connection=connection,
+                )
+            elif source == "wave":
+                insert_forecast_snapshot(
+                    database_path,
+                    metadata,
+                    connection=connection,
+                )
+                stage = "normalized rows"
+                rows_loaded = insert_wave_hourly(
+                    database_path,
+                    metadata["snapshot_id"],
+                    location_id,
+                    payload,
+                    connection=connection,
+                )
+            elif source == "sst":
+                insert_forecast_snapshot(
+                    database_path,
+                    metadata,
+                    connection=connection,
+                )
+                stage = "normalized rows"
+                rows_loaded = insert_sst_hourly(
+                    database_path,
+                    metadata["snapshot_id"],
+                    location_id,
+                    payload,
+                    connection=connection,
+                )
+            elif source == "tide":
+                if (
+                    tide_events is None
+                    or tide_phases is None
+                    or request_provenance is None
+                    or relationship is None
+                ):
+                    raise ValueError("tide persistence requires provenance and rows")
+                insert_tide_snapshot(
+                    database_path,
+                    metadata,
+                    request_provenance,
+                    relationship,
+                    connection=connection,
+                )
+                stage = "normalized events"
+                event_rows = insert_tide_events(
+                    database_path,
+                    metadata["snapshot_id"],
+                    location_id,
+                    tide_events,
+                    connection=connection,
+                )
+                stage = "normalized phases"
+                phase_rows = insert_tide_phase_hourly(
+                    database_path,
+                    metadata["snapshot_id"],
+                    location_id,
+                    tide_phases,
+                    connection=connection,
+                )
+                rows_loaded = event_rows + phase_rows
+            else:
+                raise ValueError(f"unsupported source: {source}")
+
+            stage = "source result"
+            insert_source_result(
+                database_path=database_path,
+                run_id=run_id,
+                location_id=location_id,
+                source=source,
+                status="success",
+                detail=None,
+                recorded_at=recorded_at,
+                connection=connection,
+            )
+        except Exception as error:
+            connection.execute("rollback")
+            raise SourcePersistenceError(stage, error) from error
+        else:
+            connection.execute("commit")
+
+    return rows_loaded
 
 
 # update the final state of a pipeline run

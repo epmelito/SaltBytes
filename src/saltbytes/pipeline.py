@@ -18,20 +18,15 @@ from saltbytes.api import (
     fetch_wave_forecast,
 )
 from saltbytes.database import (
+    SourcePersistenceError,
     complete_pipeline_run,
     initialize_database,
-    insert_forecast_hourly,
-    insert_forecast_snapshot,
     insert_pipeline_run,
     insert_run_location_solar_context,
     insert_run_locations,
     insert_solar_context_hourly,
     insert_source_result,
-    insert_sst_hourly,
-    insert_tide_events,
-    insert_tide_phase_hourly,
-    insert_tide_snapshot,
-    insert_wave_hourly,
+    persist_source_success,
 )
 from saltbytes.quality import (
     build_tide_forecast_times,
@@ -201,15 +196,6 @@ def _run_pipeline(
                     recorded_at=datetime.now(timezone.utc),
                 )
             elif weather_payload is not None:
-                insert_source_result(
-                    database_path=database_path,
-                    run_id=run_id,
-                    location_id=location["id"],
-                    source="weather",
-                    status="success",
-                    detail=None,
-                    recorded_at=datetime.now(timezone.utc),
-                )
                 logger.info(
                     "weather quality checks passed run_id=%s location=%s "
                     "checks=%s",
@@ -218,44 +204,68 @@ def _run_pipeline(
                     len(weather_quality_results),
                 )
 
-                weather_metadata = write_raw_snapshot(
-                    payload=weather_payload,
-                    location_id=location["id"],
-                    raw_data_path=raw_data_path,
-                    run_id=run_id,
-                    run_started_at=started_at,
-                )
-                weather_metadata.update(
-                    {
-                        "model_selector": WEATHER_API["model"],
-                        "request_latitude": weather_request_coordinate[
-                            "latitude"
-                        ],
-                        "request_longitude": weather_request_coordinate[
-                            "longitude"
-                        ],
-                        "returned_latitude": weather_payload["latitude"],
-                        "returned_longitude": weather_payload["longitude"],
-                    }
-                )
-
-                insert_forecast_snapshot(
-                    database_path=database_path,
-                    metadata=weather_metadata,
-                )
-
-                weather_rows_loaded = insert_forecast_hourly(
-                    database_path=database_path,
-                    snapshot_id=weather_metadata["snapshot_id"],
-                    location_id=location["id"],
-                    payload=weather_payload,
-                )
+                persistence_stage = "raw snapshot"
+                try:
+                    weather_metadata = write_raw_snapshot(
+                        payload=weather_payload,
+                        location_id=location["id"],
+                        raw_data_path=raw_data_path,
+                        run_id=run_id,
+                        run_started_at=started_at,
+                    )
+                    persistence_stage = "snapshot metadata"
+                    weather_metadata.update(
+                        {
+                            "model_selector": WEATHER_API["model"],
+                            "request_latitude": weather_request_coordinate[
+                                "latitude"
+                            ],
+                            "request_longitude": weather_request_coordinate[
+                                "longitude"
+                            ],
+                            "returned_latitude": weather_payload["latitude"],
+                            "returned_longitude": weather_payload["longitude"],
+                        }
+                    )
+                    weather_rows_loaded = persist_source_success(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="weather",
+                        metadata=weather_metadata,
+                        payload=weather_payload,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
+                except Exception as error:
+                    if isinstance(error, SourcePersistenceError):
+                        persistence_stage = error.stage
+                    detail = f"{persistence_stage}: {error}"
+                    logger.exception(
+                        "weather source persistence failed run_id=%s location=%s "
+                        "stage=%s",
+                        run_id,
+                        location["id"],
+                        persistence_stage,
+                    )
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="weather",
+                        status="persistence_failed",
+                        detail=detail,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
+                    raise RuntimeError(
+                        "weather source persistence failed for "
+                        f"{location['id']} at {detail}"
+                    ) from error
 
                 rows_loaded += weather_rows_loaded
                 snapshots_written += 1
 
                 logger.info(
-                    "weather processing completed run_id=%s location=%s "
+                    "weather source persistence completed run_id=%s location=%s "
                     "rows=%s",
                     run_id,
                     location["id"],
@@ -341,15 +351,6 @@ def _run_pipeline(
                     recorded_at=datetime.now(timezone.utc),
                 )
             elif wave_payload is not None:
-                insert_source_result(
-                    database_path=database_path,
-                    run_id=run_id,
-                    location_id=location["id"],
-                    source="wave",
-                    status="success",
-                    detail=None,
-                    recorded_at=datetime.now(timezone.utc),
-                )
                 logger.info(
                     "wave quality checks passed run_id=%s location=%s checks=%s",
                     run_id,
@@ -357,42 +358,66 @@ def _run_pipeline(
                     len(wave_quality_results),
                 )
 
-                wave_metadata = write_raw_snapshot(
-                    payload=wave_payload,
-                    location_id=location["id"],
-                    raw_data_path=raw_data_path,
-                    run_id=run_id,
-                    run_started_at=started_at,
-                )
-                wave_metadata.update(
-                    {
-                        "model_selector": WAVE_API["model"],
-                        "request_latitude": wave_request_coordinate["latitude"],
-                        "request_longitude": wave_request_coordinate[
-                            "longitude"
-                        ],
-                        "returned_latitude": wave_payload["latitude"],
-                        "returned_longitude": wave_payload["longitude"],
-                    }
-                )
-
-                insert_forecast_snapshot(
-                    database_path=database_path,
-                    metadata=wave_metadata,
-                )
-
-                wave_rows_loaded = insert_wave_hourly(
-                    database_path=database_path,
-                    snapshot_id=wave_metadata["snapshot_id"],
-                    location_id=location["id"],
-                    payload=wave_payload,
-                )
+                persistence_stage = "raw snapshot"
+                try:
+                    wave_metadata = write_raw_snapshot(
+                        payload=wave_payload,
+                        location_id=location["id"],
+                        raw_data_path=raw_data_path,
+                        run_id=run_id,
+                        run_started_at=started_at,
+                    )
+                    persistence_stage = "snapshot metadata"
+                    wave_metadata.update(
+                        {
+                            "model_selector": WAVE_API["model"],
+                            "request_latitude": wave_request_coordinate["latitude"],
+                            "request_longitude": wave_request_coordinate[
+                                "longitude"
+                            ],
+                            "returned_latitude": wave_payload["latitude"],
+                            "returned_longitude": wave_payload["longitude"],
+                        }
+                    )
+                    wave_rows_loaded = persist_source_success(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="wave",
+                        metadata=wave_metadata,
+                        payload=wave_payload,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
+                except Exception as error:
+                    if isinstance(error, SourcePersistenceError):
+                        persistence_stage = error.stage
+                    detail = f"{persistence_stage}: {error}"
+                    logger.exception(
+                        "wave source persistence failed run_id=%s location=%s "
+                        "stage=%s",
+                        run_id,
+                        location["id"],
+                        persistence_stage,
+                    )
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="wave",
+                        status="persistence_failed",
+                        detail=detail,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
+                    raise RuntimeError(
+                        "wave source persistence failed for "
+                        f"{location['id']} at {detail}"
+                    ) from error
 
                 rows_loaded += wave_rows_loaded
                 snapshots_written += 1
 
                 logger.info(
-                    "wave processing completed run_id=%s location=%s rows=%s",
+                    "wave source persistence completed run_id=%s location=%s rows=%s",
                     run_id,
                     location["id"],
                     wave_rows_loaded,
@@ -480,15 +505,6 @@ def _run_pipeline(
                         recorded_at=datetime.now(timezone.utc),
                     )
                 elif sst_payload is not None:
-                    insert_source_result(
-                        database_path=database_path,
-                        run_id=run_id,
-                        location_id=location["id"],
-                        source="sst",
-                        status="success",
-                        detail=None,
-                        recorded_at=datetime.now(timezone.utc),
-                    )
                     logger.info(
                         "sst quality checks passed run_id=%s location=%s "
                         "checks=%s",
@@ -497,44 +513,68 @@ def _run_pipeline(
                         len(sst_quality_results),
                     )
 
-                    sst_metadata = write_raw_snapshot(
-                        payload=sst_payload,
-                        location_id=location["id"],
-                        raw_data_path=raw_data_path,
-                        run_id=run_id,
-                        run_started_at=started_at,
-                    )
-                    sst_metadata.update(
-                        {
-                            "model_selector": SST_API["model"],
-                            "request_latitude": sst_request_coordinate[
-                                "latitude"
-                            ],
-                            "request_longitude": sst_request_coordinate[
-                                "longitude"
-                            ],
-                            "returned_latitude": sst_payload["latitude"],
-                            "returned_longitude": sst_payload["longitude"],
-                        }
-                    )
-
-                    insert_forecast_snapshot(
-                        database_path=database_path,
-                        metadata=sst_metadata,
-                    )
-
-                    sst_rows_loaded = insert_sst_hourly(
-                        database_path=database_path,
-                        snapshot_id=sst_metadata["snapshot_id"],
-                        location_id=location["id"],
-                        payload=sst_payload,
-                    )
+                    persistence_stage = "raw snapshot"
+                    try:
+                        sst_metadata = write_raw_snapshot(
+                            payload=sst_payload,
+                            location_id=location["id"],
+                            raw_data_path=raw_data_path,
+                            run_id=run_id,
+                            run_started_at=started_at,
+                        )
+                        persistence_stage = "snapshot metadata"
+                        sst_metadata.update(
+                            {
+                                "model_selector": SST_API["model"],
+                                "request_latitude": sst_request_coordinate[
+                                    "latitude"
+                                ],
+                                "request_longitude": sst_request_coordinate[
+                                    "longitude"
+                                ],
+                                "returned_latitude": sst_payload["latitude"],
+                                "returned_longitude": sst_payload["longitude"],
+                            }
+                        )
+                        sst_rows_loaded = persist_source_success(
+                            database_path=database_path,
+                            run_id=run_id,
+                            location_id=location["id"],
+                            source="sst",
+                            metadata=sst_metadata,
+                            payload=sst_payload,
+                            recorded_at=datetime.now(timezone.utc),
+                        )
+                    except Exception as error:
+                        if isinstance(error, SourcePersistenceError):
+                            persistence_stage = error.stage
+                        detail = f"{persistence_stage}: {error}"
+                        logger.exception(
+                            "sst source persistence failed run_id=%s location=%s "
+                            "stage=%s",
+                            run_id,
+                            location["id"],
+                            persistence_stage,
+                        )
+                        insert_source_result(
+                            database_path=database_path,
+                            run_id=run_id,
+                            location_id=location["id"],
+                            source="sst",
+                            status="persistence_failed",
+                            detail=detail,
+                            recorded_at=datetime.now(timezone.utc),
+                        )
+                        raise RuntimeError(
+                            "sst source persistence failed for "
+                            f"{location['id']} at {detail}"
+                        ) from error
 
                     rows_loaded += sst_rows_loaded
                     snapshots_written += 1
 
                     logger.info(
-                        "sst processing completed run_id=%s location=%s "
+                        "sst source persistence completed run_id=%s location=%s "
                         "rows=%s",
                         run_id,
                         location["id"],
@@ -625,57 +665,78 @@ def _run_pipeline(
                         recorded_at=datetime.now(timezone.utc),
                     )
                 elif tide_payload is not None:
-                    insert_source_result(
-                        database_path=database_path,
-                        run_id=run_id,
-                        location_id=location["id"],
-                        source="tide",
-                        status="success",
-                        detail=None,
-                        recorded_at=datetime.now(timezone.utc),
+                    logger.info(
+                        "tide quality checks passed run_id=%s location=%s "
+                        "checks=%s",
+                        run_id,
+                        location["id"],
+                        len(tide_quality_results),
                     )
-                    tide_events = normalize_tide_events(tide_payload)
-                    tide_phases = derive_tide_phases(
-                        tide_events,
-                        tide_forecast_times,
-                    )
-                    tide_metadata = write_raw_snapshot(
-                        payload=tide_payload,
-                        location_id=location["id"],
-                        raw_data_path=raw_data_path,
-                        run_id=run_id,
-                        run_started_at=started_at,
-                        captured_at=captured_at,
-                    )
-                    insert_tide_snapshot(
-                        database_path=database_path,
-                        metadata=tide_metadata,
-                        request_provenance=request_provenance,
-                        relationship=location["tide"],
-                    )
-                    tide_event_rows = insert_tide_events(
-                        database_path=database_path,
-                        snapshot_id=tide_metadata["snapshot_id"],
-                        location_id=location["id"],
-                        events=tide_events,
-                    )
-                    tide_phase_rows = insert_tide_phase_hourly(
-                        database_path=database_path,
-                        snapshot_id=tide_metadata["snapshot_id"],
-                        location_id=location["id"],
-                        phases=tide_phases,
-                    )
+                    persistence_stage = "normalized events"
+                    try:
+                        tide_events = normalize_tide_events(tide_payload)
+                        persistence_stage = "normalized phases"
+                        tide_phases = derive_tide_phases(
+                            tide_events,
+                            tide_forecast_times,
+                        )
+                        persistence_stage = "raw snapshot"
+                        tide_metadata = write_raw_snapshot(
+                            payload=tide_payload,
+                            location_id=location["id"],
+                            raw_data_path=raw_data_path,
+                            run_id=run_id,
+                            run_started_at=started_at,
+                            captured_at=captured_at,
+                        )
+                        persistence_stage = "snapshot provenance"
+                        tide_rows_loaded = persist_source_success(
+                            database_path=database_path,
+                            run_id=run_id,
+                            location_id=location["id"],
+                            source="tide",
+                            metadata=tide_metadata,
+                            payload=tide_payload,
+                            recorded_at=datetime.now(timezone.utc),
+                            tide_events=tide_events,
+                            tide_phases=tide_phases,
+                            request_provenance=request_provenance,
+                            relationship=location["tide"],
+                        )
+                    except Exception as error:
+                        if isinstance(error, SourcePersistenceError):
+                            persistence_stage = error.stage
+                        detail = f"{persistence_stage}: {error}"
+                        logger.exception(
+                            "tide source persistence failed run_id=%s location=%s "
+                            "stage=%s",
+                            run_id,
+                            location["id"],
+                            persistence_stage,
+                        )
+                        insert_source_result(
+                            database_path=database_path,
+                            run_id=run_id,
+                            location_id=location["id"],
+                            source="tide",
+                            status="persistence_failed",
+                            detail=detail,
+                            recorded_at=datetime.now(timezone.utc),
+                        )
+                        raise RuntimeError(
+                            "tide source persistence failed for "
+                            f"{location['id']} at {detail}"
+                        ) from error
 
-                    rows_loaded += tide_event_rows + tide_phase_rows
+                    rows_loaded += tide_rows_loaded
                     snapshots_written += 1
 
                     logger.info(
-                        "tide processing completed run_id=%s location=%s "
-                        "events=%s phases=%s",
+                        "tide source persistence completed run_id=%s location=%s "
+                        "rows=%s",
                         run_id,
                         location["id"],
-                        tide_event_rows,
-                        tide_phase_rows,
+                        tide_rows_loaded,
                     )
 
         if location_failures:
