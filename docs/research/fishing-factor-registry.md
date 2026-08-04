@@ -152,7 +152,10 @@ Abbreviations used in the tables:
 | Cloud cover and ambient light | Light environment that may interact with species and turbidity | Medium | C | High | F02, F08 |
 | Barometric pressure and pressure trend | Proposed direct catch effect | Low | C | High | F07 |
 
-#### Implementation classification
+#### Implementation classification (historical snapshot)
+
+The following coverage was audited on 2026-07-31. It is preserved as research
+context and is not a current implementation inventory.
 
 | Factor | A | St | Current SaltBytes coverage | Ef | Suit | Decision |
 |---|---:|---:|---|---:|---|---|
@@ -790,4 +793,6 @@ All external sources were accessed on 2026-07-31.
 #### R04
 **Repository source:** `docs/roadmap.md`, audited 2026-07-31.
 
-**Claim supported:** The immediate sequence after the registry is tide state completion, reviewed orientation metadata, then wind and wave directional interactions.
+**Claim supported:** At the time of the audit, the roadmap sequenced tide state
+completion, reviewed orientation metadata, then wind and wave directional
+interactions.

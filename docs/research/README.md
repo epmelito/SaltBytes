@@ -44,8 +44,6 @@ needed for the task.
 | Task | Authoritative section |
 |---|---|
 | Shared biological limits or missing local observations | [Shared biological patterns](nc-shore-species-research.md#15-shared-biological-patterns) |
-| Existing versus needed data inputs | [Current input assessment](nc-shore-species-research.md#16-current-input-assessment) |
-| Scoring methodology inputs and readiness | [Implementation readiness](nc-shore-species-research.md#17-implementation-readiness) |
 | Future location coverage | [Location expansion priorities](nc-shore-species-research.md#18-location-expansion-priorities) |
 | Confidence and conceptual-layer distinctions | [Shared confidence dimensions](nc-shore-species-research.md#19-shared-confidence-dimensions) and [shared conceptual layers](nc-shore-species-research.md#20-shared-conceptual-layers) |
 | Claims that must not be made | [Universally prohibited interpretations](nc-shore-species-research.md#21-universally-prohibited-interpretations) |

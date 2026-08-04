@@ -110,32 +110,8 @@ curated export before building the static dashboard.
 
 ## Hosted ingestion
 
-GitHub Actions runs the unchanged `saltbytes` command on a hosted runner every
-six hours or on manual dispatch from `main`. The workflow uses GitHub OpenID
-Connect with Blob data permissions scoped to the `saltbytes-state` container.
-
-Before ingestion, the runner restores only `state/saltbytes.duckdb`; it never
-downloads the historical raw archive. It uploads new immutable raw snapshots
-under `raw/`, giving each upload at most three total attempts, before replacing
-the mutable database blob. Canonical replacement requires every raw snapshot
-referenced by the completed latest run to resolve safely under the configured
-raw root, be present locally, and have a successful upload, while the database
-must also pass validation. An incomplete raw or database publication leaves
-current canonical state unchanged and preserves the validated completed
-database and a failure manifest under noncanonical `recovery/<run_id>/` storage
-when possible. Recovery artifacts are never restored or promoted automatically.
-A failed pipeline can still publish its readable completed failure record when
-synchronization succeeds, but its nonzero exit status prevents report
-generation and Pages deployment.
-
-After successful ingestion and canonical state publication, the workflow builds
-the deterministic reports, exports curated dashboard data, builds Observable,
-and assembles the complete `site` directory. The shared landing page links to
-`/dashboard/`, `/conditions/`, and `/operations/`. Only `site` is uploaded to the
-existing Pages deployment job.
-
-Report generation, export, dashboard build, artifact upload, or deployment
-failure stops publication without rolling back canonical state. GitHub Pages
-keeps the previously deployed site available when a new publication fails.
-Pull request validation builds the dashboard from committed fixture data and
-requires no Azure access.
+Hosted ingestion preserves canonical state before publication and keeps the
+previous site available when publication fails. It builds reports and the
+dashboard only after successful canonical publication. See
+[hosted operation](hosted-operation.md) for setup, recovery, run, and
+publication procedures.

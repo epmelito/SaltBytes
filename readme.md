@@ -1,7 +1,7 @@
 # SaltBytes
 
 SaltBytes is a Python data pipeline and static reporting project for exploring
-upcoming coastal conditions at five North Carolina fishing locations.
+upcoming coastal conditions at configured North Carolina fishing locations.
 
 It currently collects:
 
@@ -15,10 +15,10 @@ interactive dashboard. The approved Spanish mackerel conditions calculation is
 implemented internally from existing SaltBytes inputs, but its results are not
 persisted or published.
 
-Bounded score publication is the next package. Report, dashboard, ranking, and
-overall-score work remain deferred. The calculation assesses how favorable the
-available conditions are for targeting Spanish mackerel without claiming catch
-probability, bite likelihood, or fish presence.
+The calculation assesses how favorable the available conditions are for
+targeting Spanish mackerel without claiming catch probability, bite likelihood,
+or fish presence. See the [roadmap](docs/roadmap.md) for the current delivery
+sequence.
 
 SaltBytes is a portfolio project. It does not guarantee fishing success,
 replace official marine guidance, or operate as a production service.
@@ -47,16 +47,6 @@ for the product direction, and
 for the shared boundary, and the
 [Spanish mackerel methodology](docs/requirements/spanish-mackerel-conditions-score.md)
 for the approved first calculation.
-
-## Locations
-
-The current configuration covers:
-
-- Jennette's Pier
-- Beach Access Ramp 72, Ocracoke Island
-- Fort Macon State Park, ocean side
-- Bogue Inlet Pier
-- Fort Fisher State Recreation Area
 
 ## Installation
 
@@ -165,8 +155,8 @@ saltbytes/
 - [Project charter](docs/project-charter.md) defines durable product intent.
 - [Roadmap](docs/roadmap.md) defines the active MVP sequence.
 - [Architecture](docs/architecture.md) describes the current system.
-- [Data model](docs/data-model.md) describes persisted data and the planned
-  integrated result.
+- [Data model](docs/data-model.md) describes persisted data and integrated
+  views.
 - [Species conditions scoring requirements](docs/requirements/species-condition-scoring.md)
   define the approved scoring boundary.
 - [Spanish mackerel conditions score methodology](docs/requirements/spanish-mackerel-conditions-score.md)

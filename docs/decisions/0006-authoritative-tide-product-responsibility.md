@@ -130,8 +130,7 @@ calculation.
 ## Related governance
 
 - Charter: [Project charter](../project-charter.md)
-- Scope: [Scope register](../scope-register.md)
-- Roadmap stage: [Stage 4](../roadmap.md#4-extend-coastal-data-source-ingestion)
+- Roadmap: [Roadmap](../roadmap.md)
 - Requirement: [Fishing-condition requirements](../requirements/fishing-conditions.md)
 - Existing decision: [Composite geographic model and initial locations](0002-composite-geographic-model-and-initial-locations.md)
 - Existing decision: [First-release environmental requirement baseline](0003-first-release-environmental-requirement-baseline.md)

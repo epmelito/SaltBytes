@@ -35,7 +35,7 @@ const forecastHours = new Set(conditions.map((row) => row.forecast_time)).size;
   <h1>SaltBytes coastal dashboard</h1>
   <p>
     A static view of upcoming atmospheric, wave, sea surface temperature, and
-    tide conditions at five North Carolina fishing locations. The data is
+    tide conditions at ${manifest.location_count} North Carolina fishing locations. The data is
     forecast and prediction output, not observed conditions or fishing advice.
   </p>
 </div>

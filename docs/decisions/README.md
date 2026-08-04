@@ -5,8 +5,6 @@
 Decision records preserve the context, choice, rationale, and consequences of
 durable SaltBytes product, data, and architecture decisions.
 
-No decision records are created by the initial governance package.
-
 ## When a record is required
 
 Create a decision record when work requires a durable choice that:
@@ -21,8 +19,9 @@ Create a decision record when work requires a durable choice that:
 Routine implementation details that follow existing accepted direction do not
 require a record.
 
-Deferred topics remain in the [scope register](../scope-register.md). They do
-not receive a decision record until active work requires a concrete proposal.
+Deferred topics remain governed by the [project charter](../project-charter.md)
+and [roadmap](../roadmap.md). They do not receive a decision record until active
+work requires a concrete proposal.
 
 ## Responsibilities
 
@@ -30,10 +29,8 @@ Accepted decision records are authoritative for the specific choices they
 cover. They must remain consistent with the product intent and durable
 boundaries in the [project charter](../project-charter.md).
 
-The [scope register](../scope-register.md) tracks whether a topic is current,
-future, deferred, or excluded. The [roadmap](../roadmap.md) identifies when a
-decision becomes necessary. A handoff may reference a decision but cannot
-accept one.
+The [roadmap](../roadmap.md) identifies when a decision becomes necessary. A
+handoff may reference a decision but cannot accept one.
 
 ## Statuses
 
@@ -83,8 +80,8 @@ one.
 ## Related governance
 
 - Charter:
-- Scope:
-- Roadmap stage:
+- Product boundary:
+- Roadmap:
 ```
 
 Do not invent evidence, alternatives, or retrospective rationale.
@@ -108,7 +105,7 @@ Do not invent evidence, alternatives, or retrospective rationale.
    that no credible alternative exists.
 3. Review the proposal without treating it as accepted.
 4. Mark the record accepted or rejected after explicit approval.
-5. Update the index and any affected scope or roadmap references.
+5. Update the index and any affected product-boundary or roadmap references.
 6. When replacing a decision, mark the old record superseded and link both
    records.
 

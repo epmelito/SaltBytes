@@ -131,8 +131,7 @@ cross-species aggregation rule.
 ## Related governance
 
 - Charter: [Project charter](../project-charter.md)
-- Scope: [Scope register](../scope-register.md)
-- Roadmap stage: [Spanish mackerel scoring methodology](../roadmap.md#next-objective-spanish-mackerel-scoring-methodology)
+- Roadmap: [Roadmap](../roadmap.md)
 - Requirements: [Species conditions scoring](../requirements/species-condition-scoring.md)
 - Research: [North Carolina shore-fishing species research package](../research/nc-shore-species-research.md)
 - Earlier decision: [First-release user and fishing-context boundary](0001-first-release-user-and-fishing-context.md)

@@ -10,10 +10,6 @@
 - **Approved species entries:** Seven
 - **Approved pilot:** Spanish mackerel scoring methodology
 - **Species conditions score direction approved:** Yes
-- **Weights approved:** None
-- **Opportunity thresholds approved:** None
-- **Catch-probability claims approved:** None
-- **Implementation issues approved:** None
 
 ## 1. Purpose
 
@@ -25,8 +21,6 @@ It combines:
 - the approved pilot decision
 - seven species-specific evidence profiles
 - cross-species findings
-- input-coverage analysis
-- implementation-readiness analysis
 - location-expansion priorities
 - supported and prohibited interpretations
 - unresolved evidence gaps
@@ -499,26 +493,6 @@ The evidence does not support direct biological claims such as:
 - rough water triggers activity
 - post-storm conditions improve opportunity
 
-## 8.11 SaltBytes coverage
-
-| Needed concept | Current status |
-|---|---|
-| Day of year | Available |
-| Ocean SST | Available |
-| SST trend | Derivable |
-| Seasonal anomaly | Missing |
-| Solar state | Available |
-| Cloud cover | Available when source provides it |
-| Wind | Available |
-| Waves | Available |
-| Tide context | Available |
-| Current | Missing |
-| Site type | Available in basic form |
-| Direct baitfish | Missing |
-| Water clarity | Missing |
-| Exact shore catch validation | Missing |
-| Provenance | Strong |
-
 ## 8.12 Supported outputs
 
 - The site and season are broadly consistent with shore-accessible Spanish mackerel.
@@ -802,26 +776,6 @@ It may be valuable for:
 
 It is unlikely to matter routinely in well-mixed open surf.
 
-## 9.13 SaltBytes coverage
-
-| Needed concept | Current status |
-|---|---|
-| Life-stage context | Missing |
-| Day of year | Available |
-| Solar state | Available |
-| Ocean SST | Available for coastal contexts |
-| Estuarine temperature | Missing |
-| Salinity | Missing |
-| Discharge | Missing |
-| Tide phase | Available |
-| Current | Missing |
-| Wind | Available |
-| Waves | Available |
-| Habitat structure | Missing |
-| Dissolved oxygen | Missing |
-| Prey | Missing |
-| Provenance | Strong |
-
 ## 9.14 Supported outputs
 
 - The site and season are consistent with a declared red drum context.
@@ -1018,28 +972,6 @@ No universal favorable salinity is supported.
 | Spawning | A | Context |
 | Pressure | X | Exclude |
 | Solunar variables | X | Exclude |
-
-## 10.11 SaltBytes coverage
-
-| Needed concept | Current status |
-|---|---|
-| Size class | Missing |
-| Day of year | Available |
-| Solar state | Available |
-| Cloud cover | Available |
-| Ocean SST | Available |
-| Estuarine temperature | Missing |
-| SST trend | Derivable |
-| Seasonal anomaly | Missing |
-| Baitfish | Missing |
-| Wind | Available |
-| Waves | Available |
-| Tide | Available |
-| Current | Missing |
-| Salinity | Missing |
-| Site type | Partial |
-| Pier reach and accessible depth | Missing |
-| Provenance | Strong |
 
 ## 10.12 Supported outputs
 
@@ -1278,31 +1210,6 @@ Management actions confirm biological concern.
 
 They do not create environmental opportunity.
 
-## 11.11 SaltBytes coverage
-
-| Needed concept | Current status |
-|---|---|
-| Waterbody identity | Missing |
-| Habitat class | Inadequate |
-| Day of year | Available |
-| Solar state | Available |
-| Ocean SST | Usually unsuitable |
-| Estuarine temperature | Missing |
-| Measurement depth | Missing |
-| Cold duration | Blocked by missing source |
-| Salinity | Missing |
-| Discharge | Missing |
-| Tide phase | Available but weak |
-| Current | Missing |
-| Vegetation | Missing |
-| Marsh edge | Missing |
-| Depth and refuge | Missing |
-| Dissolved oxygen | Missing |
-| Prey | Missing |
-| Wind | Available |
-| Ocean waves | Often irrelevant |
-| Provenance | Strong |
-
 ## 11.12 Supported outputs
 
 - The site is or is not an appropriate estuarine habitat.
@@ -1534,29 +1441,6 @@ No automatic positive or negative rule is supported.
 | Nourishment history | B/C | Provenance |
 | Pressure | X | Exclude |
 | Solunar variables | X | Exclude |
-
-## 12.12 SaltBytes coverage
-
-| Needed concept | Current status |
-|---|---|
-| Species identity | Missing |
-| Complex target | Not formalized |
-| Day of year | Available |
-| Solar state | Available |
-| SST | Available |
-| Bottom temperature | Missing |
-| Site type | Partial |
-| Substrate | Missing |
-| Beach profile | Missing |
-| Bathymetry | Missing dynamically |
-| Waves | Available |
-| Wind | Available |
-| Tide | Available |
-| Current | Missing |
-| Salinity | Missing |
-| Benthic prey | Missing |
-| Nourishment history | Missing |
-| Provenance | Strong |
 
 ## 12.13 Supported outputs
 
@@ -1791,33 +1675,6 @@ Surface oxygen may not represent the occupied depth.
 | Fishing pressure | A/B | Management context |
 | Pressure | X | Exclude |
 | Solunar variables | X | Exclude |
-
-## 13.11 SaltBytes coverage
-
-| Needed concept | Current status |
-|---|---|
-| Life stage | Missing |
-| Structure type | Inadequate |
-| Submerged geometry | Missing |
-| Structure material | Missing |
-| Structure depth | Missing |
-| Fouling status | Missing |
-| Prey | Missing |
-| Disturbance history | Missing |
-| Day of year | Available |
-| Solar state | Available |
-| SST | Conditional |
-| Estuarine temperature | Missing |
-| Bottom temperature | Missing |
-| Tide phase | Available but weak |
-| Water level | Partial |
-| Current | Missing |
-| Salinity | Missing |
-| Oxygen | Missing |
-| Wind | Available |
-| Waves | Available for exposed sites |
-| Fishing pressure | Missing |
-| Provenance | Strong |
 
 ## 13.12 Supported outputs
 
@@ -2067,35 +1924,6 @@ No universal favorable wave state is supported.
 | Pressure | X | Exclude |
 | Solunar variables | X | Exclude |
 
-## 14.11 SaltBytes coverage
-
-| Needed concept | Current status |
-|---|---|
-| Coastal region | Available |
-| Site type | Available |
-| Sandy substrate | Missing |
-| Sediment quality | Missing |
-| Surf morphology | Missing |
-| Beach slope | Missing |
-| Trough and bar position | Missing |
-| Day of year | Available |
-| Solar state | Available |
-| SST | Available with caveat |
-| Swash temperature | Missing |
-| Temperature trend | Derivable |
-| Seasonal anomaly | Missing |
-| Salinity | Missing |
-| Tide | Available |
-| Current | Missing |
-| Waves | Available |
-| Breaker state | Missing |
-| Wind | Available |
-| Turbidity | Missing |
-| Benthic prey | Missing |
-| Nourishment history | Missing |
-| Storm history | Missing |
-| Provenance | Strong |
-
 ## 14.12 Supported outputs
 
 - The site is a sandy, high-salinity surf or pier environment used by Florida pompano.
@@ -2251,77 +2079,6 @@ SaltBytes cannot currently observe:
 - local fishing pressure
 
 This is a hard product boundary, not a temporary wording issue.
-
-# 16. Current input assessment
-
-| Current SaltBytes input | Strongest defensible use |
-|---|---|
-| Day of year | Seasonal context |
-| Solar state | Retrospective analysis |
-| Cloud cover | Retrospective analysis |
-| Ocean SST | Coastal seasonal context where representative |
-| Wind | Fishability |
-| Waves | Surf and exposed-structure fishability |
-| Precipitation | Practical fishing conditions |
-| Tide phase | Limited analysis context |
-| Tide prediction | Water-level context |
-| Site type | Basic applicability |
-| Provenance | Source and confidence foundation |
-
-## 16.1 Inputs that should remain fishability-first
-
-- wind speed
-- wind direction
-- gusts
-- wave height
-- wave period
-- wave direction
-- precipitation
-- access restrictions
-- pier closures
-- casting conditions
-- rig-holding conditions
-- current-related presentation difficulty
-
-## 16.2 Inputs requiring new sources
-
-- estuarine temperature
-- measurement depth
-- salinity
-- current speed and direction
-- dissolved oxygen
-- turbidity
-- substrate
-- bathymetry
-- beach profile
-- structure geometry
-- fouling-community status
-- habitat maps
-- prey observations
-
-# 17. Implementation readiness
-
-| Species | Current data fit | Static metadata gap | Dynamic data gap | Readiness |
-|---|---:|---:|---:|---:|
-| Spanish mackerel | High | Low to moderate | Prey unavailable | Highest |
-| Bluefish | Moderate to high | Moderate | Prey unavailable | Moderate |
-| Red drum | Moderate | High | Estuarine data and current | Moderate-low |
-| Florida pompano | Moderate in southern surf | High | Breaker state and prey | Moderate-low |
-| Kingfishes complex | Moderate | High | Bottom temperature and prey | Low |
-| Sheepshead | Low | Very high | Current and fouling status | Low |
-| Spotted seatrout | Low | High | Representative estuarine temperature | Blocked |
-
-Recommended implementation order:
-
-1. Spanish mackerel
-2. Bluefish
-3. Bounded red drum
-4. Southern Florida pompano
-5. Kingfishes complex
-6. Sheepshead
-7. Spotted seatrout
-
-This is not a fishery-importance ranking.
 
 # 18. Location expansion priorities
 

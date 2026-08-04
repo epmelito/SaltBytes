@@ -2,14 +2,13 @@
 
 ## Purpose
 
-This document records the reviewed roadmap stage 4 evidence for atmospheric,
-marine, and tide-source responsibilities. It supports accepted decisions
-without treating technical availability as accuracy or implementation.
+This document preserves the reviewed stage 4 evidence for atmospheric, marine,
+and tide-source responsibilities. It supports accepted decisions without
+treating technical availability as accuracy or implementation.
 
-The evaluation is limited to the five locations and environmental requirements
-approved in roadmap stage 3. It focuses on ingestion feasibility, provenance,
-forecast history, data quality, spatial relationships, and later deterministic
-and explainable scoring.
+The evaluation is limited to the five-location scope and environmental
+requirements approved in stage 3. It is historical stage evidence, not a
+current implementation inventory.
 
 ## Evaluation boundary
 
@@ -57,22 +56,6 @@ research evidence were reviewed on 2026-07-29.
 
 Official spatial sources and location evidence are recorded in
 [Coastal spatial relationships](coastal-spatial-relationships.md).
-
-## Current SaltBytes baseline
-
-The implemented weather pipeline currently requests:
-
-- `temperature_2m`
-- `precipitation_probability`
-- `wind_speed_10m`
-
-It preserves passing raw snapshots, normalized hourly records, pipeline and
-snapshot metadata, quality results, and revision history for implemented
-fields.
-
-It does not implement the accepted coastal locations, additional atmospheric
-fields, marine ingestion, sea-surface temperature, or locally referenced tide
-data.
 
 ## Atmospheric evaluation
 
@@ -286,21 +269,7 @@ marine run-level reconstruction was not verified. SaltBytes can retain
 successive captured marine forecasts but must not claim run-level lineage until
 the source exposes or research establishes it.
 
-## Requirement coverage
-
-| Requirement | Accepted responsibility | Implementation state | Limitation |
-| --- | --- | --- | --- |
-| Wind speed, direction, and gust | Open-Meteo `ncep_nbm_conus` | Not implemented for accepted locations | NBM is blended |
-| Precipitation probability and amount | Open-Meteo `ncep_nbm_conus` | Not implemented under accepted strategy | Upstream per-value lineage is incomplete |
-| Wave height, direction, and period | Open-Meteo `meteofrance_wave` | Not implemented | Accuracy untested |
-| Sea-surface temperature | Open-Meteo `meteofrance_currents` | Not implemented | Selector authorizes SST only |
-| Locally referenced tide phase | NOAA CO-OPS tide predictions | Not implemented | Four relationships are explicit transfers |
-| Forecast valid time | Open-Meteo hourly timestamps normalized to UTC | Not implemented for coastal products | Must satisfy the 168-instant contract |
-| Capture time and provenance | Retained request and response metadata | Not implemented for coastal products | Marine run identity remains incomplete |
-| Forecast revision history | Successive captured forecasts | Implemented only for current weather fields | Coastal fields are not implemented |
-| Data-quality status | Independent whole-source-result validation | Not implemented for coastal products | Rules establish validity, not accuracy |
-
-## Remaining evidence and implementation gaps
+## Remaining evidence gaps
 
 The following remain unresolved or deferred:
 
@@ -310,9 +279,6 @@ The following remain unresolved or deferred:
 - alternative marine-model adoption
 - marine initialization or run-history reconstruction beyond exposed metadata
 - warning, forecast, and safety-zone relationships
-- retention and scheduling
-- publication and consumer interfaces
-- Azure and deployment architecture
 - scoring formulas, thresholds, and weights
 
 Technical coverage does not resolve these topics.
@@ -320,8 +286,7 @@ Technical coverage does not resolve these topics.
 ## Related governance
 
 - [Project charter](../project-charter.md)
-- [Scope register](../scope-register.md)
-- [Roadmap stage 4](../roadmap.md#4-extend-coastal-data-source-ingestion)
+- [Roadmap](../roadmap.md)
 - [Coastal location requirements](../requirements/coastal-locations.md)
 - [Fishing-condition requirements](../requirements/fishing-conditions.md)
 - [ADR 0004](../decisions/0004-spatial-coordinate-and-returned-grid-policy.md)

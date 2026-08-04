@@ -103,7 +103,6 @@ rule, and silent replacement would weaken provenance and reviewability.
 
 - [Project charter](../project-charter.md)
 - [Roadmap](../roadmap.md)
-- [Scope register](../scope-register.md)
 - [Coastal location requirements](../requirements/coastal-locations.md)
 - [Coastal spatial relationships](../research/coastal-spatial-relationships.md)
 - [ADR 0004](0004-spatial-coordinate-and-returned-grid-policy.md)

@@ -159,13 +159,13 @@ recommendations and is not approved.
 
 This is the accepted choice. It separates the required environmental baseline
 from optional context, safety-only information, deferred conditions, and
-excluded interpretations while leaving providers and scoring unresolved.
+excluded interpretations. This decision did not select providers or define
+scoring.
 
 ## Related governance
 
 - Charter: [Project charter](../project-charter.md)
-- Scope: [Scope register](../scope-register.md)
-- Later roadmap objective: [Spanish mackerel scoring methodology](../roadmap.md#next-objective-spanish-mackerel-scoring-methodology)
+- Roadmap: [Roadmap](../roadmap.md)
 - Requirements: [Fishing-condition requirements](../requirements/fishing-conditions.md)
 - Requirements: [Coastal location requirements](../requirements/coastal-locations.md)
 - Related decision: [First-release user and fishing-context boundary](0001-first-release-user-and-fishing-context.md)
