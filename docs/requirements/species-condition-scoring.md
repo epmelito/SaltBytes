@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved product boundary. No scoring formula or implementation is approved by
-this document.
+Approved product boundary. The Spanish mackerel version 1 methodology is
+approved separately. No scoring implementation is approved by this document.
 
 ## Purpose
 
@@ -109,22 +109,14 @@ fishing quality.
 
 ## First methodology
 
-Spanish mackerel is the first scoring methodology pilot.
+Spanish mackerel is the first scoring methodology pilot. The approved
+[Spanish mackerel conditions score methodology](spanish-mackerel-conditions-score.md)
+defines version 1 factor roles, weights, curves, score bands, availability,
+confidence, explanations, and validation scenarios.
 
-The methodology must use the authoritative Spanish mackerel profile and shared
-research synthesis. This requirements document does not approve:
-
-- factor weights
-- numeric thresholds or score bands
-- curves or equations
-- seasonal boundaries
-- thermal cutoffs
-- report wording
-- persistence schemas
-- dashboard behavior
-- new data providers
-
-Those choices require a separate approved methodology work package.
+The methodology does not approve scoring code, persistence schemas, report or
+dashboard behavior, or new data providers. Those choices require a bounded
+implementation work package.
 
 ## Future overall fishing conditions score
 
@@ -152,4 +144,5 @@ Future design must resolve:
 - [Fishing-condition requirements](fishing-conditions.md)
 - [Analysis-ready feature contract](analysis-ready-features.md)
 - [User-facing language requirements](user-facing-language.md)
+- [Spanish mackerel conditions score methodology](spanish-mackerel-conditions-score.md)
 - [North Carolina shore-fishing species research package](../research/nc-shore-species-research.md)

@@ -14,8 +14,9 @@ SaltBytes has completed:
 - priority North Carolina shore-species selection
 - the species opportunity research registry
 - the durable product decision for research backed species conditions scores
+- the first approved Spanish mackerel score methodology
 
-The next objective is Spanish mackerel scoring methodology design.
+The next objective is bounded Spanish mackerel score implementation.
 
 SaltBytes does not yet provide species conditions scores, an overall fishing
 conditions score, ranked fishing windows, or catch probability.
@@ -47,36 +48,39 @@ The durable product direction is recorded in
 shared requirements in
 [species conditions scoring requirements](requirements/species-condition-scoring.md).
 
-## Next objective: Spanish mackerel scoring methodology
+### Spanish mackerel score methodology
 
-Define a deterministic and explainable 0 to 100 Spanish mackerel conditions
-score using the approved research package and existing SaltBytes inputs.
+The approved version 1 calculation, availability rules, confidence dimensions,
+explanations, and validation scenarios are recorded in the
+[Spanish mackerel conditions score methodology](requirements/spanish-mackerel-conditions-score.md).
+The methodology is approved but not implemented.
 
-The methodology must define:
+## Next objective: bounded Spanish mackerel score implementation
 
-- what the score represents and how the 0 to 100 range is interpreted
-- the included dimensions and factor contribution rules
-- treatment of season, habitat, environmental alignment, and practical
-  fishability
-- explicit behavior for missing or unavailable inputs
-- confidence that remains separate from the conditions score
-- positive, limiting, and unknown factors shown with the score
-- methodology versioning
-- validation scenarios and prohibited claims
+Implement the approved version 1 Spanish mackerel conditions calculation against
+existing normalized inputs.
 
-The methodology must not claim catch probability, bite likelihood, guaranteed
-presence, or substitute unavailable local biology with proxy inputs.
+The implementation work must preserve:
 
-No weights, thresholds, curves, score bands, equations, implementation schema,
-or report behavior are approved by this roadmap. Those decisions belong to the
-methodology work package.
+- the exact approved eligibility and availability rules
+- deterministic seasonal, thermal, biological, wind, wave, and final-score
+  calculations
+- score confidence as separate categorical dimensions
+- positive, limiting, and unknown factor selection
+- methodology versioning and approved validation scenarios
+- the distinction between modeled conditions alignment and fish presence or
+  catch probability
+
+The implementation package must not add unapproved factors, providers, report
+fields, dashboard behavior, or the future overall-score aggregation method.
+Publication remains a later bounded reporting package.
 
 ## Later sequence
 
 ```text
-Completed: species selection, research registry, and score direction
-→ next: Spanish mackerel scoring methodology
-→ later: bounded Spanish mackerel score implementation
+Completed: species selection, research registry, score direction, and first methodology
+→ next: bounded Spanish mackerel score implementation
+→ later: bounded score publication
 → later: additional species models
 → future: overall fishing conditions score aggregation
 ```

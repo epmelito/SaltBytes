@@ -11,13 +11,13 @@ It currently collects:
 - NOAA tide predictions and hourly tide phase
 
 The current platform combines those sources into readable hourly reports and an
-interactive dashboard. The next milestone is defining an explainable 0 to 100
-Spanish mackerel conditions score based on approved research and existing
-SaltBytes inputs.
+interactive dashboard. The approved next milestone is implementing an
+explainable 0 to 100 Spanish mackerel conditions score from existing SaltBytes
+inputs.
 
-The score is planned, not implemented. It will assess how favorable the
-available conditions are for targeting a species without claiming catch
-probability, bite likelihood, or fish presence.
+The methodology is approved, but the score is not implemented. It will assess
+how favorable the available conditions are for targeting Spanish mackerel
+without claiming catch probability, bite likelihood, or fish presence.
 
 SaltBytes is a portfolio project. It does not guarantee fishing success,
 replace official marine guidance, or operate as a production service.
@@ -43,7 +43,9 @@ See [the roadmap](docs/roadmap.md) for the delivery sequence,
 [decision 0010](docs/decisions/0010-research-backed-fishing-score-direction.md)
 for the product direction, and
 [species conditions scoring requirements](docs/requirements/species-condition-scoring.md)
-for the scoring boundary.
+for the shared boundary, and the
+[Spanish mackerel methodology](docs/requirements/spanish-mackerel-conditions-score.md)
+for the approved first calculation.
 
 ## Locations
 
@@ -166,6 +168,8 @@ saltbytes/
   integrated result.
 - [Species conditions scoring requirements](docs/requirements/species-condition-scoring.md)
   define the approved scoring boundary.
+- [Spanish mackerel conditions score methodology](docs/requirements/spanish-mackerel-conditions-score.md)
+  defines the approved first score calculation.
 - [Agent guidance](AGENTS.md) defines repository working rules.
 
 Documents under `docs/decisions`, `docs/research`, and `docs/requirements`

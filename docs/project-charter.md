@@ -5,9 +5,8 @@
 SaltBytes is a lightweight portfolio project for exploring upcoming coastal
 conditions at a small set of North Carolina fishing locations.
 
-The current objective is to define the first deterministic, research backed
-species conditions score for Spanish mackerel using approved evidence and
-existing SaltBytes inputs.
+The current objective is to implement the approved deterministic, research
+backed Spanish mackerel conditions score using existing SaltBytes inputs.
 
 ## Product direction
 
@@ -51,9 +50,9 @@ SaltBytes does not:
 
 The current platform includes local execution, scheduled hosted ingestion,
 durable cloud state, and verified automated publication of separate static
-conditions and operations reports. Species scoring is not yet implemented. The
-next milestone defines the Spanish mackerel scoring methodology before any
-score is added to reports or the dashboard.
+conditions and operations reports. The Spanish mackerel methodology is approved,
+but species scoring is not yet implemented. The next milestone adds the bounded
+calculation before any score is added to reports or the dashboard.
 
 Additional coverage, APIs, authentication, production operations, and the
 future overall-score aggregation method remain later decisions.
