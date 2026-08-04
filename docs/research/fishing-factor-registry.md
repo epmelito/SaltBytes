@@ -11,7 +11,13 @@ This document is not:
 - a commitment to implement every factor
 - a substitute for target species research
 
-The first SaltBytes model remains species agnostic. Factors whose direction depends materially on species, life stage, migration, feeding strategy, or habitat preference are retained for future target species work rather than generalized.
+SaltBytes now intends to build species-specific conditions scores, beginning
+with Spanish mackerel. This registry remains the evidence reference for shared
+physical, operational, and confidence factors. It does not define the score.
+
+Factors whose direction depends materially on species, life stage, migration,
+feeding strategy, or habitat preference must use the authoritative species
+research rather than a generalized rule.
 
 The registry describes data value. It does not interpret personal safety. Official warnings may be displayed by a future product, but safety only feeds are outside the fishing factor roadmap and do not increase a factor's value or implementation priority.
 
@@ -96,10 +102,10 @@ Availability evaluates the complete practical data supply, not whether a value c
 
 | Rating | Definition |
 |---|---|
-| Strong | Can support a clear species agnostic rule, interaction, confidence control, or availability state without inventing a universal bite response. |
-| Conditional | Requires companion inputs, site applicability, nonlinear interpretation, seasonal context, or local validation. |
+| Strong | Can support a clear shared rule, interaction, confidence control, or availability state without inventing a universal bite response. |
+| Conditional | Requires species evidence, companion inputs, site applicability, nonlinear interpretation, seasonal context, or local validation. |
 | Weak | May support research or explanation, but not reliable deterministic scoring. |
-| Unsuitable | Should not enter a species agnostic deterministic score because it is unsupported, redundant, misleading, or fundamentally species specific. |
+| Unsuitable | Should not enter a deterministic score because it is unsupported, redundant, misleading, or lacks the required species-specific evidence. |
 
 ### Decision
 
@@ -110,7 +116,7 @@ Availability evaluates the complete practical data supply, not whether a value c
 | Investigate | Potentially valuable, but coverage, mapping, semantics, or incremental value must be verified first. |
 | Opportunistic | Useful and inexpensive during related work, but not worth a dedicated expansion. |
 | Defer | Potential value exists, but present data, transferability, resolution, or implementation cost is inadequate. |
-| Species specific | Preserve for future target species work. Do not generalize into the first model. |
+| Species specific | Preserve for target species methodology. Do not generalize across species. |
 | Exclude | Do not implement for deterministic analysis unless materially stronger evidence changes the decision. |
 
 ## 4. Consolidated factor registry
@@ -566,7 +572,7 @@ Preserve for later target species work:
 - bait preferences and presentation
 
 ### Exclude
-Do not use in species agnostic deterministic scoring:
+Do not use as universal deterministic scoring factors:
 
 - barometric pressure as a direct bite modifier
 - moon phase as a universal predictor

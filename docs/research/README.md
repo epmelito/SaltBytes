@@ -5,6 +5,12 @@ limitations, and source inventory are in the consolidated
 [North Carolina shore-fishing species research package](nc-shore-species-research.md).
 Use the linked sections below; do not treat this index as an evidence summary.
 
+The product direction for 0 to 100 species conditions scores is governed by
+[decision 0010](../decisions/0010-research-backed-fishing-score-direction.md)
+and the
+[species conditions scoring requirements](../requirements/species-condition-scoring.md).
+The research package supplies evidence and boundaries, not the score formula.
+
 ## Approved scope
 
 - [Research outcome and approved pilot](nc-shore-species-research.md#2-research-outcome)
@@ -13,7 +19,7 @@ Use the linked sections below; do not treat this index as an evidence summary.
 
 The approved set is Spanish mackerel, red drum, bluefish, spotted seatrout,
 kingfishes complex, sheepshead, and Florida pompano. Spanish mackerel is the
-approved pilot.
+approved first scoring methodology pilot.
 
 ## Species profiles
 
@@ -22,7 +28,7 @@ needed for the task.
 
 | Task | Authoritative section |
 |---|---|
-| Spanish mackerel pilot work | [Spanish mackerel](nc-shore-species-research.md#8-spanish-mackerel-evidence-profile) |
+| Spanish mackerel scoring methodology | [Spanish mackerel](nc-shore-species-research.md#8-spanish-mackerel-evidence-profile) |
 | Red drum life-stage or habitat work | [Red drum](nc-shore-species-research.md#9-red-drum-evidence-profile) |
 | Bluefish size-class or migration work | [Bluefish](nc-shore-species-research.md#10-bluefish-evidence-profile) |
 | Spotted seatrout estuarine or cold-risk work | [Spotted seatrout](nc-shore-species-research.md#11-spotted-seatrout-evidence-profile) |
@@ -36,7 +42,7 @@ needed for the task.
 |---|---|
 | Shared biological limits or missing local observations | [Shared biological patterns](nc-shore-species-research.md#15-shared-biological-patterns) |
 | Existing versus needed data inputs | [Current input assessment](nc-shore-species-research.md#16-current-input-assessment) |
-| Bounded implementation questions | [Implementation readiness](nc-shore-species-research.md#17-implementation-readiness) |
+| Scoring methodology inputs and readiness | [Implementation readiness](nc-shore-species-research.md#17-implementation-readiness) |
 | Future location coverage | [Location expansion priorities](nc-shore-species-research.md#18-location-expansion-priorities) |
 | Confidence and conceptual-layer distinctions | [Shared confidence dimensions](nc-shore-species-research.md#19-shared-confidence-dimensions) and [shared conceptual layers](nc-shore-species-research.md#20-shared-conceptual-layers) |
 | Claims that must not be made | [Universally prohibited interpretations](nc-shore-species-research.md#21-universally-prohibited-interpretations) |
