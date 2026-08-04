@@ -4,6 +4,12 @@
 
 Accepted
 
+[Decision 0010](0010-research-backed-fishing-score-direction.md) later resolves
+this record's deferral of deterministic species conditions scoring for the
+approved shore species. Other species-specific use cases and recommendation
+behavior remain separately unapproved. The surf and pier audience boundary
+and the remaining limitations in this decision stay active.
+
 ## Context
 
 SaltBytes needs a bounded first-release audience and fishing context before
@@ -105,6 +111,7 @@ deferred.
 
 - Charter: [Project charter](../project-charter.md)
 - Scope: [Scope register](../scope-register.md)
-- Roadmap stage: [Stage 3](../roadmap.md#3-define-coastal-locations-and-fishing-condition-requirements)
+- Later roadmap objective: [Spanish mackerel scoring methodology](../roadmap.md#next-objective-spanish-mackerel-scoring-methodology)
 - Requirements: [Coastal location requirements](../requirements/coastal-locations.md)
 - Requirements: [Fishing-condition requirements](../requirements/fishing-conditions.md)
+- Later decision: [Research backed species conditions scoring direction](0010-research-backed-fishing-score-direction.md)

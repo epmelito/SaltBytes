@@ -4,6 +4,11 @@
 
 Accepted
 
+[Decision 0010](0010-research-backed-fishing-score-direction.md) later resolves
+the product direction for deterministic species conditions scores. This record
+still governs the environmental baseline and safety separation. Score formulas,
+thresholds, weights, and implementation remain separately unresolved.
+
 ## Context
 
 SaltBytes needs an environmental requirement baseline before evaluating
@@ -160,8 +165,10 @@ excluded interpretations while leaving providers and scoring unresolved.
 
 - Charter: [Project charter](../project-charter.md)
 - Scope: [Scope register](../scope-register.md)
-- Roadmap stage: [Stage 3](../roadmap.md#3-define-coastal-locations-and-fishing-condition-requirements)
+- Later roadmap objective: [Spanish mackerel scoring methodology](../roadmap.md#next-objective-spanish-mackerel-scoring-methodology)
 - Requirements: [Fishing-condition requirements](../requirements/fishing-conditions.md)
 - Requirements: [Coastal location requirements](../requirements/coastal-locations.md)
 - Related decision: [First-release user and fishing-context boundary](0001-first-release-user-and-fishing-context.md)
 - Related decision: [Composite geographic model and initial locations](0002-composite-geographic-model-and-initial-locations.md)
+- Later decision: [Research backed species conditions scoring direction](0010-research-backed-fishing-score-direction.md)
+- Requirements: [Species conditions scoring](../requirements/species-condition-scoring.md)

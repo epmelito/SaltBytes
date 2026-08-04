@@ -8,7 +8,8 @@
 - **Document status:** Consolidated durable reference
 - **Consolidation date:** August 4, 2026
 - **Approved species entries:** Seven
-- **Approved pilot:** Spanish mackerel
+- **Approved pilot:** Spanish mackerel scoring methodology
+- **Species conditions score direction approved:** Yes
 - **Weights approved:** None
 - **Opportunity thresholds approved:** None
 - **Catch-probability claims approved:** None
@@ -34,7 +35,10 @@ It combines:
 
 The document is intended to serve as the durable evidence base for later product, data, and implementation decisions.
 
-It is not an opportunity-scoring specification.
+It is not an opportunity-scoring specification. The separate
+[species conditions scoring requirements](../requirements/species-condition-scoring.md)
+define the approved product boundary without adding weights, thresholds, or
+equations to this research package.
 
 ## 2. Research outcome
 
@@ -289,7 +293,7 @@ A species may be popular while having weak evidence for environmental predictabi
 ## 8.1 Status
 
 - **Species:** Spanish mackerel (*Scomberomorus maculatus*)
-- **Research role:** Approved pilot
+- **Research role:** Approved first scoring methodology pilot
 - **Primary modes:** Surf, ocean pier, inlet-adjacent shore, open coastal water reachable from land
 - **Primary assessment:** Broad seasonal and environmental alignment with shore-accessible occurrence
 - **Not assessed:** Catch probability, bait-school detection, guaranteed presence, or harvest opportunity
@@ -521,6 +525,8 @@ The evidence does not support direct biological claims such as:
 - Current SST is typical, atypical, or uncertain for the regional seasonal context.
 - Wind and waves make surf or pier fishing more or less practical.
 - Confidence is limited because baitfish and local fish presence are unknown.
+- These supported interpretations may contribute to an explainable species
+  conditions score after the scoring methodology defines their roles.
 
 ## 8.13 Prohibited outputs
 
@@ -546,9 +552,9 @@ The evidence does not support direct biological claims such as:
 
 ## 8.15 Verdict
 
-Spanish mackerel remains the approved pilot.
+Spanish mackerel remains the approved first scoring methodology pilot.
 
-Its defensible pilot question is:
+Its defensible scoring question is:
 
 > Are the location, season, regional thermal state, and practical fishing conditions broadly aligned with shore-accessible Spanish mackerel occurrence?
 
@@ -2384,7 +2390,7 @@ Requirements:
 
 # 19. Shared confidence dimensions
 
-Future outputs should expose confidence separately.
+Species conditions score outputs must expose confidence separately.
 
 ```text
 species_identity_confidence
@@ -2434,7 +2440,9 @@ Examples:
 - local fishing pressure
 - casting-range access
 
-These layers should not be collapsed into one unexplained score.
+These layers may contribute to one explainable conditions score, but the
+material contributions and unknowns must remain visible and confidence must
+remain separate.
 
 # 21. Universally prohibited interpretations
 
@@ -2476,7 +2484,9 @@ Unless materially stronger evidence is added, SaltBytes should not state:
 | Rename southern kingfish | Approved | Data support the complex more strongly than one species |
 | Retain sheepshead | Approved | Required structure-fishing archetype |
 | Retain Florida pompano | Approved conditionally | Strong southern surf role but weak statewide uniformity |
-| Pilot Spanish mackerel | Approved | Cleanest first research-to-implementation path |
+| Pilot Spanish mackerel scoring methodology | Approved | Cleanest first research-to-implementation path |
+| Use explainable 0 to 100 species conditions scores | Approved as product direction | Conditions alignment is useful without claiming probability or presence |
+| Select overall fishing score aggregation now | Deferred | Requires multiple implemented species models |
 | Use catch probability | Rejected | Evidence and validation insufficient |
 | Use exact temperature thresholds | Rejected | Physiological and seasonal evidence does not justify them |
 | Use universal tide rules | Rejected | Site-specific physics and weak evidence |
@@ -2504,9 +2514,11 @@ Unless materially stronger evidence is added, SaltBytes should not state:
 - implementation-readiness ordering
 - location-expansion needs
 - species renaming and scope corrections
+- product direction for explainable species conditions scores
 
 ## 23.2 Deferred
 
+- scoring methodology details
 - scoring weights
 - numeric opportunity thresholds
 - model equations
@@ -2518,7 +2530,8 @@ Unless materially stronger evidence is added, SaltBytes should not state:
 - feature engineering
 - product copy
 - regulatory integration
-- GitHub issues and implementation work packages
+- overall fishing score aggregation
+- scoring implementation work packages
 
 # Part III: References
 

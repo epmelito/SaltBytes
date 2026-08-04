@@ -2,11 +2,14 @@
 
 ## Status
 
-This document defines the approved environmental requirements for roadmap
-stage 3. It does not select supplemental providers, establish source-authority
-rules, define scores, or authorize implementation.
+This document defines the approved environmental baseline established before
+the current scoring milestone. It does not define a species scoring
+methodology, formula, threshold, weight, or implementation.
 
-Roadmap stage 3 remains in progress until its completion evidence is satisfied.
+The product direction for species conditions scores is governed by
+[decision 0010](../decisions/0010-research-backed-fishing-score-direction.md)
+and the
+[species conditions scoring requirements](species-condition-scoring.md).
 
 ## Purpose
 
@@ -18,15 +21,17 @@ contexts. Windows may be compared only within the same context.
 
 The requirements describe environmental conditions, not expected catch,
 species suitability, navigation suitability, or a guarantee of fishing
-success.
+success. Any user-facing presentation of these conditions must follow the
+[user-facing language requirements](user-facing-language.md).
 
 ## Interpretation boundaries
 
 Fishing-quality information and safety information serve different purposes.
 
-Environmental conditions may eventually contribute to deterministic and
-explainable fishing-condition scores after separate scoring decisions are
-approved. This document does not define those formulas, thresholds, or weights.
+Environmental conditions may contribute to deterministic and explainable
+species conditions scores under the separately approved scoring direction.
+This document does not define the formulas, thresholds, weights, or
+species-specific interpretation.
 
 Safety-only information must:
 
@@ -227,9 +232,11 @@ The following remain deferred:
 - catch history
 - lunar phase
 - bathymetry and sandbar state
-- score formulas, thresholds, and weights
+- score formulas, thresholds, weights, and validation methods
 
-Species-specific variables and interpretations also remain deferred.
+Species-specific variables and interpretations are governed by the approved
+species research and scoring requirements. Additional data inputs remain
+deferred until separately approved.
 
 ## Excluded interpretations
 
@@ -238,7 +245,7 @@ The first-release requirements exclude:
 - guarantees of fishing success
 - predicted catch probabilities without an approved evidence basis
 - opaque AI-generated fishing scores
-- species recommendations
+- unsupported species presence, bite, or success recommendations
 - navigation suitability
 - replacement of official marine or beach-safety guidance
 - direct ranking of surf windows against pier windows
@@ -358,7 +365,7 @@ This requirements document does not:
   provider
 - select a supplemental provider
 - define final source-authority or fallback rules
-- define score inputs, formulas, thresholds, or weights
+- define species score inputs, formulas, thresholds, or weights
 - determine whether safety products suppress or modify recommendations
 - define retention or scheduling
 - define publication, API, dashboard, Azure, or deployment architecture
@@ -382,3 +389,6 @@ A condition requirement must:
 - [Coastal location requirements](coastal-locations.md)
 - [First-release user and fishing-context decision](../decisions/0001-first-release-user-and-fishing-context.md)
 - [First-release environmental requirement baseline decision](../decisions/0003-first-release-environmental-requirement-baseline.md)
+- [Research backed species conditions scoring direction](../decisions/0010-research-backed-fishing-score-direction.md)
+- [Species conditions scoring requirements](species-condition-scoring.md)
+- [User-facing language requirements](user-facing-language.md)

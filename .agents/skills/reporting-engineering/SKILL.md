@@ -54,6 +54,16 @@ Prioritize a clear page purpose, visible hierarchy, readable labels and units,
 and enough spacing to distinguish related information. Avoid repeated content
 and competing elements that make the primary information difficult to find.
 
+Follow the
+[user-facing language requirements](../../../docs/requirements/user-facing-language.md)
+for reports, dashboards, charts, tables, controls, notices, metrics, warnings,
+and explanations. Use natural everyday wording for the default user experience.
+Translate necessary technical concepts where they appear, preserve uncertainty
+and safety meaning, and keep deeper provenance or operational detail available
+without making internal terminology the primary presentation. Treat needlessly
+academic phrasing, unexplained jargon, and leaked field or model names as
+usability defects.
+
 Treat runtime errors, broken controls, empty default states, misleading or
 leaked content, unreadable overlap, and unusable overflow as blocking.
 

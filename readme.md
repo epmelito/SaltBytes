@@ -10,8 +10,14 @@ It currently collects:
 - sea-surface temperature
 - NOAA tide predictions and hourly tide phase
 
-The current milestone is a lightweight MVP that combines those sources into one
-readable hourly result.
+The current platform combines those sources into readable hourly reports and an
+interactive dashboard. The next milestone is defining an explainable 0 to 100
+Spanish mackerel conditions score based on approved research and existing
+SaltBytes inputs.
+
+The score is planned, not implemented. It will assess how favorable the
+available conditions are for targeting a species without claiming catch
+probability, bite likelihood, or fish presence.
 
 SaltBytes is a portfolio project. It does not guarantee fishing success,
 replace official marine guidance, or operate as a production service.
@@ -33,7 +39,11 @@ operations report. The site refreshes after successful scheduled or manual
 ingestion. View the committed [sample report site](docs/sample-report/index.html)
 for a fixed reviewed snapshot that does not change with hosted runs.
 
-See [the roadmap](docs/roadmap.md) for the delivery sequence.
+See [the roadmap](docs/roadmap.md) for the delivery sequence,
+[decision 0010](docs/decisions/0010-research-backed-fishing-score-direction.md)
+for the product direction, and
+[species conditions scoring requirements](docs/requirements/species-condition-scoring.md)
+for the scoring boundary.
 
 ## Locations
 
@@ -154,6 +164,8 @@ saltbytes/
 - [Architecture](docs/architecture.md) describes the current system.
 - [Data model](docs/data-model.md) describes persisted data and the planned
   integrated result.
+- [Species conditions scoring requirements](docs/requirements/species-condition-scoring.md)
+  define the approved scoring boundary.
 - [Agent guidance](AGENTS.md) defines repository working rules.
 
 Documents under `docs/decisions`, `docs/research`, and `docs/requirements`
