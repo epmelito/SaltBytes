@@ -9,7 +9,9 @@ The product direction for 0 to 100 species conditions scores is governed by
 [decision 0010](../decisions/0010-research-backed-fishing-score-direction.md)
 and the
 [species conditions scoring requirements](../requirements/species-condition-scoring.md).
-The research package supplies evidence and boundaries, not the score formula.
+The research package supplies evidence and boundaries. The approved
+[Spanish mackerel methodology](../requirements/spanish-mackerel-conditions-score.md)
+defines the first score formula.
 
 ## Approved scope
 
@@ -28,7 +30,8 @@ needed for the task.
 
 | Task | Authoritative section |
 |---|---|
-| Spanish mackerel scoring methodology | [Spanish mackerel](nc-shore-species-research.md#8-spanish-mackerel-evidence-profile) |
+| Spanish mackerel evidence and boundaries | [Spanish mackerel](nc-shore-species-research.md#8-spanish-mackerel-evidence-profile) |
+| Approved Spanish mackerel calculation | [Spanish mackerel methodology](../requirements/spanish-mackerel-conditions-score.md) |
 | Red drum life-stage or habitat work | [Red drum](nc-shore-species-research.md#9-red-drum-evidence-profile) |
 | Bluefish size-class or migration work | [Bluefish](nc-shore-species-research.md#10-bluefish-evidence-profile) |
 | Spotted seatrout estuarine or cold-risk work | [Spotted seatrout](nc-shore-species-research.md#11-spotted-seatrout-evidence-profile) |
