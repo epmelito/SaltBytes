@@ -1,13 +1,20 @@
 # SaltBytes ChatGPT Operating Contract
 
-Version: 1.6
-Updated: 2026-08-03
+Version: 1.7
+Updated: 2026-08-05
 
 ## 1. Purpose and authority
 
 This document defines how ChatGPT should support SaltBytes portfolio projects, and general technical work.
 
-Treat it as the stable reset point when a conversation becomes long, context starts drifting, or a new thread begins.
+This contract governs ChatGPT conversation threads. Codex does not read or
+inherit this file. ChatGPT may use it to design Codex work packages, prepare
+prompts, review Codex evidence, and guide the user through repository workflow.
+Codex execution remains governed by the active issue, `AGENTS.md`, and the
+applicable repository skills it reads directly.
+
+Treat this contract as the stable reset point when a ChatGPT conversation
+becomes long, context starts drifting, or a new thread begins.
 
 The latest explicit user instruction always overrides this document.
 
@@ -270,6 +277,19 @@ Use for read only review of work that is:
 
 Do not use it routinely or after every normal package.
 
+### `documentation-governance-review`
+
+Use for a bounded, read only review when:
+
+- permanent documentation is proposed
+- documents overlap or conflict
+- authority, lifecycle, or current status is unclear
+- mutable inventories, copied lists, or hardcoded counts may drift
+- deliberate documentation cleanup is requested
+
+Do not use it automatically for routine documentation or code changes. Follow
+the procedure in the repository skill instead of duplicating it here.
+
 ### General skill rules
 
 Repository skills apply in both Codex and manual patch mode. Changing execution mode does not reduce the required skill review or compliance standard.
@@ -290,6 +310,13 @@ SaltBytes uses two explicit repository implementation modes:
 
 1. **Codex direct implementation** when Codex credits are available and the user chooses Codex.
 2. **Manual patch based implementation** when Codex credits are unavailable, the user requests manual mode, or Codex cannot safely edit the repository.
+
+ChatGPT threads own the heavier reasoning that defines methodology, architecture,
+work package scope, sequencing, acceptance criteria, and independent review.
+Codex normally performs repository implementation after those decisions are
+settled. Manual patch mode replaces Codex implementation when credits, access,
+or safety constraints require it. Codex must not silently redefine an approved
+methodology or architecture during implementation.
 
 At the start of each implementation phase, state the active mode. The latest explicit user instruction controls the mode.
 
@@ -668,6 +695,32 @@ Do not treat native stderr as proof of failure. Git and other native programs ro
 
 `Invoke-NativeCommand` must determine success from the native process exit code.
 
+#### Repeated command failure prevention
+
+Apply these rules when preparing PowerShell commands for the user:
+
+- Treat each `ArgumentList` element as one complete native argument. Do not add
+  embedded shell quote characters around values containing spaces.
+- Write temporary issue and pull request Markdown as UTF-8 without a byte order
+  mark using `[System.Text.UTF8Encoding]::new($false)`. Do not use Windows
+  PowerShell `Set-Content -Encoding utf8` for these files because it can add a
+  byte order mark that appears as visible text on GitHub.
+- Remember that `git diff` excludes untracked files. Inspect new files directly
+  before staging or inspect the complete staged diff after `git add`.
+- Run `git diff --check` before committing. Do not use Markdown trailing spaces
+  for line breaks; use blank lines instead.
+- After Squash and merge, `git branch -d` may reject the local feature branch
+  because its original commit is not an ancestor of `main`. Verify the pull
+  request is merged and `main` contains the squash result before using
+  `git branch -D`.
+- Do not reuse remembered absolute repository paths from earlier project names.
+  Confirm the current checkout before running commands. The current SaltBytes
+  checkout is `C:\Users\epmel\github_projects\SaltBytes` while this temporary
+  local constraint remains valid.
+- Wrap reusable PowerShell commands and other copy ready artifacts that may
+  contain fenced code inside four backticks so inner triple backticks cannot
+  escape the outer block.
+
 #### Failure behavior
 
 When a native command exits with a nonzero code:
@@ -944,6 +997,16 @@ reassessment.
 Do not organize threads by model alone. Organize them by coherent work package
 and select the model as part of package startup.
 
+### Operating contract maintenance
+
+At the end of each work package, briefly review the completed ChatGPT thread for
+durable workflow lessons, repeated failures, corrected assumptions, or changed
+tool behavior that may warrant an operating contract update. Update this
+contract only when the lesson is reusable, materially reduces future error or
+repetition, and belongs in ChatGPT workflow guidance. Do not add issue specific
+history, one time mistakes, or rules already owned by `AGENTS.md` or repository
+skills.
+
 ### Reporting requirement
 
 For each new work package, report:
@@ -1077,14 +1140,6 @@ These are not durable architecture and should be removed when no longer true.
   configuration. After the decision is recorded in the issue, reassess the
   implementation as a new package instead of carrying the stronger model
   forward automatically.
-- Default Codex configuration when package complexity is not yet known:
-
-  ```text
-  gpt-5.6-terra
-  medium reasoning
-  default service tier
-  ```
-
 - Codex direct implementation is the preferred current mode while credits are available.
 - When Codex credits are unavailable, switch to manual patch based implementation without changing the issue, branch, or PR boundaries.
 - ChatGPT should continue providing the exact issue body, PR body, PowerShell commands, and Codex prompts appropriate to the active mode.
