@@ -21,7 +21,8 @@ contexts. Windows may be compared only within the same context.
 
 The requirements describe environmental conditions, not expected catch,
 species suitability, navigation suitability, or a guarantee of fishing
-success.
+success. Any user-facing presentation of these conditions must follow the
+[user-facing language requirements](user-facing-language.md).
 
 ## Interpretation boundaries
 
@@ -390,3 +391,4 @@ A condition requirement must:
 - [First-release environmental requirement baseline decision](../decisions/0003-first-release-environmental-requirement-baseline.md)
 - [Research backed species conditions scoring direction](../decisions/0010-research-backed-fishing-score-direction.md)
 - [Species conditions scoring requirements](species-condition-scoring.md)
+- [User-facing language requirements](user-facing-language.md)

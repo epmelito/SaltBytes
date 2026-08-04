@@ -23,6 +23,8 @@ SaltBytes should:
   models exist
 - demonstrate practical ingestion, validation, persistence, modeling, and
   reporting
+- present reports, dashboards, metrics, explanations, and warnings in clear,
+  natural language for recreational anglers and other general users
 - remain simple enough to maintain
 
 A species conditions score represents how favorable the available location,
@@ -61,6 +63,9 @@ future overall-score aggregation method remain later decisions.
 - Prefer a simple working result over speculative refinement.
 - Preserve deterministic, traceable behavior.
 - Make scoring assumptions, material contributions, and uncertainty visible.
+- Keep internal research technically precise, but translate user-facing output
+  into familiar everyday language without weakening accuracy, limitations, or
+  safety meaning.
 - Address real defects and immediate risks.
 - Defer architecture that the current milestone does not require.
 - Use AI to accelerate reviewed work, not to invent requirements or process.

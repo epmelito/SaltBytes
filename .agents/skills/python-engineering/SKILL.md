@@ -76,6 +76,11 @@ pre-existing failures instead of absorbing them into the work package.
 - Write tests that verify meaningful behavior, including applicable failure,
   boundary, mismatch, rerun, and partial-result cases. Do not add tests that
   merely execute code without proving an outcome.
+- When Python produces CLI text, report text, public export labels, warnings, or
+  other user-facing wording, follow the
+  [user-facing language requirements](../../../docs/requirements/user-facing-language.md).
+  Preserve technical accuracy and uncertainty, but do not expose internal field
+  names or academic terminology as default product copy.
 
 ## Human decision gates
 

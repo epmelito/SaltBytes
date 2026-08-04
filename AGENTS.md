@@ -41,6 +41,10 @@ or unrelated ADRs by default.
   isolation.
 - Do not modify unrelated files.
 - Do not describe planned behavior as implemented.
+- Follow the [user-facing language requirements](docs/requirements/user-facing-language.md)
+  whenever work creates or changes text shown to anglers or general users. Keep
+  internal research, schemas, field names, logs, and technical documentation
+  precise, but translate them at the presentation boundary.
 
 For the MVP, safe means avoiding exposed secrets, destructive persistence,
 silent data corruption, hidden source failures, and unreadable failures. It

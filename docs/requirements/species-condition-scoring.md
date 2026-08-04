@@ -72,6 +72,19 @@ The explanation must distinguish:
 The score may combine approved dimensions into one index, but it must not hide
 which dimensions drove the result.
 
+## User-facing presentation
+
+Score labels, explanations, confidence, positive factors, limiting factors, and
+unknowns must follow the
+[user-facing language requirements](user-facing-language.md). They must sound
+natural to recreational anglers, explain necessary technical ideas in context,
+and preserve uncertainty without reading like research prose.
+
+Internal factor names, field names, evidence classifications, and model
+terminology must not become default product copy merely because they exist in
+the research or implementation. Final wording remains part of the methodology
+and reporting work; this document does not select specific labels or phrases.
+
 ## Interpretation boundaries
 
 A species conditions score must not be described as:
@@ -138,4 +151,5 @@ Future design must resolve:
 - [Decision 0010](../decisions/0010-research-backed-fishing-score-direction.md)
 - [Fishing-condition requirements](fishing-conditions.md)
 - [Analysis-ready feature contract](analysis-ready-features.md)
+- [User-facing language requirements](user-facing-language.md)
 - [North Carolina shore-fishing species research package](../research/nc-shore-species-research.md)
