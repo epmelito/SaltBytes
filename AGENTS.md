@@ -87,6 +87,12 @@ git diff --check
 
 ## Documentation and decisions
 
+Give each permanent document one authoritative purpose. Reference existing
+decisions and requirements instead of restating them, and prefer code, tests,
+configuration, or generated output for discoverable behavior and mutable
+inventories. Separate current status, temporary handoffs, and historical
+snapshots. Identify documentation conflicts rather than silently resolving them.
+
 Update documentation only when current instructions or behavior would otherwise
 be wrong.
 
