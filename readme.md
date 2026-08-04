@@ -11,13 +11,14 @@ It currently collects:
 - NOAA tide predictions and hourly tide phase
 
 The current platform combines those sources into readable hourly reports and an
-interactive dashboard. The approved next milestone is implementing an
-explainable 0 to 100 Spanish mackerel conditions score from existing SaltBytes
-inputs.
+interactive dashboard. The approved Spanish mackerel conditions calculation is
+implemented internally from existing SaltBytes inputs, but its results are not
+persisted or published.
 
-The methodology is approved, but the score is not implemented. It will assess
-how favorable the available conditions are for targeting Spanish mackerel
-without claiming catch probability, bite likelihood, or fish presence.
+Bounded score publication is the next package. Report, dashboard, ranking, and
+overall-score work remain deferred. The calculation assesses how favorable the
+available conditions are for targeting Spanish mackerel without claiming catch
+probability, bite likelihood, or fish presence.
 
 SaltBytes is a portfolio project. It does not guarantee fishing success,
 replace official marine guidance, or operate as a production service.

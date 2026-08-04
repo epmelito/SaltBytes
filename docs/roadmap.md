@@ -15,8 +15,9 @@ SaltBytes has completed:
 - the species opportunity research registry
 - the durable product decision for research backed species conditions scores
 - the first approved Spanish mackerel score methodology
+- the internal Spanish mackerel conditions score calculation
 
-The next objective is bounded Spanish mackerel score implementation.
+The next objective is bounded Spanish mackerel score publication.
 
 SaltBytes does not yet provide species conditions scores, an overall fishing
 conditions score, ranked fishing windows, or catch probability.
@@ -53,34 +54,29 @@ shared requirements in
 The approved version 1 calculation, availability rules, confidence dimensions,
 explanations, and validation scenarios are recorded in the
 [Spanish mackerel conditions score methodology](requirements/spanish-mackerel-conditions-score.md).
-The methodology is approved but not implemented.
+The methodology is implemented internally but is not persisted or published.
 
-## Next objective: bounded Spanish mackerel score implementation
+## Next objective: bounded Spanish mackerel score publication
 
-Implement the approved version 1 Spanish mackerel conditions calculation against
-existing normalized inputs.
+Publish the approved version 1 Spanish mackerel conditions score through a
+bounded reporting package.
 
-The implementation work must preserve:
+The publication work must preserve:
 
 - the exact approved eligibility and availability rules
-- deterministic seasonal, thermal, biological, wind, wave, and final-score
-  calculations
-- score confidence as separate categorical dimensions
-- positive, limiting, and unknown factor selection
-- methodology versioning and approved validation scenarios
+- the implemented deterministic calculation and methodology version
+- separate score confidence, positive, limiting, and unknown factor states
 - the distinction between modeled conditions alignment and fish presence or
   catch probability
 
-The implementation package must not add unapproved factors, providers, report
-fields, dashboard behavior, or the future overall-score aggregation method.
-Publication remains a later bounded reporting package.
+The publication package must not add unapproved factors, providers, or the
+future overall-score aggregation method.
 
 ## Later sequence
 
 ```text
-Completed: species selection, research registry, score direction, and first methodology
-→ next: bounded Spanish mackerel score implementation
-→ later: bounded score publication
+Completed: species selection, research registry, score direction, methodology, and calculation
+→ next: bounded Spanish mackerel score publication
 → later: additional species models
 → future: overall fishing conditions score aggregation
 ```
