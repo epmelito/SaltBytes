@@ -101,11 +101,151 @@ const unavailableMessageGroups = [
   {reasons: ["sst_source_missing", "sst_source_not_success", "sea_surface_temperature_missing", "sea_surface_temperature_invalid"], message: "Required water temperature forecast data is unavailable."}
 ];
 const unavailableMessages = unavailableMessageGroups.filter((group) => spanishMackerel?.unavailable_reasons?.some((reason) => group.reasons.includes(reason))).map((group) => group.message);
-const windSeries = locationRows.flatMap((row) => [{forecastDate: row.forecastDate, metric: "Wind", value: row.wind_speed_10m}, {forecastDate: row.forecastDate, metric: "Gust", value: row.wind_gusts_10m}]);
-const directionSeries = locationRows.flatMap((row) => [{forecastDate: row.forecastDate, metric: "Wind", value: row.wind_to_shore_angle_degrees}, {forecastDate: row.forecastDate, metric: "Wave", value: row.wave_to_shore_angle_degrees}]);
 const contextFreshness = manifest.latest_success_freshness_minutes === null || manifest.latest_success_freshness_minutes === undefined
   ? "Freshness is unavailable."
   : `Updated ${formatTimestamp(manifest.generated_at, manifest.display_timezone)}.`;
+const selectedForecastDate = asDate(selected?.forecast_time);
+const trendWindowHours = 12;
+const firstForecastDate = locationRows[0]?.forecastDate;
+const lastForecastDate = locationRows.at(-1)?.forecastDate;
+const trendWindowStart = new Date(Math.max(
+  firstForecastDate?.getTime() ?? selectedForecastDate?.getTime() ?? 0,
+  (selectedForecastDate?.getTime() ?? 0) - trendWindowHours * 3600_000
+));
+const trendWindowEnd = new Date(Math.min(
+  lastForecastDate?.getTime() ?? selectedForecastDate?.getTime() ?? 0,
+  (selectedForecastDate?.getTime() ?? 0) + trendWindowHours * 3600_000
+));
+const trendRows = locationRows.filter((row) => row.forecastDate >= trendWindowStart && row.forecastDate <= trendWindowEnd);
+const forecastDomain = [trendWindowStart, trendWindowEnd];
+const trendHourLabel = new Intl.DateTimeFormat("en-US", {
+  timeZone: manifest.display_timezone,
+  hour: "numeric"
+});
+const trendDayLabel = new Intl.DateTimeFormat("en-US", {
+  timeZone: manifest.display_timezone,
+  month: "short",
+  day: "numeric"
+});
+const trendHourKey = new Intl.DateTimeFormat("en-US", {
+  timeZone: manifest.display_timezone,
+  hour: "2-digit",
+  hourCycle: "h23"
+});
+const trendTickLabel = (value) => trendHourKey.format(value) === "00"
+  ? `${trendDayLabel.format(value)} · ${trendHourLabel.format(value)}`
+  : trendHourLabel.format(value);
+const trendTitle = (row, label, value) => `${label}: ${value}\nForecast time: ${formatTimestamp(row.forecast_time, manifest.display_timezone)}`;
+const isFiniteNumber = (value) => Number.isFinite(Number(value));
+const wind = trendRows
+  .filter((row) => isFiniteNumber(row.wind_speed_10m))
+  .map((row) => ({...row, metric: "Wind", value: Number(row.wind_speed_10m)}));
+const gusts = trendRows
+  .filter((row) => isFiniteNumber(row.wind_gusts_10m))
+  .map((row) => ({...row, metric: "Gusts", value: Number(row.wind_gusts_10m)}));
+const windBand = trendRows
+  .filter((row) => isFiniteNumber(row.wind_speed_10m) && isFiniteNumber(row.wind_gusts_10m))
+  .map((row) => ({
+    ...row,
+    wind: Number(row.wind_speed_10m),
+    gust: Number(row.wind_gusts_10m)
+  }));
+const waveSeries = trendRows
+  .filter((row) => isFiniteNumber(row.wave_height))
+  .map((row) => ({...row, value: Number(row.wave_height)}));
+const temperatureSeries = trendRows
+  .filter((row) => isFiniteNumber(row.sea_surface_temperature))
+  .map((row) => ({...row, value: Number(row.sea_surface_temperature)}));
+const minimumSpanDomain = (series, minimumSpan) => {
+  if (!series.length) return undefined;
+  const values = series.map((row) => row.value);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const midpoint = (minimum + maximum) / 2;
+  const span = Math.max(maximum - minimum, minimumSpan);
+  const padding = Math.max(span * 0.08, 0.05);
+  return [midpoint - span / 2 - padding, midpoint + span / 2 + padding];
+};
+const temperatureDomain = minimumSpanDomain(temperatureSeries, 1);
+const temperatureBaseline = temperatureDomain?.[0] ?? 0;
+const selectedSeries = (series) => series.filter((row) => row.forecast_time === selected?.forecast_time);
+const previousTideTime = asDate(selected?.tide_previous_extremum_time);
+const nextTideTime = asDate(selected?.tide_next_extremum_time);
+const selectedTideTime = selectedForecastDate;
+const tideTimingAvailable = [
+  previousTideTime,
+  nextTideTime,
+  selectedTideTime,
+  selected?.tide_previous_predicted_water_level,
+  selected?.tide_next_predicted_water_level
+].every((value) => value !== null && isFiniteNumber(value))
+  && typeof selected?.tide_phase === "string"
+  && previousTideTime < nextTideTime
+  && previousTideTime <= selectedTideTime
+  && selectedTideTime <= nextTideTime;
+const tideLow = tideTimingAvailable
+  ? Math.min(Number(selected.tide_previous_predicted_water_level), Number(selected.tide_next_predicted_water_level))
+  : 0;
+const tideRange = tideTimingAvailable
+  ? Math.max(Math.abs(Number(selected.tide_previous_predicted_water_level) - Number(selected.tide_next_predicted_water_level)), 0.2)
+  : 1;
+const tideY = (level) => 114 - ((Number(level) - tideLow) / tideRange) * 66;
+const tideProgress = tideTimingAvailable
+  ? (selectedTideTime - previousTideTime) / (nextTideTime - previousTideTime)
+  : 0;
+const tideSelectedX = 40 + tideProgress * 560;
+const tideSelectedAnchor = tideProgress < 0.16 ? "start" : tideProgress > 0.84 ? "end" : "middle";
+const tideSelectedLabelX = tideProgress < 0.16
+  ? tideSelectedX + 8
+  : tideProgress > 0.84
+    ? tideSelectedX - 8
+    : tideSelectedX;
+const tideDateKey = new Intl.DateTimeFormat("en-CA", {
+  timeZone: manifest.display_timezone,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+});
+const tideDateLabel = new Intl.DateTimeFormat("en-US", {
+  timeZone: manifest.display_timezone,
+  month: "short",
+  day: "numeric"
+});
+const tideTimeLabel = new Intl.DateTimeFormat("en-US", {
+  timeZone: manifest.display_timezone,
+  hour: "numeric",
+  minute: "2-digit",
+  timeZoneName: "short"
+});
+const tideEventsShareDate = tideTimingAvailable
+  && tideDateKey.format(previousTideTime) === tideDateKey.format(nextTideTime);
+const tideEventTime = (value) => {
+  const date = asDate(value);
+  if (!date) return "Unavailable";
+  return tideEventsShareDate
+    ? tideTimeLabel.format(date)
+    : `${tideDateLabel.format(date)} · ${tideTimeLabel.format(date)}`;
+};
+const shoreRelationship = (angle) => {
+  if (!isFiniteNumber(angle)) return null;
+  const absoluteAngle = Math.abs(Number(angle));
+  if (absoluteAngle === 90) return "Alongshore";
+  return absoluteAngle < 90 ? "Onshore component" : "Offshore component";
+};
+const directionArrow = (angle) => {
+  const radians = Number(angle) * Math.PI / 180;
+  const horizontal = Math.sin(radians) * 60;
+  const vertical = Math.cos(radians) * 60;
+  return {x1: 160 - horizontal, y1: 96 - vertical, x2: 160 + horizontal, y2: 96 + vertical};
+};
+const windDirection = isFiniteNumber(selected?.wind_to_shore_angle_degrees)
+  && isFiniteNumber(selected?.wind_direction_10m)
+  ? {label: "Wind", angle: selected.wind_to_shore_angle_degrees, compass: compassDirection(selected.wind_direction_10m), degrees: selected.wind_direction_10m}
+  : null;
+const waveDirection = isFiniteNumber(selected?.wave_to_shore_angle_degrees)
+  && isFiniteNumber(selected?.wave_direction)
+  ? {label: "Waves", angle: selected.wave_to_shore_angle_degrees, compass: compassDirection(selected.wave_direction), degrees: selected.wave_direction}
+  : null;
 ~~~
 
 ~~~js
@@ -155,47 +295,202 @@ display(html`<section class="conditions-current">
 
 ## Upcoming changes
 
-Charts show the complete exported forecast window for the selected location.
-Unavailable values remain visible as gaps.
-
-<div class="chart-grid">
-  <div class="chart-card">
-
-### Wind and gust
+Forecast trends around the selected time.
 
 ~~~js
-Plot.plot({height: 300, x: {type: "utc", label: "Forecast time"}, y: {grid: true, label: "km/h"}, color: {legend: true}, marks: [Plot.lineY(windSeries, {x: "forecastDate", y: "value", stroke: "metric", marker: true, tip: true}), Plot.ruleY([0])]})
+const selectedBandMark = () => Plot.ruleX([selectedForecastDate], {
+  className: "selected-time-band",
+  stroke: "var(--saltbytes-selected)",
+  strokeOpacity: 0.1,
+  strokeWidth: 18
+});
+const selectedRuleMark = () => Plot.ruleX([selectedForecastDate], {
+  className: "selected-time-rule",
+  stroke: "var(--saltbytes-selected)",
+  strokeWidth: 2.5
+});
+const trendTickCount = (width) => width < 480 ? 3 : width < 760 ? 5 : 7;
+const trendPlot = ({width, height, marks, yDomain}) => Plot.plot({
+  width,
+  height,
+  marginTop: 12,
+  marginRight: 34,
+  marginBottom: 38,
+  marginLeft: 56,
+  x: {
+    type: "utc",
+    domain: forecastDomain,
+    ticks: trendTickCount(width),
+    tickFormat: trendTickLabel,
+    tickPadding: 8,
+    label: null,
+    nice: false
+  },
+  y: {
+    domain: yDomain,
+    grid: true,
+    label: null,
+    ticks: 4,
+    nice: true
+  },
+  style: {background: "transparent"},
+  marks
+});
+const line = (series, options = {}) => Plot.lineY(series, {
+  x: "forecastDate",
+  y: "value",
+  stroke: options.stroke,
+  strokeWidth: options.strokeWidth ?? 2.8,
+  strokeDasharray: options.dashed ? "8,5" : null,
+  clip: true,
+  className: `forecast-line ${options.className ?? ""}`.trim()
+});
+const point = (series, title, options = {}) => Plot.dot(series, {
+  x: "forecastDate",
+  y: "value",
+  r: options.r ?? 3.1,
+  fill: options.fill,
+  stroke: "var(--theme-background)",
+  strokeWidth: options.strokeWidth ?? 1.15,
+  title,
+  tip: true,
+  tabindex: 0,
+  className: options.className
+});
+const chartSurface = ({title, unit, className, plot, legend, notice}) => html`<article class="forecast-surface ${className}">
+  <header class="visual-surface-header">
+    <div><h3>${title}</h3><span class="visual-unit">${unit}</span></div>
+    ${legend ?? null}
+  </header>
+  <div class="trend-track">${plot}</div>
+  ${notice ?? null}
+</article>`;
+const windLegend = html`<div class="series-legend" aria-label="Wind chart legend">
+  <span class="legend-wind">Wind</span><span class="legend-gusts">Gusts</span>
+</div>`;
+const windPlot = resize((width) => trendPlot({
+  width,
+  height: 288,
+  marks: [
+    selectedBandMark(),
+    Plot.areaY(windBand, {
+      x: "forecastDate",
+      y1: "wind",
+      y2: "gust",
+      fill: "var(--saltbytes-gust)",
+      fillOpacity: 0.12,
+      clip: true,
+      className: "wind-gust-band"
+    }),
+    line(wind, {stroke: "var(--saltbytes-wind)", className: "wind-line"}),
+    line(gusts, {stroke: "var(--saltbytes-gust)", dashed: true, className: "gust-line"}),
+    point(wind, (row) => trendTitle(row, "Wind", formatNumber(row.value, 1, "km/h")), {fill: "var(--saltbytes-wind)", className: "wind-points"}),
+    point(gusts, (row) => trendTitle(row, "Gusts", formatNumber(row.value, 1, "km/h")), {fill: "var(--saltbytes-gust)", className: "gust-points"}),
+    selectedRuleMark(),
+    point(selectedSeries(wind), (row) => trendTitle(row, "Wind", formatNumber(row.value, 1, "km/h")), {r: 5.6, fill: "var(--saltbytes-wind)", strokeWidth: 2, className: "selected-wind-point"}),
+    point(selectedSeries(gusts), (row) => trendTitle(row, "Gusts", formatNumber(row.value, 1, "km/h")), {r: 5.6, fill: "var(--saltbytes-gust)", strokeWidth: 2, className: "selected-gust-point"})
+  ]
+}));
+const wavePlot = resize((width) => trendPlot({
+  width,
+  height: 240,
+  marks: [
+    selectedBandMark(),
+    Plot.areaY(waveSeries, {
+      x: "forecastDate",
+      y1: 0,
+      y2: "value",
+      fill: "var(--saltbytes-wave)",
+      fillOpacity: 0.14,
+      clip: true,
+      className: "wave-area"
+    }),
+    line(waveSeries, {stroke: "var(--saltbytes-wave)", className: "wave-line"}),
+    point(waveSeries, (row) => trendTitle(row, "Wave height", formatNumber(row.value, 1, "m")), {fill: "var(--saltbytes-wave)", className: "wave-points"}),
+    selectedRuleMark(),
+    point(selectedSeries(waveSeries), (row) => trendTitle(row, "Wave height", formatNumber(row.value, 1, "m")), {r: 5.6, fill: "var(--saltbytes-wave)", strokeWidth: 2, className: "selected-wave-point"})
+  ]
+}));
+const temperaturePlot = resize((width) => trendPlot({
+  width,
+  height: 240,
+  yDomain: temperatureDomain,
+  marks: [
+    selectedBandMark(),
+    Plot.areaY(temperatureSeries, {
+      x: "forecastDate",
+      y1: temperatureBaseline,
+      y2: "value",
+      fill: "var(--saltbytes-temperature)",
+      fillOpacity: 0.14,
+      clip: true,
+      className: "temperature-area"
+    }),
+    line(temperatureSeries, {stroke: "var(--saltbytes-temperature)", className: "temperature-line"}),
+    point(temperatureSeries, (row) => trendTitle(row, "Water temperature", formatNumber(row.value, 1, "°C")), {fill: "var(--saltbytes-temperature)", className: "temperature-points"}),
+    selectedRuleMark(),
+    point(selectedSeries(temperatureSeries), (row) => trendTitle(row, "Water temperature", formatNumber(row.value, 1, "°C")), {r: 5.6, fill: "var(--saltbytes-temperature)", strokeWidth: 2, className: "selected-temperature-point"})
+  ]
+}));
+const tideSurface = tideTimingAvailable ? html`<article class="tide-timing">
+  <header class="visual-surface-header">
+    <div><h3>Tide timing</h3><span class="visual-unit">${confidenceState(selected.tide_phase)} at the selected time</span></div>
+    <span class="visual-time">${tideTimeLabel.format(selectedTideTime)}</span>
+  </header>
+  <div class="tide-graphic">
+    <svg viewBox="0 0 640 150" role="img" aria-label="Straight timing guide between the previous and next tide predictions">
+      <line class="tide-guide" x1="40" y1="${tideY(selected.tide_previous_predicted_water_level)}" x2="600" y2="${tideY(selected.tide_next_predicted_water_level)}"></line>
+      <line class="tide-selected" x1="${tideSelectedX}" y1="24" x2="${tideSelectedX}" y2="128"></line>
+      <circle class="tide-endpoint" cx="40" cy="${tideY(selected.tide_previous_predicted_water_level)}" r="6"></circle>
+      <circle class="tide-endpoint" cx="600" cy="${tideY(selected.tide_next_predicted_water_level)}" r="6"></circle>
+      <text class="tide-selected-label" x="${tideSelectedLabelX}" y="18" text-anchor="${tideSelectedAnchor}">Selected time · ${selected.tide_phase}</text>
+    </svg>
+  </div>
+  <div class="tide-event-row">
+    <div><strong>Previous ${selected.tide_previous_extremum_type}: ${formatNumber(selected.tide_previous_predicted_water_level, 1, "m")}</strong><span>${tideEventTime(selected.tide_previous_extremum_time)}</span></div>
+    <div><strong>Next ${selected.tide_next_extremum_type}: ${formatNumber(selected.tide_next_predicted_water_level, 1, "m")}</strong><span>${tideEventTime(selected.tide_next_extremum_time)}</span></div>
+  </div>
+  <p class="tide-limitation">The line shows timing between tide predictions, not an exact water level.</p>
+</article>` : html`<article class="visual-unavailable"><h3>Tide timing</h3><strong>Tide timing unavailable</strong><p>Required tide-event timing or predicted levels are unavailable.</p></article>`;
+const directionPanel = (direction, panelClass, markerId) => {
+  const label = panelClass === "direction-wind" ? "Wind" : "Waves";
+  if (!direction) return html`<section class="direction-panel ${panelClass}"><h4>${label}</h4><p>Direction unavailable</p></section>`;
+  const arrow = directionArrow(direction.angle);
+  return html`<section class="direction-panel ${panelClass}"><h4>${direction.label}</h4>
+    <svg viewBox="0 0 320 200" role="img" aria-label="${direction.label} direction relative to open water, shoreline, and land">
+      <defs><marker id="${markerId}" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z"></path></marker></defs>
+      <text x="160" y="24" text-anchor="middle">Open water</text>
+      <line class="shoreline" x1="28" y1="144" x2="292" y2="144"></line>
+      <text x="160" y="165" text-anchor="middle">Shoreline</text>
+      <text x="160" y="193" text-anchor="middle">Land</text>
+      <line class="direction-arrow" x1="${arrow.x1}" y1="${arrow.y1}" x2="${arrow.x2}" y2="${arrow.y2}" marker-end="url(#${markerId})"></line>
+    </svg>
+    <p><strong>${shoreRelationship(direction.angle)}</strong><br>From the ${direction.compass} (${formatNumber(direction.degrees, 0)}°)</p>
+  </section>`;
+};
+const directionSurface = html`<article class="shore-direction">
+  <header class="visual-surface-header">
+    <div><h3>Wind and wave direction</h3><span class="visual-unit">Relative to the shoreline</span></div>
+    <span class="visual-time">${formatTimestamp(selected?.forecast_time, manifest.display_timezone)}</span>
+  </header>
+  <div class="direction-panels">${directionPanel(windDirection, "direction-wind", "wind-arrowhead")}${directionPanel(waveDirection, "direction-wave", "wave-arrowhead")}</div>
+</article>`;
+const temperatureNotice = selected?.sea_surface_temperature === null || selected?.sea_surface_temperature === undefined
+  ? html`<p class="visual-data-unavailable">Water temperature is unavailable at the selected time.</p>`
+  : null;
+display(html`<section class="forecast-context" aria-label="Forecast trend context">
+  <p><strong>Selected time:</strong> ${formatTimestamp(selected?.forecast_time, manifest.display_timezone)}</p>
+  ${trendRows.length < 12 ? html`<p class="trend-availability">Only ${trendRows.length} forecast hours are available in this preview.</p>` : null}
+</section>`);
+display(html`<section class="conditions-visual-grid">
+  ${chartSurface({title: "Wind and gusts", unit: "km/h", className: "forecast-wind", plot: windPlot, legend: windLegend})}
+  ${chartSurface({title: "Wave height", unit: "m", className: "forecast-wave", plot: wavePlot})}
+  ${chartSurface({title: "Water temperature", unit: "°C", className: "forecast-temperature", plot: temperaturePlot, notice: temperatureNotice})}
+  ${tideSurface}
+  ${directionSurface}
+</section>`);
 ~~~
 
-  </div>
-  <div class="chart-card">
-
-### Wave height
-
-~~~js
-Plot.plot({height: 300, x: {type: "utc", label: "Forecast time"}, y: {grid: true, label: "metres"}, marks: [Plot.lineY(locationRows, {x: "forecastDate", y: "wave_height", marker: true, tip: true}), Plot.ruleY([0])]})
-~~~
-
-  </div>
-  <div class="chart-card">
-
-### Water temperature
-
-~~~js
-Plot.plot({height: 300, x: {type: "utc", label: "Forecast time"}, y: {grid: true, label: "°C"}, marks: [Plot.lineY(locationRows, {x: "forecastDate", y: "sea_surface_temperature", marker: true, tip: true})]})
-~~~
-
-  </div>
-  <div class="chart-card">
-
-### Direction relative to shore
-
-~~~js
-Plot.plot({height: 300, x: {type: "utc", label: "Forecast time"}, y: {domain: [-180, 180], grid: true, label: "degrees from seaward shore normal"}, color: {legend: true}, marks: [Plot.lineY(directionSeries, {x: "forecastDate", y: "value", stroke: "metric", marker: true, tip: true}), Plot.ruleY([-90, 0, 90])]})
-~~~
-
-  </div>
-</div>
 
 ## Supporting evidence and limitations
 

@@ -250,6 +250,122 @@ async function assertConditionsHierarchy(page, available) {
   }
 }
 
+async function assertConditionsVisualizations(page, available) {
+  await page.waitForFunction(() => document.querySelector(".shore-direction")
+    && document.querySelectorAll(".trend-track svg").length === 3);
+  const readiness = await page.evaluate(() => {
+    const trendStory = document.querySelector(".forecast-context");
+    const tide = document.querySelector(".tide-timing, .visual-unavailable");
+    const direction = document.querySelector(".shore-direction");
+    const selectedRules = document.querySelectorAll(".selected-time-rule");
+    return {
+      trendStory: Boolean(trendStory),
+      trendTracks: document.querySelectorAll(".forecast-surface").length === 3,
+      selectedRules: selectedRules.length,
+      tide: Boolean(tide),
+      direction: Boolean(direction),
+      oldChartGrid: Boolean(document.querySelector(".chart-grid"))
+    };
+  });
+  if (
+    !readiness.trendStory
+    || !readiness.trendTracks
+    || readiness.selectedRules !== 3
+    || !readiness.tide
+    || !readiness.direction
+    || readiness.oldChartGrid
+  ) {
+    throw new Error(`Conditions visualization hierarchy is incomplete: ${JSON.stringify(readiness)}`);
+  }
+
+  const visualState = await page.evaluate((scoreAvailable) => {
+    const tide = document.querySelector(".tide-timing");
+    const direction = document.querySelector(".shore-direction");
+    const forecastTrends = document.querySelector(".forecast-context");
+    const selectedMarkers = [...document.querySelectorAll(".forecast-surface .selected-time-rule")];
+    const directionPanels = [...document.querySelectorAll(".direction-panel")];
+    const visualGrid = document.querySelector(".conditions-visual-grid");
+    const plotLayouts = [...document.querySelectorAll(".trend-track")].map((track) => {
+      const trackBox = track.getBoundingClientRect();
+      const svgBox = track.querySelector("svg")?.getBoundingClientRect();
+      return {
+        trackWidth: trackBox.width,
+        svgWidth: svgBox?.width,
+        svgHeight: svgBox?.height
+      };
+    });
+    const pageWidth = document.documentElement.scrollWidth;
+    const viewportWidth = document.documentElement.clientWidth;
+    return {
+      exactTideEndpoints: tide?.textContent.includes("Previous low: 0.2 m")
+        && tide?.textContent.includes("Next high: 1.1 m"),
+      selectedTideText: [...(tide?.querySelectorAll("text") ?? [])]
+        .find((text) => text.textContent.includes("Selected time"))?.textContent ?? "",
+      tideLimitation: tide?.textContent.includes("The line shows timing between tide predictions, not an exact water level."),
+      directionText: direction?.textContent ?? "",
+      trendValues: [...document.querySelectorAll(".forecast-surface title")].map((title) => title.textContent),
+      selectedMarkers: selectedMarkers.map((marker) => marker.getBoundingClientRect().left),
+      selectedTime: forecastTrends?.textContent ?? "",
+      waterUnavailable: document.querySelector(".visual-data-unavailable")?.textContent ?? "",
+      noOverflow: pageWidth <= viewportWidth,
+      limitedPreview: forecastTrends?.textContent.includes("Only 4 forecast hours are available in this preview.") ?? false,
+      localTicks: [...document.querySelectorAll(".forecast-temperature .trend-track svg text")].map((text) => text.textContent),
+      gridMaxWidth: Number.parseFloat(getComputedStyle(visualGrid).maxWidth),
+      plotLayouts,
+      tideBox: tide?.querySelector("svg")?.getBoundingClientRect(),
+      tideMarker: tide?.querySelector(".tide-selected")?.getBoundingClientRect().left,
+      arrows: directionPanels.map((panel) => {
+        const arrow = panel.querySelector(".direction-arrow");
+        const svg = panel.querySelector("svg");
+        const box = arrow?.getBoundingClientRect();
+        const svgBox = svg?.getBoundingClientRect();
+        return {left: box?.left, top: box?.top, length: Math.hypot(box?.width ?? 0, box?.height ?? 0), inside: box && svgBox && box.left >= svgBox.left && box.right <= svgBox.right && box.top >= svgBox.top && box.bottom <= svgBox.bottom};
+      }),
+      scoreAvailable
+    };
+  }, available);
+  if (
+    !visualState.tideLimitation
+    || !visualState.noOverflow
+    || visualState.selectedMarkers.some((marker) => !Number.isFinite(marker))
+    || !visualState.selectedTime.includes("Selected time:")
+    || !visualState.limitedPreview
+    || !Number.isFinite(visualState.gridMaxWidth)
+    || visualState.gridMaxWidth > 1152.5
+    || visualState.plotLayouts.length !== 3
+    || visualState.plotLayouts.some((layout) => !Number.isFinite(layout.svgWidth)
+      || Math.abs(layout.trackWidth - layout.svgWidth) > 2
+      || layout.svgHeight < 200
+      || layout.svgHeight > 300)
+    || visualState.tideBox.width > 1024
+    || visualState.tideBox.height > 300
+    || visualState.arrows.length !== 2
+    || visualState.arrows.some((arrow) => arrow.length < 20 || !arrow.inside)
+  ) {
+    throw new Error(`Conditions visualization hierarchy did not render correctly: ${JSON.stringify(visualState)}`);
+  }
+  if (available) {
+    if (
+      !visualState.exactTideEndpoints
+      || !/^Selected time · (rising|falling)$/.test(visualState.selectedTideText)
+      || !visualState.directionText.includes("Open water")
+      || !visualState.directionText.includes("Shoreline")
+      || !visualState.directionText.includes("Land")
+      || !visualState.directionText.includes("Wind")
+      || !visualState.directionText.includes("Waves")
+      || !/(Onshore component|Offshore component|Alongshore)/.test(visualState.directionText)
+      || visualState.directionText.includes("degrees from seaward shore normal")
+      || visualState.localTicks.some((tick) => /(?:EDT|EST|UTC)/.test(tick))
+      || !visualState.localTicks.some((tick) => /^\d{1,2} (?:AM|PM)$/.test(tick))
+    ) {
+      throw new Error("Conditions tide or direction visual did not retain the required user-facing meaning");
+    }
+  } else if (!visualState.waterUnavailable.includes("Water temperature is unavailable at the selected time")) {
+    throw new Error("Conditions unavailable forecast state is not explicit");
+  }
+  return visualState;
+}
+
 async function run() {
   const {server, port} = await startServer();
   const browser = await chromium.launch({
@@ -274,7 +390,7 @@ async function run() {
       throw new Error("Conditions did not initialize with data");
     }
     await assertConditionsHierarchy(page, true);
-    await page.waitForFunction(() => document.querySelectorAll(".chart-grid .chart-card").length === 4);
+    const initialVisuals = await assertConditionsVisualizations(page, true);
     await selectOption(page, 0, 1, "Conditions location control");
     await page.waitForFunction(
       (before) => document.querySelector(".conditions-context")?.innerText !== before,
@@ -282,6 +398,13 @@ async function run() {
     );
     const locationConditions = await page.locator(".conditions-context").innerText();
     await page.waitForFunction(() => document.querySelectorAll("select")[1]?.options.length > 1);
+    const locationVisuals = await assertConditionsVisualizations(page, true);
+    if (
+      locationVisuals.directionText === initialVisuals.directionText
+      && locationVisuals.trendValues.join("\n") === initialVisuals.trendValues.join("\n")
+    ) {
+      throw new Error("Conditions location control did not update the visual context");
+    }
     const forecastOptions = await page.locator("select").nth(1).locator("option").count();
     await selectOption(page, 1, forecastOptions - 1, "Conditions forecast control");
     await page.waitForFunction(
@@ -289,6 +412,15 @@ async function run() {
       locationConditions
     );
     await assertConditionsHierarchy(page, false);
+    const updatedVisuals = await assertConditionsVisualizations(page, false);
+    if (
+      updatedVisuals.selectedTime === locationVisuals.selectedTime
+      || updatedVisuals.selectedMarkers.some((marker, index) => marker === locationVisuals.selectedMarkers[index])
+      || updatedVisuals.tideMarker === locationVisuals.tideMarker
+      || updatedVisuals.arrows.every((arrow, index) => arrow.left === locationVisuals.arrows[index]?.left && arrow.top === locationVisuals.arrows[index]?.top)
+    ) {
+      throw new Error("Conditions forecast control did not update every selected-time marker");
+    }
     await assertHealthy(page, errors, "Conditions");
 
     await openPage(page, `${base}/forecast-revisions`, errors);

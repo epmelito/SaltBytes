@@ -9,6 +9,21 @@
   --saltbytes-border: color-mix(in srgb, currentColor 18%, transparent);
   --saltbytes-muted: color-mix(in srgb, currentColor 65%, transparent);
   --saltbytes-surface: color-mix(in srgb, currentColor 5%, transparent);
+  --saltbytes-wind: #4f9bc7;
+  --saltbytes-gust: #9bcff0;
+  --saltbytes-wave: #51b7a8;
+  --saltbytes-temperature: #d98670;
+  --saltbytes-selected: #d4ae5f;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --saltbytes-wind: #23658e;
+    --saltbytes-gust: #4f8fb7;
+    --saltbytes-wave: #227e73;
+    --saltbytes-temperature: #a85443;
+    --saltbytes-selected: #8d681d;
+  }
 }
 
 #observablehq-header {
@@ -367,14 +382,319 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
   margin-top: 0.75rem;
 }
 
-.forecast-limitations p {
-  margin: 0.25rem 0 0;
+.forecast-context {
+  margin: 0.75rem 0 1rem;
+}
+
+.forecast-context p,
+.trend-availability,
+.visual-data-unavailable {
+  margin: 0;
   color: var(--saltbytes-muted);
 }
 
-.observablehq--block:has(form) {
-  margin-bottom: 1rem;
+.trend-availability {
+  margin-top: 0.25rem;
 }
+
+.conditions-visual-grid {
+  display: grid;
+  width: 100%;
+  max-width: 72rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+  margin: 1rem auto 1.5rem 0;
+}
+
+.forecast-surface,
+.tide-timing,
+.shore-direction,
+.visual-unavailable {
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 1rem 1.1rem 1.05rem;
+  overflow: hidden;
+  border: 1px solid var(--saltbytes-border);
+  border-radius: 0.8rem;
+  background: var(--saltbytes-surface);
+}
+
+.forecast-wind {
+  grid-column: 1 / -1;
+}
+
+.visual-surface-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.65rem;
+}
+
+.visual-surface-header > div {
+  min-width: 0;
+}
+
+.visual-surface-header h3,
+.visual-unavailable h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.visual-unit,
+.visual-time {
+  color: var(--saltbytes-muted);
+  font-size: 0.84rem;
+}
+
+.visual-unit {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.visual-time {
+  flex: 0 0 auto;
+  max-width: 46%;
+  text-align: right;
+}
+
+.shore-direction .visual-time {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.series-legend {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.85rem;
+  color: var(--saltbytes-muted);
+  font-size: 0.83rem;
+}
+
+.series-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.series-legend span::before {
+  width: 1.2rem;
+  height: 0;
+  border-top: 3px solid currentColor;
+  border-radius: 999px;
+  content: "";
+}
+
+.series-legend .legend-wind {
+  color: var(--saltbytes-wind);
+}
+
+.series-legend .legend-gusts {
+  color: var(--saltbytes-gust);
+}
+
+.series-legend .legend-gusts::before {
+  border-top-style: dashed;
+}
+
+.trend-track {
+  min-width: 0;
+}
+
+.forecast-wind .trend-track {
+  height: 18rem;
+}
+
+.forecast-wave .trend-track,
+.forecast-temperature .trend-track {
+  height: 15rem;
+}
+
+.trend-track svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.trend-track svg text {
+  font-size: 0.8rem;
+}
+
+.trend-track svg [aria-label="y-grid"] line {
+  stroke: var(--saltbytes-border);
+  stroke-opacity: 0.72;
+}
+
+.selected-time-rule {
+  stroke: var(--saltbytes-selected);
+}
+
+.forecast-line path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.visual-data-unavailable {
+  margin-top: 0.6rem;
+  font-size: 0.88rem;
+}
+
+.tide-graphic {
+  min-width: 0;
+  margin: 0.1rem 0 0.45rem;
+}
+
+.tide-graphic svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 180px;
+  overflow: hidden;
+}
+
+.tide-graphic text,
+.direction-panel svg text {
+  fill: currentColor;
+  font-size: 0.9rem;
+}
+
+.tide-guide,
+.shoreline {
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.tide-selected {
+  stroke: var(--saltbytes-selected);
+  stroke-dasharray: 5 4;
+  stroke-width: 2.5;
+}
+
+.tide-endpoint {
+  fill: var(--saltbytes-selected);
+  stroke: var(--theme-background);
+  stroke-width: 2;
+}
+
+.tide-selected-label {
+  fill: currentColor;
+  font-weight: 650;
+}
+
+.tide-event-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0.15rem;
+}
+
+.tide-event-row div {
+  min-width: 0;
+}
+
+.tide-event-row div:last-child {
+  text-align: right;
+}
+
+.tide-event-row strong,
+.tide-event-row span {
+  display: block;
+}
+
+.tide-event-row strong {
+  font-size: 0.94rem;
+}
+
+.tide-event-row span {
+  margin-top: 0.15rem;
+  color: var(--saltbytes-muted);
+  font-size: 0.84rem;
+}
+
+.tide-limitation,
+.visual-unavailable p {
+  margin: 0.75rem 0 0;
+  color: var(--saltbytes-muted);
+  font-size: 0.82rem;
+}
+
+.tide-limitation {
+  white-space: nowrap;
+}
+
+.direction-panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.direction-panel {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--saltbytes-border);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--saltbytes-surface) 68%, transparent);
+}
+
+.direction-panel h4,
+.direction-panel p {
+  margin: 0;
+}
+
+.direction-panel h4 {
+  font-size: 1rem;
+}
+
+.direction-panel svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 0.2rem;
+}
+
+.direction-panel p {
+  margin-top: 0.45rem;
+  color: var(--saltbytes-muted);
+  font-size: 0.9rem;
+}
+
+.direction-arrow {
+  stroke: var(--saltbytes-wind);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.direction-panel marker path {
+  fill: var(--saltbytes-wind);
+}
+
+.direction-wave .direction-arrow {
+  stroke: var(--saltbytes-wave);
+  stroke-dasharray: 8 5;
+}
+
+.direction-wave marker path {
+  fill: var(--saltbytes-wave);
+}
+
+@media (max-width: 1050px) {
+  .conditions-visual-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .forecast-wind {
+    grid-column: auto;
+  }
+
+  .tide-limitation {
+    white-space: normal;
+  }
+}
+
 
 .observablehq--block:has(form) label {
   display: block;
