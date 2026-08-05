@@ -156,6 +156,100 @@ async function assertShell(page, section, route) {
   throw new Error("SaltBytes landing link is not reachable by keyboard");
 }
 
+async function assertConditionsHierarchy(page, available) {
+  await page.waitForFunction((scoreAvailable) => {
+    const headings = [...document.querySelectorAll("#observablehq-main h2")]
+      .map((heading) => heading.textContent.trim());
+    const assessment = document.querySelector(".conditions-assessment");
+    const current = document.querySelector(".conditions-current");
+    const details = assessment?.querySelector("details");
+    return headings.indexOf("Spanish mackerel assessment") < headings.indexOf("Current coastal conditions")
+      && headings.indexOf("Current coastal conditions") < headings.indexOf("Upcoming changes")
+      && headings.indexOf("Upcoming changes") < headings.indexOf("Supporting evidence and limitations")
+      && assessment
+      && current
+      && (scoreAvailable
+        ? assessment.querySelector(".assessment-score")?.textContent.match(/[0-9]+ \/ 100/)
+          && assessment.textContent.includes("support the assessment, while waves limit it.")
+          && assessment.textContent.includes("Overall confidence")
+          && assessment.textContent.includes("What SaltBytes cannot observe")
+          && assessment.textContent.includes("does not estimate fish presence, catch likelihood, or safety")
+          && details?.querySelector("summary")?.textContent.includes("Assessment factors and confidence")
+          && !assessment.textContent.includes("spanish-mackerel-v1.0.0")
+          && !assessment.textContent.includes("Recent fish observations")
+          && !current.textContent.includes("Success")
+          && !current.textContent.includes("Exact forecast values")
+          && current.textContent.includes("From the E (110°)")
+          && current.querySelector(".conditions-tide summary")?.textContent.includes("Tide details")
+          && current.querySelectorAll("article").length === 5
+        : assessment.classList.contains("conditions-assessment-unavailable")
+          && assessment.textContent.includes("Assessment unavailable")
+          && !assessment.querySelector(".assessment-highlights")
+          && current.textContent.includes("Water temperature")
+          && current.textContent.includes("Unavailable"));
+  }, available);
+
+  if (available) {
+    const disclosure = page.locator(".conditions-assessment details");
+    await disclosure.locator("summary").focus();
+    const focusStyle = await disclosure.locator("summary").evaluate(
+      (element) => getComputedStyle(element).outlineStyle
+    );
+    if (focusStyle === "none") throw new Error("assessment disclosure has no visible keyboard focus");
+    await disclosure.locator("summary").press("Enter");
+    await page.waitForFunction(() => document.querySelector(".conditions-assessment details")?.open);
+    const confidenceText = await page.locator(".confidence-values").innerText();
+    if (!confidenceText.toLowerCase().includes("seasonal evidence") || !confidenceText.toLowerCase().includes("forecast data")) {
+      throw new Error("assessment disclosure does not retain complete deeper evidence");
+    }
+    const layout = await page.evaluate(() => {
+      const values = document.querySelector(".confidence-values");
+      const controls = [...document.querySelectorAll("select")];
+      const sourceDetails = [...document.querySelectorAll("#observablehq-main > details")]
+        .find((details) => details.querySelector("summary")?.textContent.includes("Sources and forecast limitations"));
+      if (!values || controls.length !== 2 || !sourceDetails) return {ready: false};
+      const grid = getComputedStyle(values);
+      const firstControl = controls[0].getBoundingClientRect();
+      const secondControl = controls[1].getBoundingClientRect();
+      return {
+        ready: values.children.length === 6
+        && grid.gridAutoFlow === "column"
+        && grid.gridTemplateColumns.split(" ").length === 2
+        && Math.abs(firstControl.top - secondControl.top) < 2
+        && controls.every((control) => {
+          const label = control.previousElementSibling;
+          const form = control.closest("form");
+          return label?.matches("label") && form && getComputedStyle(form).display === "grid"
+            && control.getBoundingClientRect().top > label.getBoundingClientRect().top;
+        })
+      };
+    });
+    if (!layout.ready) throw new Error("Conditions layout did not render as required");
+    const tideDetails = page.locator(".conditions-tide details");
+    if ((await page.locator(".conditions-tide").innerText()).includes("Previous ")) {
+      throw new Error("tide events are visible before Tide details opens");
+    }
+    await tideDetails.locator("summary").press("Enter");
+    await page.waitForFunction(() => document.querySelector(".conditions-tide details")?.open);
+    const tideText = await tideDetails.innerText();
+    if (!tideText.includes("Previous low") || !tideText.includes("Next high")) {
+      throw new Error("Tide details does not show separate predicted events");
+    }
+    const sourceDetails = page.locator("#observablehq-main > details").filter({
+      hasText: "Sources and forecast limitations"
+    });
+    await sourceDetails.locator("summary").press("Enter");
+    const sourceText = await sourceDetails.innerText();
+    if (
+      !sourceText.includes("regional marine forecast grid")
+      || sourceText.includes("Previous low")
+      || sourceText.includes("Next high")
+    ) {
+      throw new Error("Sources and forecast limitations does not contain the intended concise explanations");
+    }
+  }
+}
+
 async function run() {
   const {server, port} = await startServer();
   const browser = await chromium.launch({
@@ -175,33 +269,26 @@ async function run() {
     await assertShell(page, "Coastal conditions", "Conditions");
 
     await page.waitForFunction(() => document.querySelectorAll("select").length === 2);
-    const initialConditions = await page.locator(".metric-card").first().innerText();
+    const initialConditions = await page.locator(".conditions-context").innerText();
     if (!initialConditions || initialConditions.includes("Unavailable")) {
       throw new Error("Conditions did not initialize with data");
     }
-    await page.waitForFunction(() => {
-      const text = document.body.innerText;
-      return text.toLowerCase().includes("conditions alignment score")
-        && new RegExp("[0-9]+ / 100").test(text);
-    });
-    const initialScore = await page.locator("body").innerText();
-    if (!initialScore.toLowerCase().includes("conditions alignment score") || !new RegExp("[0-9]+ / 100").test(initialScore)) {
-      throw new Error("Conditions score did not initialize with an available result");
-    }
+    await assertConditionsHierarchy(page, true);
+    await page.waitForFunction(() => document.querySelectorAll(".chart-grid .chart-card").length === 4);
     await selectOption(page, 0, 1, "Conditions location control");
     await page.waitForFunction(
-      (before) => document.querySelector(".metric-card")?.innerText !== before,
+      (before) => document.querySelector(".conditions-context")?.innerText !== before,
       initialConditions
     );
-    const locationConditions = await page.locator(".metric-card").first().innerText();
+    const locationConditions = await page.locator(".conditions-context").innerText();
     await page.waitForFunction(() => document.querySelectorAll("select")[1]?.options.length > 1);
     const forecastOptions = await page.locator("select").nth(1).locator("option").count();
     await selectOption(page, 1, forecastOptions - 1, "Conditions forecast control");
     await page.waitForFunction(
-      (before) => document.querySelector(".metric-card")?.innerText !== before,
+      (before) => document.querySelector(".conditions-context")?.innerText !== before,
       locationConditions
     );
-    await page.waitForFunction(() => document.body.innerText.includes("Score unavailable"));
+    await assertConditionsHierarchy(page, false);
     await assertHealthy(page, errors, "Conditions");
 
     await openPage(page, `${base}/forecast-revisions`, errors);
