@@ -2,13 +2,14 @@
 
 ## Purpose
 
-This document records the evidence supporting the accepted first-release
-coastal location-to-source relationships. It distinguishes authoritative
-geometry, project inference, empirical probes, and approved relationships.
+This document preserves the stage 4 evidence supporting the accepted
+first-release coastal location-to-source relationships. It distinguishes
+authoritative geometry, project inference, empirical probes, and approved
+relationships.
 
-The approved relationships are future configuration and implementation inputs.
-They do not constitute ingestion implementation or evidence of forecast
-accuracy.
+It is historical stage evidence, not a current implementation inventory. The
+approved relationships do not by themselves establish implementation or
+forecast accuracy.
 
 ## Relationship model
 
@@ -162,8 +163,7 @@ the approved first-release request and expected returned-grid relationships.
 ## Related governance
 
 - [Project charter](../project-charter.md)
-- [Scope register](../scope-register.md)
-- [Roadmap stage 4](../roadmap.md#4-extend-coastal-data-source-ingestion)
+- [Roadmap](../roadmap.md)
 - [Coastal location requirements](../requirements/coastal-locations.md)
 - [Fishing-condition requirements](../requirements/fishing-conditions.md)
 - [ADR 0004](../decisions/0004-spatial-coordinate-and-returned-grid-policy.md)

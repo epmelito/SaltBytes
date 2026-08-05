@@ -121,7 +121,6 @@ sufficient without inventing another calculation model.
 
 - [Project charter](../project-charter.md)
 - [Roadmap](../roadmap.md)
-- [Scope register](../scope-register.md)
 - [Fishing-condition requirements](../requirements/fishing-conditions.md)
 - [Coastal source evaluation](../research/coastal-source-evaluation.md)
 - [Coastal spatial relationships](../research/coastal-spatial-relationships.md)

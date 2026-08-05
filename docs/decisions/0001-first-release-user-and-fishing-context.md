@@ -110,8 +110,7 @@ deferred.
 ## Related governance
 
 - Charter: [Project charter](../project-charter.md)
-- Scope: [Scope register](../scope-register.md)
-- Later roadmap objective: [Spanish mackerel scoring methodology](../roadmap.md#next-objective-spanish-mackerel-scoring-methodology)
+- Roadmap: [Roadmap](../roadmap.md)
 - Requirements: [Coastal location requirements](../requirements/coastal-locations.md)
 - Requirements: [Fishing-condition requirements](../requirements/fishing-conditions.md)
 - Later decision: [Research backed species conditions scoring direction](0010-research-backed-fishing-score-direction.md)

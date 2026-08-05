@@ -2,11 +2,9 @@
 
 ## Decision
 
-The first analysis-ready feature work will add recent precipitation
-accumulation, source completeness or availability indicators, and technical
-eligibility for later deterministic calculations. This is the smallest
-coherent set available from current stored data without a new provider or a
-location-provenance precursor.
+Analysis-ready features provide recent precipitation accumulation, source
+completeness or availability indicators, and technical eligibility for
+deterministic calculations.
 
 The contract defines feature meaning and boundaries. It does not define a
 storage layout, query, score, weight, favorable threshold, ranking,
@@ -22,28 +20,7 @@ Features must not interpolate, carry values forward, substitute sources, or mix
 runs. A feature value remains separate from whether its source was available
 and from any confidence or eligibility statement about the row.
 
-## Current state
-
-The integrated hourly model already exposes:
-
-- hourly precipitation and source status and snapshot provenance
-- tide phase, minutes since and until adjacent extrema, and predicted tidal
-  range
-- wind and wave angles relative to the persisted shore normal
-
-These implemented tide and site-relative fields are inputs available for later
-analysis; they are not future feature work under this contract.
-
-Barometric pressure and pressure trend are not stored and remain excluded from
-the species-agnostic model. The fishing-factor evidence does not support using
-them as general bite modifiers.
-
-Solar timing or daylight state is supported as future context, but historical
-derivation is not yet reproducible. The configured display coordinate and
-display timezone are not persisted with each run location, so immutable
-location and timezone provenance must be established first.
-
-## First implementation-ready set
+## Feature contract
 
 ### Recent precipitation accumulation
 
@@ -72,26 +49,20 @@ They must distinguish at least:
 - not applicable when a future context-specific feature does not apply
 
 A missing value must remain distinguishable from a recorded source failure,
-unavailable derived context, and an incomplete window. The current features do
-not use a not-applicable state.
+unavailable derived context, and an incomplete window. This contract does not
+use a not-applicable state.
 None of these states means bad fishing conditions.
 
 ### Technical eligibility
 
-Technical eligibility means only that the required inputs for a future
-deterministic calculation are present and valid at the target grain. It does
-not mean good fishing, safe conditions, or a positive score.
+Technical eligibility means only that the required inputs for a deterministic
+calculation are present and valid at the target grain. It does not mean good
+fishing, safe conditions, or a positive score.
 
 Eligibility must be derived from explicit input requirements and the associated
 availability states. It must not replace source provenance or collapse missing,
 failed, unavailable, incomplete, and not-applicable states into fishing
 quality.
-
-## Deferred precursor
-
-Solar timing or daylight category remains a supported future candidate after
-immutable display-coordinate and timezone provenance is available for each run
-location. This contract does not decide the eventual persistence schema.
 
 ## Interpretation boundaries
 

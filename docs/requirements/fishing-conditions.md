@@ -250,57 +250,11 @@ The first-release requirements exclude:
 - replacement of official marine or beach-safety guidance
 - direct ranking of surf windows against pier windows
 
-## Current implementation mapping
-
-Repository evidence is authoritative for implemented behavior.
-
-| Requirement | Current implementation | Gap |
-| --- | --- | --- |
-| Location identity | Configured location identifiers, names, latitude, longitude, and timezone | No composite coastal-location model or fishing-context field |
-| Valid time | Implemented as hourly forecast time | No complete coastal-condition model |
-| Capture and run identity | Pipeline run and snapshot metadata are implemented | Must be carried consistently into future coastal models |
-| Source provenance | Open-Meteo is the implemented forecast source | No source-authority model |
-| Wind speed | `wind_speed_10m` | Direction and gust are accepted but unimplemented requirements |
-| Precipitation probability | `precipitation_probability` | No precipitation-intensity or weather-condition representation is implemented |
-| Air temperature | `temperature_2m` | Optional context already ingested |
-| Waves | Not implemented | Height, direction, and period are accepted but unimplemented requirements |
-| Sea-surface temperature | Not implemented | Source and spatial relationship require evaluation |
-| Tide or water-level phase | Not implemented | Local reference, provider, and phase method remain unresolved |
-| Revision history | Revision changes exist for the three implemented hourly fields | Future required coastal fields are not covered |
-| Data quality | Payload checks and persisted quality results are implemented | Coastal, reference, freshness, and context checks are not defined |
-| Safety products | Not implemented | Provider and display behavior remain deferred |
-
-Verified repository evidence:
-
-- `config/dev.yml`
-- `config/test.yml`
-- `config/prod.yml`
-- `src/saltbytes/config.py`
-- `src/saltbytes/api.py`
-- `src/saltbytes/database.py`
-- `src/saltbytes/pipeline.py`
-- `src/saltbytes/quality.py`
-- relevant tests under `tests/`
-
 ## Open-Meteo baseline evaluation
 
 Open-Meteo remains the existing baseline source to evaluate. It is not accepted
 by this document as the authoritative marine, tide, current, or safety
 provider.
-
-### Implemented now
-
-The current pipeline requests and stores:
-
-- `temperature_2m`
-- `precipitation_probability`
-- `wind_speed_10m`
-- hourly valid times
-
-It also records pipeline and snapshot metadata, quality results, and revision
-changes for the three implemented fields.
-
-### Available but not implemented
 
 Open-Meteo weather documentation lists potentially relevant fields including:
 
@@ -385,7 +339,6 @@ A condition requirement must:
 
 - [Project charter](../project-charter.md)
 - [Roadmap](../roadmap.md)
-- [Scope register](../scope-register.md)
 - [Coastal location requirements](coastal-locations.md)
 - [First-release user and fishing-context decision](../decisions/0001-first-release-user-and-fishing-context.md)
 - [First-release environmental requirement baseline decision](../decisions/0003-first-release-environmental-requirement-baseline.md)

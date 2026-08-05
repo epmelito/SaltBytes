@@ -154,7 +154,9 @@ null orientation and null site relative angles. A missing weather or wave row
 also leaves only that source's derived angle null.
 
 Do not interpolate, carry values forward, substitute sources, or add fishing
-scores or recommendations in the MVP.
+scores or recommendations to this integrated view. Scoring remains outside the
+integrated and analysis-ready views; this does not prohibit separately approved
+product scoring.
 
 ## Analysis-ready feature view
 

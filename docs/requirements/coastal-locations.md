@@ -2,11 +2,9 @@
 
 ## Status
 
-This document defines the approved geographic requirements for roadmap stage 3.
-It does not select data providers, coordinates, storage schemas, or
-implementation architecture.
-
-Roadmap stage 3 remains in progress until its completion evidence is satisfied.
+This document preserves the approved geographic requirements and initial scope
+from completed roadmap stage 3. It does not select data providers, coordinates,
+storage schemas, or implementation architecture.
 
 ## Purpose
 
@@ -46,10 +44,10 @@ Each location must eventually document:
 | Spatial-representativeness limitations | Known differences between the destination and its request, sampling, station, or zone relationships |
 
 The stable identity, public-facing name, fishing context, and representative
-region are stage 3 requirements. Exact display or destination coordinates,
+region were the stage 3 requirements. Exact display or destination coordinates,
 weather request coordinates, marine sampling coordinates, tide or water-level
 references, observation relationships, and forecast or warning-zone mappings
-may be resolved during stage 4 before source ingestion is implemented.
+are governed by the accepted location and source decisions.
 
 ## Selection criteria
 
@@ -245,7 +243,7 @@ The following remain deferred:
 - exhaustive statewide coverage
 - inlet-current requirements
 - navigation suitability
-- implementation coordinates and source relationships listed as stage 4 work
+- location and source relationships governed by accepted decisions
 
 ## Evidence rules
 
@@ -265,7 +263,6 @@ Location evidence must:
 
 - [Project charter](../project-charter.md)
 - [Roadmap](../roadmap.md)
-- [Scope register](../scope-register.md)
 - [Fishing-condition requirements](fishing-conditions.md)
 - [First-release user and fishing-context decision](../decisions/0001-first-release-user-and-fishing-context.md)
 - [Composite geographic model and initial locations decision](../decisions/0002-composite-geographic-model-and-initial-locations.md)

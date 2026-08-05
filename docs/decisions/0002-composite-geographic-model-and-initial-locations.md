@@ -125,8 +125,7 @@ Ramp 72 is currently usable.
 ## Related governance
 
 - Charter: [Project charter](../project-charter.md)
-- Scope: [Scope register](../scope-register.md)
-- Roadmap stage: [Stage 3](../roadmap.md#3-define-coastal-locations-and-fishing-condition-requirements)
+- Roadmap: [Roadmap](../roadmap.md)
 - Requirements: [Coastal location requirements](../requirements/coastal-locations.md)
 - Requirements: [Fishing-condition requirements](../requirements/fishing-conditions.md)
 - Related decision: [First-release user and fishing-context boundary](0001-first-release-user-and-fishing-context.md)
