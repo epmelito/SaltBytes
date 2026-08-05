@@ -5,9 +5,57 @@
 @import url("observablehq:theme-wide.css");
 
 :root {
+  --saltbytes-shell-emphasis: var(--theme-foreground-focus);
   --saltbytes-border: color-mix(in srgb, currentColor 18%, transparent);
   --saltbytes-muted: color-mix(in srgb, currentColor 65%, transparent);
   --saltbytes-surface: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+#observablehq-header {
+  margin-bottom: 1.5rem;
+}
+
+.shell-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--saltbytes-border);
+  color: var(--saltbytes-muted);
+  font-size: 0.9rem;
+}
+
+.shell-home {
+  color: var(--saltbytes-shell-emphasis);
+  font-size: 1.1rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+#observablehq-sidebar section {
+  margin: 1.3rem 0;
+}
+
+#observablehq-sidebar section > summary {
+  color: var(--saltbytes-muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#observablehq-sidebar .observablehq-section-active > summary {
+  color: var(--saltbytes-shell-emphasis);
+}
+
+#observablehq-sidebar .observablehq-link-active > a {
+  color: var(--saltbytes-shell-emphasis);
+  font-weight: 750;
+}
+
+a:focus-visible {
+  outline: 3px solid var(--saltbytes-shell-emphasis);
+  outline-offset: 3px;
 }
 
 .hero {
