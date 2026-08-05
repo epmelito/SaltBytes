@@ -302,6 +302,10 @@ Validation must match the active mode and risk.
 
 For implementation work, validate:
 
+- representative data volume when chart density, table growth, history length, or
+  responsive behavior depends on scale
+- both deterministic fixtures and representative production scale data in those
+  cases, restoring committed fixtures before final validation and commit
 - affected source behavior
 - generated production artifact
 - browser behavior
