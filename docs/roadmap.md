@@ -16,11 +16,14 @@ SaltBytes has completed:
 - the durable product decision for research backed species conditions scores
 - the first approved Spanish mackerel score methodology
 - the internal Spanish mackerel conditions score calculation
+- bounded Spanish mackerel dashboard publication
 
-The next objective is bounded Spanish mackerel score publication.
+SaltBytes publishes its first species conditions score through the dashboard.
 
-SaltBytes does not yet provide species conditions scores, an overall fishing
-conditions score, ranked fishing windows, or catch probability.
+The score is not persisted. SaltBytes does not yet provide ranked fishing
+windows, an overall fishing conditions score, or catch probability.
+
+The next bounded objective remains to be selected.
 
 ## Completed milestones
 
@@ -54,14 +57,14 @@ shared requirements in
 The approved version 1 calculation, availability rules, confidence dimensions,
 explanations, and validation scenarios are recorded in the
 [Spanish mackerel conditions score methodology](requirements/spanish-mackerel-conditions-score.md).
-The methodology is implemented internally but is not persisted or published.
+The methodology is published through the dashboard but is not persisted.
 
-## Next objective: bounded Spanish mackerel score publication
+## Spanish mackerel dashboard publication
 
-Publish the approved version 1 Spanish mackerel conditions score through a
-bounded reporting package.
+The approved version 1 Spanish mackerel conditions score is published through
+the dashboard as SaltBytes's first species conditions score.
 
-The publication work must preserve:
+The published score preserves:
 
 - the exact approved eligibility and availability rules
 - the implemented deterministic calculation and methodology version
@@ -69,14 +72,14 @@ The publication work must preserve:
 - the distinction between modeled conditions alignment and fish presence or
   catch probability
 
-The publication package must not add unapproved factors, providers, or the
-future overall-score aggregation method.
+It does not add unapproved factors, providers, persistence, ranking, the future
+overall-score aggregation method, or catch probability.
 
 ## Later sequence
 
 ```text
-Completed: species selection, research registry, score direction, methodology, and calculation
-→ next: bounded Spanish mackerel score publication
+Completed: species selection, research registry, score direction, methodology, calculation, and dashboard publication
+→ next: bounded objective to be selected
 → later: additional species models
 → future: overall fishing conditions score aggregation
 ```

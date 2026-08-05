@@ -64,6 +64,18 @@ def _seed_dashboard_database(database_path: Path) -> None:
                 'Approximate seaward reference'
             from pipeline_runs;
 
+            insert into run_location_solar_context
+            select
+                run_id,
+                'jennettes_pier',
+                35.91,
+                -75.60,
+                'America/New_York',
+                'solar-v1',
+                'astral',
+                '3.2.1'
+            from pipeline_runs;
+
             insert into forecast_snapshots values
                 ('old-weather', 'run-old', 'jennettes_pier',
                     timestamptz '2026-07-29 00:01:00+00',
@@ -190,6 +202,7 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert manifest["latest_attempt"]["run_id"] == "run-failed"
     assert manifest["latest_success"]["run_id"] == "run-success"
     assert manifest["latest_success_freshness_minutes"] == 365
+    assert manifest["schema_version"] == 2
     assert manifest["forecast_window"] == {
         "start": "2026-07-30T00:00:00Z",
         "end": "2026-07-30T00:00:00Z",
@@ -202,6 +215,35 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert conditions[0]["wind_speed_10m"] == 12.0
     assert conditions[0]["wind_to_shore_angle_degrees"] == 30.0
     assert conditions[0]["tide_minutes_until_next_extremum"] == 240
+    score = conditions[0]["spanish_mackerel_conditions"]
+    assert score == {
+        "state": "available",
+        "methodology_version": "spanish-mackerel-v1.0.0",
+        "score": 76,
+        "score_band": "favorable_alignment",
+        "confidence": [
+            {"identifier": "species_identity_confidence", "state": "high"},
+            {"identifier": "location_applicability_confidence", "state": "high"},
+            {"identifier": "environmental_source_confidence", "state": "moderate"},
+            {"identifier": "seasonal_evidence_confidence", "state": "high"},
+            {"identifier": "habitat_data_confidence", "state": "moderate"},
+            {"identifier": "biological_observation_confidence", "state": "low"},
+            {"identifier": "fishability_data_confidence", "state": "moderate"},
+            {"identifier": "overall_interpretation_confidence", "state": "moderate"},
+        ],
+        "positive_factors": [
+            "seasonal_alignment",
+            "thermal_context",
+            "wind_fishability",
+        ],
+        "limiting_factors": ["wave_fishability"],
+        "unknown_factors": [
+            "local_baitfish_presence",
+            "current_spanish_mackerel_presence",
+            "schools_within_casting_range",
+            "nearshore_sst_accuracy_and_site_representativeness",
+        ],
+    }
 
     history = _read_json(output_path, "forecast-history.json")
     assert [row["run_id"] for row in history] == ["run-old", "run-success"]
@@ -243,6 +285,67 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert "private connection detail" not in serialized_export
     assert "token=secret" not in serialized_export
     assert ".duckdb" not in serialized_export
+    assert "biological_alignment" not in serialized_export
+    assert "effective_wind_kmh" not in serialized_export
+
+
+@pytest.mark.parametrize(
+    ("statement", "reason"),
+    [
+        (
+            "delete from run_location_solar_context where run_id = 'run-success'",
+            "display_timezone_missing",
+        ),
+        (
+            "update run_locations set fishing_context = 'surf' where run_id = 'run-success'",
+            "location_not_applicable",
+        ),
+        (
+            "delete from run_locations where run_id = 'run-success'",
+            "location_not_applicable",
+        ),
+    ],
+)
+def test_export_dashboard_data_preserves_rows_with_unavailable_score_provenance(
+    tmp_path: Path,
+    statement: str,
+    reason: str,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    output_path = tmp_path / "dashboard-data"
+    _seed_dashboard_database(database_path)
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(statement)
+
+    export_dashboard_data(_config(database_path), output_path)
+
+    conditions = _read_json(output_path, "conditions.json")
+    assert len(conditions) == 1
+    score = conditions[0]["spanish_mackerel_conditions"]
+    assert score == {
+        "state": "unavailable",
+        "methodology_version": "spanish-mackerel-v1.0.0",
+        "unavailable_reasons": [reason],
+    }
+
+
+def test_export_dashboard_data_rejects_outdated_schema_with_dashboard_wording(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    output_path = tmp_path / "dashboard-data"
+    _seed_dashboard_database(database_path)
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("drop table source_results")
+
+    with pytest.raises(
+        DashboardSchemaError,
+        match="dashboard export requires a current SaltBytes database schema",
+    ) as exc_info:
+        export_dashboard_data(_config(database_path), output_path)
+
+    assert "HTML reporting requires" not in str(exc_info.value)
+    assert not output_path.exists()
 
 
 def test_export_dashboard_data_limits_forecast_history_to_twenty_runs(

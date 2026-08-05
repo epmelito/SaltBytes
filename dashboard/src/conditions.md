@@ -5,6 +5,7 @@ title: Conditions
 ```js
 import * as Inputs from "@observablehq/inputs";
 import * as Plot from "@observablehq/plot";
+import {html} from "npm:htl";
 
 import {
   asDate,
@@ -46,6 +47,94 @@ const forecastTime = view(Inputs.select(
 
 ```js
 const selected = locationRows.find((row) => row.forecast_time === forecastTime);
+const spanishMackerel = selected?.spanish_mackerel_conditions;
+const scoreIsAvailable = spanishMackerel?.state === "available";
+const scoreBandLabels = {
+  very_limited_alignment: "Very limited alignment",
+  limited_alignment: "Limited alignment",
+  mixed_conditions: "Mixed conditions",
+  favorable_alignment: "Favorable alignment",
+  strong_alignment: "Strong alignment"
+};
+const factorLabels = {
+  seasonal_alignment: "Seasonal timing",
+  thermal_context: "Sea temperature context",
+  wind_fishability: "Wind conditions",
+  wave_fishability: "Wave conditions",
+  local_baitfish_presence: "Local baitfish presence",
+  current_spanish_mackerel_presence: "Current Spanish mackerel presence",
+  schools_within_casting_range: "Schools within casting range",
+  nearshore_sst_accuracy_and_site_representativeness:
+    "Nearshore temperature accuracy and local representativeness"
+};
+const confidenceLabels = {
+  species_identity_confidence: "Species identification",
+  location_applicability_confidence: "Location applicability",
+  environmental_source_confidence: "Environmental source data",
+  seasonal_evidence_confidence: "Seasonal evidence",
+  habitat_data_confidence: "Habitat data",
+  biological_observation_confidence: "Biological observations",
+  fishability_data_confidence: "Fishability data",
+  overall_interpretation_confidence: "Interpretation confidence"
+};
+const confidenceState = (value) => value ? `${value[0].toUpperCase()}${value.slice(1)}` : "Unavailable";
+const factorText = (factors) => factors?.map((factor) => factorLabels[factor] ?? factor).join(", ") || "None";
+const overallConfidence = spanishMackerel?.confidence?.find(
+  (item) => item.identifier === "overall_interpretation_confidence"
+);
+const confidenceDetails = spanishMackerel?.confidence
+  ?.filter((item) => item.identifier !== "overall_interpretation_confidence")
+  .map((item) => `${confidenceLabels[item.identifier] ?? item.identifier}: ${confidenceState(item.state)}`)
+  .join(" · ");
+const unavailableMessageGroups = [
+  {
+    reasons: ["location_not_applicable"],
+    message: "This score is not available for this location and fishing context."
+  },
+  {
+    reasons: [
+      "forecast_time_invalid",
+      "display_timezone_missing",
+      "display_timezone_invalid",
+      "local_forecast_date_unavailable"
+    ],
+    message: "Required forecast timing information is unavailable."
+  },
+  {
+    reasons: [
+      "weather_source_missing",
+      "weather_source_not_success",
+      "wind_speed_10m_missing",
+      "wind_speed_10m_invalid",
+      "wind_gusts_10m_missing",
+      "wind_gusts_10m_invalid"
+    ],
+    message: "Required wind forecast data is unavailable."
+  },
+  {
+    reasons: [
+      "wave_source_missing",
+      "wave_source_not_success",
+      "wave_height_missing",
+      "wave_height_invalid"
+    ],
+    message: "Required wave forecast data is unavailable."
+  },
+  {
+    reasons: [
+      "sst_source_missing",
+      "sst_source_not_success",
+      "sea_surface_temperature_missing",
+      "sea_surface_temperature_invalid"
+    ],
+    message: "Required sea surface temperature data is unavailable."
+  }
+];
+const unavailableMessages = unavailableMessageGroups
+  .filter((group) => spanishMackerel?.unavailable_reasons?.some(
+    (reason) => group.reasons.includes(reason)
+  ))
+  .map((group) => group.message);
 const windSeries = locationRows.flatMap((row) => [
   {forecastDate: row.forecastDate, metric: "Wind", value: row.wind_speed_10m},
   {forecastDate: row.forecastDate, metric: "Gust", value: row.wind_gusts_10m}
@@ -94,6 +183,49 @@ window for the selected location. Null values remain visible as gaps or
     <div>${formatNumber(selected?.precipitation, 1, "mm")}</div>
   </div>
 </div>
+
+## Spanish mackerel conditions
+
+```js
+display(scoreIsAvailable ? html`<section>
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">Conditions alignment score</div>
+      <div class="metric-value">${spanishMackerel.score} / 100</div>
+      <div>${scoreBandLabels[spanishMackerel.score_band]}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Interpretation confidence</div>
+      <div class="metric-value">Interpretation confidence: ${confidenceState(overallConfidence?.state)}</div>
+      <div>${confidenceDetails}</div>
+    </div>
+  </div>
+  <div class="detail-grid">
+    <div class="detail-card">
+      <div class="detail-label">Supporting conditions</div>
+      <div>${factorText(spanishMackerel.positive_factors)}</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-label">Limiting conditions</div>
+      <div>${factorText(spanishMackerel.limiting_factors)}</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-label">Important unknowns</div>
+      <div>${factorText(spanishMackerel.unknown_factors)}</div>
+    </div>
+  </div>
+</section>` : html`<section>
+  <div class="metric-card">
+    <div class="metric-label">Conditions alignment score</div>
+    <div class="metric-value">Score unavailable</div>
+    ${unavailableMessages.map((message) => html`<p>${message}</p>`)}
+  </div>
+</section>`);
+```
+
+> This score describes how forecast conditions align with the approved Spanish
+> mackerel model. It does not estimate fish presence, catch likelihood, or
+> safety.
 
 <div class="chart-grid">
   <div class="chart-card">

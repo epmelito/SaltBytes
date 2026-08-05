@@ -21,6 +21,6 @@
   },
   "latest_success_freshness_minutes": 417,
   "location_count": 5,
-  "schema_version": 1,
+  "schema_version": 2,
   "source_count": 4
 }

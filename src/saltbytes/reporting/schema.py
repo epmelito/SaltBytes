@@ -69,6 +69,19 @@ _REQUIRED_REPORT_SCHEMA = {
     ),
 }
 
+_REQUIRED_DASHBOARD_SCORE_SCHEMA = {
+    "run_location_solar_context": (
+        "run_id",
+        "location_id",
+        "display_timezone",
+    ),
+    "coastal_conditions_hourly": (
+        "weather_status",
+        "wave_status",
+        "sst_status",
+    ),
+}
+
 
 def validate_report_schema(
     connection: duckdb.DuckDBPyConnection,
@@ -115,4 +128,40 @@ def validate_report_schema(
             f"Missing: {', '.join(missing)}\n"
             "Run ingestion with the current code or "
             "restore a current database before retrying."
+        )
+
+
+def validate_dashboard_score_schema(
+    connection: duckdb.DuckDBPyConnection,
+) -> None:
+    """Validate the extra persisted fields needed by dashboard score export."""
+    validate_report_schema(connection)
+    rows = connection.execute(
+        """
+        select table_name, column_name
+        from information_schema.columns
+        where table_schema = 'main'
+        """
+    ).fetchall()
+    columns_by_relation: dict[str, set[str]] = {}
+    for relation, column in rows:
+        columns_by_relation.setdefault(relation, set()).add(column)
+
+    missing = []
+    for relation, required_columns in _REQUIRED_DASHBOARD_SCORE_SCHEMA.items():
+        available = columns_by_relation.get(relation)
+        if available is None:
+            missing.append(relation)
+            continue
+        missing.extend(
+            f"{relation}.{column}"
+            for column in required_columns
+            if column not in available
+        )
+
+    if missing:
+        raise ReportSchemaError(
+            "Dashboard score export requires a current SaltBytes database schema.\n"
+            f"Missing: {', '.join(missing)}\n"
+            "Run ingestion with the current code or restore a current database before retrying."
         )
