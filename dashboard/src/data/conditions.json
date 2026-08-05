@@ -7,6 +7,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 25.6,
     "shore_normal_azimuth_degrees": 75.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 76,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-jennettes_pier-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 120,
@@ -42,6 +96,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 25.7,
     "shore_normal_azimuth_degrees": 75.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 72,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-jennettes_pier-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 180,
@@ -77,6 +185,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 25.8,
     "shore_normal_azimuth_degrees": 75.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 72,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-jennettes_pier-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 240,
@@ -112,6 +274,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 25.8,
     "shore_normal_azimuth_degrees": 75.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 67,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-jennettes_pier-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 60,
@@ -147,6 +363,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 26.1,
     "shore_normal_azimuth_degrees": 135.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 67,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-ocracoke_ramp_72-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 120,
@@ -182,6 +452,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 26.2,
     "shore_normal_azimuth_degrees": 135.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 63,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-ocracoke_ramp_72-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 180,
@@ -217,6 +541,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 26.3,
     "shore_normal_azimuth_degrees": 135.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 63,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-ocracoke_ramp_72-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 240,
@@ -252,6 +630,13 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": null,
     "shore_normal_azimuth_degrees": 135.0,
+    "spanish_mackerel_conditions": {
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "state": "unavailable",
+      "unavailable_reasons": [
+        "sea_surface_temperature_missing"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-ocracoke_ramp_72-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 60,
@@ -287,6 +672,59 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.0,
     "shore_normal_azimuth_degrees": 185.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability",
+        "wave_fishability"
+      ],
+      "score": 88,
+      "score_band": "strong_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-fort_macon_ocean-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 120,
@@ -322,6 +760,59 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.1,
     "shore_normal_azimuth_degrees": 185.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability",
+        "wave_fishability"
+      ],
+      "score": 85,
+      "score_band": "strong_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-fort_macon_ocean-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 180,
@@ -357,6 +848,59 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.2,
     "shore_normal_azimuth_degrees": 185.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability",
+        "wave_fishability"
+      ],
+      "score": 85,
+      "score_band": "strong_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-fort_macon_ocean-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 240,
@@ -392,6 +936,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.2,
     "shore_normal_azimuth_degrees": 185.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 81,
+      "score_band": "strong_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-fort_macon_ocean-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 60,
@@ -427,6 +1025,59 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 26.8,
     "shore_normal_azimuth_degrees": 165.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability",
+        "wave_fishability"
+      ],
+      "score": 85,
+      "score_band": "strong_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-bogue_inlet_pier-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 120,
@@ -462,6 +1113,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 26.9,
     "shore_normal_azimuth_degrees": 165.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 81,
+      "score_band": "strong_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-bogue_inlet_pier-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 180,
@@ -497,6 +1202,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.0,
     "shore_normal_azimuth_degrees": 165.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 81,
+      "score_band": "strong_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-bogue_inlet_pier-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 240,
@@ -532,6 +1291,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.0,
     "shore_normal_azimuth_degrees": 165.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 76,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-bogue_inlet_pier-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 60,
@@ -567,6 +1380,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.3,
     "shore_normal_azimuth_degrees": 105.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 72,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-fort_fisher-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 120,
@@ -602,6 +1469,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.4,
     "shore_normal_azimuth_degrees": 105.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 67,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-fort_fisher-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 180,
@@ -637,6 +1558,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.5,
     "shore_normal_azimuth_degrees": 105.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 67,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-fort_fisher-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 240,
@@ -672,6 +1647,60 @@
     "run_id": "run-20260802T120000Z",
     "sea_surface_temperature": 27.5,
     "shore_normal_azimuth_degrees": 105.0,
+    "spanish_mackerel_conditions": {
+      "confidence": [
+        {
+          "identifier": "species_identity_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "location_applicability_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "environmental_source_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "seasonal_evidence_confidence",
+          "state": "high"
+        },
+        {
+          "identifier": "habitat_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "biological_observation_confidence",
+          "state": "low"
+        },
+        {
+          "identifier": "fishability_data_confidence",
+          "state": "moderate"
+        },
+        {
+          "identifier": "overall_interpretation_confidence",
+          "state": "moderate"
+        }
+      ],
+      "limiting_factors": [
+        "wave_fishability"
+      ],
+      "methodology_version": "spanish-mackerel-v1.0.0",
+      "positive_factors": [
+        "seasonal_alignment",
+        "thermal_context",
+        "wind_fishability"
+      ],
+      "score": 63,
+      "score_band": "favorable_alignment",
+      "state": "available",
+      "unknown_factors": [
+        "local_baitfish_presence",
+        "current_spanish_mackerel_presence",
+        "schools_within_casting_range",
+        "nearshore_sst_accuracy_and_site_representativeness"
+      ]
+    },
     "sst_snapshot_id": "run-20260802T120000Z-fort_fisher-sst",
     "sst_status": "success",
     "tide_minutes_since_previous_extremum": 60,

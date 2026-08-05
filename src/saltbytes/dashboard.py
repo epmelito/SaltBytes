@@ -5,7 +5,15 @@ from typing import Any
 
 import duckdb
 
-from saltbytes.reporting.schema import ReportSchemaError, validate_report_schema
+from saltbytes.reporting.schema import (
+    ReportSchemaError,
+    validate_dashboard_score_schema,
+)
+from saltbytes.spanish_mackerel import (
+    AvailableSpanishMackerelConditionsScore,
+    SpanishMackerelConditionsInput,
+    calculate_spanish_mackerel_conditions_score,
+)
 
 _SOURCES = ("weather", "wave", "sst", "tide")
 _EXPORT_FILES = (
@@ -77,6 +85,114 @@ def _write_json(path: Path, payload: object) -> None:
         raise ValueError(f"could not write dashboard data: {path}") from exc
 
 
+def _score_projection(
+    value: SpanishMackerelConditionsInput,
+) -> dict[str, object]:
+    result = calculate_spanish_mackerel_conditions_score(value)
+    if isinstance(result, AvailableSpanishMackerelConditionsScore):
+        return {
+            "state": result.state,
+            "methodology_version": result.methodology_version,
+            "score": result.score,
+            "score_band": result.score_band,
+            "confidence": [
+                {"identifier": item.identifier, "state": item.state}
+                for item in result.confidence
+            ],
+            "positive_factors": list(result.positive_factors),
+            "limiting_factors": list(result.limiting_factors),
+            "unknown_factors": list(result.unknown_factors),
+        }
+    return {
+        "state": result.state,
+        "methodology_version": result.methodology_version,
+        "unavailable_reasons": list(result.unavailable_reasons),
+    }
+
+
+def _dashboard_conditions(
+    connection: duckdb.DuckDBPyConnection,
+    run_id: str,
+    started_at: datetime,
+) -> list[dict[str, object]]:
+    cursor = connection.execute(
+        """
+        select
+            conditions.run_id,
+            conditions.location_id,
+            conditions.forecast_time,
+            conditions.shore_normal_azimuth_degrees,
+            conditions.weather_snapshot_id,
+            conditions.precipitation_probability,
+            conditions.wind_speed_10m,
+            conditions.wind_direction_10m,
+            conditions.wind_to_shore_angle_degrees,
+            conditions.wind_gusts_10m,
+            conditions.precipitation,
+            conditions.weather_status,
+            conditions.wave_snapshot_id,
+            conditions.wave_height,
+            conditions.wave_direction,
+            conditions.wave_to_shore_angle_degrees,
+            conditions.wave_period,
+            conditions.wave_status,
+            conditions.sst_snapshot_id,
+            conditions.sea_surface_temperature,
+            conditions.sst_status,
+            conditions.tide_snapshot_id,
+            conditions.tide_phase,
+            conditions.tide_previous_extremum_time,
+            conditions.tide_previous_extremum_type,
+            conditions.tide_previous_predicted_water_level,
+            conditions.tide_next_extremum_time,
+            conditions.tide_next_extremum_type,
+            conditions.tide_next_predicted_water_level,
+            conditions.tide_minutes_since_previous_extremum,
+            conditions.tide_minutes_until_next_extremum,
+            conditions.tide_predicted_range,
+            conditions.tide_status,
+            locations.fishing_context,
+            solar_context.display_timezone
+        from coastal_conditions_hourly as conditions
+        left join run_locations as locations
+            on locations.run_id = conditions.run_id
+            and locations.location_id = conditions.location_id
+        left join run_location_solar_context as solar_context
+            on solar_context.run_id = conditions.run_id
+            and solar_context.location_id = conditions.location_id
+        where conditions.run_id = ? and conditions.forecast_time >= ?
+        order by conditions.location_id, conditions.forecast_time
+        """,
+        [run_id, started_at],
+    )
+    columns = [description[0] for description in cursor.description]
+    conditions = []
+    for row in cursor.fetchall():
+        values = dict(zip(columns, row, strict=True))
+        score_input = SpanishMackerelConditionsInput(
+            run_id=values["run_id"],
+            location_id=values["location_id"],
+            fishing_context=values["fishing_context"],
+            forecast_time=values["forecast_time"],
+            display_timezone=values["display_timezone"],
+            weather_status=values["weather_status"],
+            wave_status=values["wave_status"],
+            sst_status=values["sst_status"],
+            wind_speed_10m=values["wind_speed_10m"],
+            wind_gusts_10m=values["wind_gusts_10m"],
+            wave_height=values["wave_height"],
+            sea_surface_temperature=values["sea_surface_temperature"],
+        )
+        condition = {
+            column: _json_value(values[column])
+            for column in columns
+            if column not in {"fishing_context", "display_timezone"}
+        }
+        condition["spanish_mackerel_conditions"] = _score_projection(score_input)
+        conditions.append(condition)
+    return conditions
+
+
 def _dashboard_payloads(
     connection: duckdb.DuckDBPyConnection,
     config: dict[str, Any],
@@ -111,49 +227,7 @@ def _dashboard_payloads(
         """,
         [run_id, started_at],
     ).fetchone()
-    conditions = _query(
-        connection,
-        """
-        select
-            run_id,
-            location_id,
-            forecast_time,
-            shore_normal_azimuth_degrees,
-            weather_snapshot_id,
-            precipitation_probability,
-            wind_speed_10m,
-            wind_direction_10m,
-            wind_to_shore_angle_degrees,
-            wind_gusts_10m,
-            precipitation,
-            weather_status,
-            wave_snapshot_id,
-            wave_height,
-            wave_direction,
-            wave_to_shore_angle_degrees,
-            wave_period,
-            wave_status,
-            sst_snapshot_id,
-            sea_surface_temperature,
-            sst_status,
-            tide_snapshot_id,
-            tide_phase,
-            tide_previous_extremum_time,
-            tide_previous_extremum_type,
-            tide_previous_predicted_water_level,
-            tide_next_extremum_time,
-            tide_next_extremum_type,
-            tide_next_predicted_water_level,
-            tide_minutes_since_previous_extremum,
-            tide_minutes_until_next_extremum,
-            tide_predicted_range,
-            tide_status
-        from coastal_conditions_hourly
-        where run_id = ? and forecast_time >= ?
-        order by location_id, forecast_time
-        """,
-        [run_id, started_at],
-    )
+    conditions = _dashboard_conditions(connection, run_id, started_at)
     history = []
     if window_start is not None and window_end is not None:
         history = _query(
@@ -421,7 +495,7 @@ def _dashboard_payloads(
         0,
     )
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": _json_value(generated_at),
         "display_timezone": config["display_timezone"],
         "latest_attempt": (
@@ -475,7 +549,7 @@ def export_dashboard_data(
     try:
         with duckdb.connect(str(database_path), read_only=True) as connection:
             connection.execute("set TimeZone = 'UTC'")
-            validate_report_schema(connection)
+            validate_dashboard_score_schema(connection)
             payloads = _dashboard_payloads(connection, config, generated_at)
     except ReportSchemaError as exc:
         raise DashboardSchemaError(

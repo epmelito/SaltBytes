@@ -143,6 +143,15 @@ async function run() {
     if (!initialConditions || initialConditions.includes("Unavailable")) {
       throw new Error("Conditions did not initialize with data");
     }
+    await page.waitForFunction(() => {
+      const text = document.body.innerText;
+      return text.toLowerCase().includes("conditions alignment score")
+        && new RegExp("[0-9]+ / 100").test(text);
+    });
+    const initialScore = await page.locator("body").innerText();
+    if (!initialScore.toLowerCase().includes("conditions alignment score") || !new RegExp("[0-9]+ / 100").test(initialScore)) {
+      throw new Error("Conditions score did not initialize with an available result");
+    }
     await selectOption(page, 0, 1, "Conditions location control");
     await page.waitForFunction(
       (before) => document.querySelector(".metric-card")?.innerText !== before,
@@ -156,6 +165,7 @@ async function run() {
       (before) => document.querySelector(".metric-card")?.innerText !== before,
       locationConditions
     );
+    await page.waitForFunction(() => document.body.innerText.includes("Score unavailable"));
     await assertHealthy(page, errors, "Conditions");
 
     await openPage(page, `${base}/forecast-revisions`, errors);
