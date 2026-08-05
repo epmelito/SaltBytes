@@ -119,5 +119,6 @@ finalization. Do not merge unless explicitly requested.
 
 ## Handoffs
 
-Update `docs/handoffs/current.md` only when work is interrupted, blocked, or
-cannot be reconstructed cheaply from Git and GitHub.
+When work is interrupted and cannot be reconstructed cheaply from Git and
+GitHub, prepare a temporary handoff for the next working session. Do not
+maintain a permanent current-state handoff file in the repository.
