@@ -15,6 +15,7 @@ const routes = [
   "/pipeline-monitoring",
   "/data-provenance"
 ];
+const publicLandingUrl = "https://epmelito.github.io/SaltBytes/";
 
 function contentType(path) {
   return {
@@ -121,6 +122,40 @@ async function assertScrollableTables(page, label) {
   }
 }
 
+async function assertShell(page, section, route) {
+  await page.waitForFunction(
+    ({sectionName, routeName, landingUrl}) => {
+      const activeSection = document.querySelector("#observablehq-sidebar section.observablehq-section-active > summary");
+      const activeRoute = document.querySelector("#observablehq-sidebar .observablehq-link-active > a");
+      const home = document.querySelector(".shell-home");
+      return activeSection?.textContent.trim() === sectionName
+        && activeRoute?.textContent.trim() === routeName
+        && home?.href === landingUrl;
+    },
+    {sectionName: section, routeName: route, landingUrl: publicLandingUrl}
+  );
+  const colors = await page.locator(".shell-home").evaluate((element) => ({
+    home: getComputedStyle(element).color,
+    header: getComputedStyle(element.parentElement).color,
+    page: getComputedStyle(document.body).backgroundColor
+  }));
+  if (colors.home === colors.page || colors.header === colors.page) {
+    throw new Error("dashboard shell text is not visible against the page background");
+  }
+  await page.locator("body").focus();
+  for (let index = 0; index < 20; index += 1) {
+    await page.keyboard.press("Tab");
+    if (await page.locator(".shell-home").evaluate((element) => document.activeElement === element)) {
+      const outlineStyle = await page.locator(".shell-home").evaluate(
+        (element) => getComputedStyle(element).outlineStyle
+      );
+      if (outlineStyle === "none") throw new Error("SaltBytes landing link has no visible keyboard focus");
+      return;
+    }
+  }
+  throw new Error("SaltBytes landing link is not reachable by keyboard");
+}
+
 async function run() {
   const {server, port} = await startServer();
   const browser = await chromium.launch({
@@ -128,7 +163,7 @@ async function run() {
     headless: true,
     args: ["--no-sandbox"]
   });
-  const page = await browser.newPage();
+  const page = await browser.newPage({viewport: {width: 1440, height: 900}});
   page.setDefaultTimeout(timeoutMs);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -136,8 +171,9 @@ async function run() {
 
   try {
     await openPage(page, `${base}/`, errors);
+    await page.waitForURL(`${base}/conditions`);
+    await assertShell(page, "Coastal conditions", "Conditions");
 
-    await openPage(page, `${base}/conditions`, errors);
     await page.waitForFunction(() => document.querySelectorAll("select").length === 2);
     const initialConditions = await page.locator(".metric-card").first().innerText();
     if (!initialConditions || initialConditions.includes("Unavailable")) {
@@ -169,6 +205,7 @@ async function run() {
     await assertHealthy(page, errors, "Conditions");
 
     await openPage(page, `${base}/forecast-revisions`, errors);
+    await assertShell(page, "Operations and product health", "Forecast revisions");
     await page.waitForFunction(() => document.querySelectorAll("select").length === 3);
     const detailValues = page.locator(".detail-card .detail-value");
     const revisionTime = await detailValues.nth(1).innerText();
@@ -195,6 +232,7 @@ async function run() {
     await assertHealthy(page, errors, "Forecast revisions");
 
     await openPage(page, `${base}/pipeline-monitoring`, errors);
+    await assertShell(page, "Operations and product health", "Pipeline monitoring");
     await page.waitForFunction(() => document.querySelectorAll("select").length === 1);
     await page.evaluate(() => {
       window.__saltbytesMutations = 0;
@@ -207,6 +245,7 @@ async function run() {
     await assertHealthy(page, errors, "Pipeline monitoring");
 
     await openPage(page, `${base}/data-provenance`, errors);
+    await assertShell(page, "Operations and product health", "Data provenance");
     await page.waitForFunction(() => document.querySelectorAll("select").length === 2);
     const metricValues = page.locator(".metric-card .metric-value");
     await page.waitForFunction(() =>
@@ -243,6 +282,14 @@ async function run() {
       provenanceLocation
     );
     await assertHealthy(page, errors, "Data provenance");
+
+    await page.emulateMedia({colorScheme: "dark"});
+    await openPage(page, `${base}/conditions`, errors);
+    await assertShell(page, "Coastal conditions", "Conditions");
+    await openPage(page, `${base}/pipeline-monitoring`, errors);
+    await assertShell(page, "Operations and product health", "Pipeline monitoring");
+    await assertHealthy(page, errors, "Dark dashboard shell");
+    await page.emulateMedia({colorScheme: "light"});
 
     for (const route of routes) {
       await openPage(page, `${base}${route}`, errors);
