@@ -82,6 +82,19 @@ pre-existing failures instead of absorbing them into the work package.
   Preserve technical accuracy and uncertainty, but do not expose internal field
   names or academic terminology as default product copy.
 
+## Python comment style
+
+For inline and short multi-line comments:
+
+- use `#`
+- write comments in lowercase
+- do not add a period to a single-line comment
+
+Use triple quoted blocks only for required docstrings or genuinely large comment
+blocks.
+
+Do not add comments that merely restate obvious code.
+
 ## Human decision gates
 
 Stop and request input only when an unresolved choice materially affects:
