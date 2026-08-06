@@ -156,6 +156,351 @@ async function assertShell(page, section, route) {
   throw new Error("SaltBytes landing link is not reachable by keyboard");
 }
 
+async function assertForecastRevisions(page) {
+  await page.waitForFunction(() => {
+    const summary = document.querySelector(".revision-summary");
+    const chart = document.querySelector(".revision-chart svg");
+    const recent = document.querySelector(".revision-recent-table");
+    return summary && chart && recent;
+  });
+
+  const readState = () => page.evaluate(() => {
+    const metrics = Object.fromEntries(
+      [...document.querySelectorAll("[data-revision-metric]")]
+        .map((item) => [
+          item.dataset.revisionMetric,
+          {
+            value: item.querySelector("strong")?.textContent.trim() ?? "",
+            detail: item.querySelector("small")?.textContent.trim() ?? ""
+          }
+        ])
+    );
+    const recentRows = [...document.querySelectorAll(".revision-recent-table tbody tr")];
+    const runIds = recentRows.map((row) => ({
+      text: row.querySelector("code")?.textContent ?? "",
+      full: row.querySelector("code")?.title ?? ""
+    }));
+    const summary = document.querySelector(".revision-summary");
+    const chart = document.querySelector(".revision-chart");
+    const chartText = chart?.textContent ?? "";
+    const linePath = chart?.querySelector(".revision-history-line path")?.getAttribute("d")
+      ?? chart?.querySelector('[aria-label="line"] path')?.getAttribute("d")
+      ?? "";
+    return {
+      summaryState: summary?.dataset.revisionState,
+      headline: summary?.querySelector("h2")?.textContent.trim() ?? "",
+      summaryText: summary?.textContent.trim() ?? "",
+      contextText: summary?.querySelector(".revision-summary-context")?.textContent.trim() ?? "",
+      metrics,
+      recentRows: recentRows.length,
+      runIds,
+      detailsCount: document.querySelectorAll(".revision-details").length,
+      contextPanelCount: document.querySelectorAll(".revision-context").length,
+      chartCount: chart?.querySelectorAll("svg").length ?? 0,
+      chartHeight: chart?.querySelector("svg")?.getBoundingClientRect().height ?? 0,
+      chartText,
+      linePath,
+      largestSegments: chart?.querySelectorAll(".revision-largest-segment").length ?? 0,
+      latestDots: chart?.querySelectorAll(".revision-latest-dot").length ?? 0,
+      oldLanguage: /forecast vintage|persisted vintages|persisted values|universal significance threshold|factual change summary/i.test(document.body.innerText),
+      summaryMaxWidth: Number.parseFloat(getComputedStyle(summary).maxWidth),
+      pageWidth: document.documentElement.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth
+    };
+  });
+
+  const initial = await readState();
+  if (
+    initial.summaryState !== "available"
+    || initial.headline !== "Wind speed finished 1.4 km/h lower"
+    || !initial.contextText.includes("Jennette's Pier")
+    || !initial.contextText.includes("Aug 02, 2026, 08:00 AM EDT")
+    || initial.summaryText.includes("It varied from")
+    || initial.metrics.latest?.value !== "18.0 km/h"
+    || initial.metrics.earliest?.value !== "19.4 km/h"
+    || initial.metrics.range?.value !== "18.0–19.4 km/h"
+    || initial.metrics["largest-update"]?.value !== "−0.7 km/h"
+    || initial.metrics["changed-updates"]?.value !== "2 of 2"
+  ) {
+    throw new Error(`Forecast revision summary is incorrect: ${JSON.stringify(initial)}`);
+  }
+  if (
+    initial.recentRows !== 3
+    || initial.runIds.some((item) => item.text !== item.full || !item.text.startsWith("run-2026"))
+    || initial.detailsCount !== 0
+    || initial.contextPanelCount !== 0
+    || initial.chartCount !== 1
+    || initial.chartHeight > 320
+    || !initial.linePath
+    || initial.largestSegments !== 1
+    || initial.latestDots !== 1
+    || !initial.chartText.includes("Forecast saved (ET)")
+    || !initial.chartText.includes("Aug 1, 8 PM")
+    || initial.chartText.includes("Aug 2, 12 AM")
+    || initial.oldLanguage
+    || Math.abs(initial.summaryMaxWidth - 1312) > 2
+    || initial.pageWidth > initial.viewportWidth
+  ) {
+    throw new Error(`Forecast revision presentation is incomplete: ${JSON.stringify(initial)}`);
+  }
+
+  const initialHeadline = initial.headline;
+  await selectOption(page, 2, 1, "Forecast revisions measurement control");
+  await page.waitForFunction(
+    (before) => document.querySelector(".revision-summary h2")?.textContent.trim() !== before,
+    initialHeadline
+  );
+  const metricState = await readState();
+  if (
+    metricState.headline !== "Wave height finished 0.20 m lower"
+    || metricState.metrics.latest?.value !== "1.20 m"
+    || metricState.metrics.range?.value !== "1.20–1.40 m"
+    || metricState.metrics["largest-update"]?.value !== "−0.10 m"
+    || metricState.metrics["changed-updates"]?.value !== "2 of 2"
+  ) {
+    throw new Error(`Forecast revisions measurement control is incorrect: ${JSON.stringify(metricState)}`);
+  }
+
+  const contextBeforeTime = metricState.contextText;
+  const validOptions = await page.locator("select").nth(1).locator("option").count();
+  await selectOption(page, 1, validOptions - 1, "Forecast revisions forecast time control");
+  await page.waitForFunction(
+    (before) => document.querySelector(".revision-summary-context")?.textContent.trim() !== before,
+    contextBeforeTime
+  );
+
+  const contextBeforeLocation = await page.locator(".revision-summary-context").innerText();
+  await selectOption(page, 0, 1, "Forecast revisions location control");
+  await page.waitForFunction(
+    (before) => document.querySelector(".revision-summary-context")?.textContent.trim() !== before,
+    contextBeforeLocation
+  );
+}
+
+async function assertForecastRevisionLongHistory(page, base, errors) {
+  const historyPattern = "**/forecast-history.*.json";
+  const longHistoryHandler = async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    const template = payload[0];
+    const firstRun = Date.parse(template.run_started_at) - 36 * 60 * 60 * 1000;
+    const windValues = [20.5, 20.3, 20.4, 19.9, 20.1, 20.3, 20.5];
+    const waveValues = [0.62, 0.64, 0.64, 0.60, 0.58, 0.60, 0.62];
+    const expanded = windValues.map((value, index) => {
+      const runDate = new Date(firstRun + index * 6 * 60 * 60 * 1000);
+      const runId = `run-${runDate.toISOString().replaceAll("-", "").replaceAll(":", "").replace(".000", "")}`;
+      return {
+        ...template,
+        run_id: runId,
+        run_started_at: runDate.toISOString(),
+        wind_speed_10m: value,
+        wave_height: waveValues[index]
+      };
+    });
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify(expanded)
+    });
+  };
+
+  await page.route(historyPattern, longHistoryHandler);
+  await openPage(page, `${base}/forecast-revisions`, errors);
+  await page.waitForFunction(() => document.querySelector(".revision-details"));
+
+  const readLongState = () => page.evaluate(() => {
+    const summary = document.querySelector(".revision-summary");
+    const metrics = Object.fromEntries(
+      [...document.querySelectorAll("[data-revision-metric]")]
+        .map((item) => [
+          item.dataset.revisionMetric,
+          item.querySelector("strong")?.textContent.trim() ?? ""
+        ])
+    );
+    return {
+      headline: summary?.querySelector("h2")?.textContent.trim() ?? "",
+      summaryText: summary?.textContent.trim() ?? "",
+      metrics,
+      recentRows: document.querySelectorAll(".revision-recent-table tbody tr").length,
+      runIds: [...document.querySelectorAll(".revision-recent-table code")].map((item) => ({
+        text: item.textContent,
+        full: item.title
+      })),
+      detailsClosed: !document.querySelector(".revision-details")?.open,
+      chartCount: document.querySelectorAll(".revision-chart svg").length,
+      largestSegments: document.querySelectorAll(".revision-largest-segment").length,
+      notice: document.querySelector(".revision-notice")?.textContent.trim() ?? "",
+      chartFooter: document.querySelector(".revision-chart-footer")?.textContent.trim() ?? ""
+    };
+  });
+
+  const state = await readLongState();
+  if (
+    state.headline !== "Wind speed finished where it started"
+    || state.metrics.range !== "19.9–20.5 km/h"
+    || state.metrics["largest-update"] !== "−0.5 km/h"
+    || state.metrics["changed-updates"] !== "6 of 6"
+    || state.summaryText.includes("It varied from")
+    || state.recentRows !== 5
+    || state.runIds.some((item) => !item.text.includes("…") || item.full.length <= item.text.length)
+    || !state.detailsClosed
+    || state.chartCount !== 1
+    || state.largestSegments !== 1
+  ) {
+    throw new Error(`Forecast revision long history is incomplete: ${JSON.stringify(state)}`);
+  }
+
+  await selectOption(page, 2, 1, "Forecast revisions long history wave control");
+  await page.waitForFunction(() =>
+    document.querySelector(".revision-summary h2")?.textContent.trim()
+      === "Wave height finished where it started"
+  );
+  const waveState = await readLongState();
+  if (
+    waveState.metrics.latest !== "0.62 m"
+    || waveState.metrics.range !== "0.58–0.64 m"
+    || waveState.metrics["largest-update"] !== "−0.04 m"
+    || waveState.metrics["changed-updates"] !== "5 of 6"
+    || waveState.chartCount !== 1
+    || waveState.largestSegments !== 1
+    || !waveState.chartFooter.includes("−0.04 m")
+    || waveState.chartFooter.includes("0.00 m")
+  ) {
+    throw new Error(`Forecast revision precision is incorrect: ${JSON.stringify(waveState)}`);
+  }
+
+  await page.locator(".revision-chart svg circle").first().hover();
+  try {
+    await page.waitForFunction(() =>
+      document.querySelector(".revision-chart")?.textContent
+        .includes("Jul 31, 2026, 08:00 AM EDT")
+    );
+  } catch {
+    throw new Error("Forecast revision tooltip does not show the full local saved time");
+  }
+
+  await selectOption(page, 2, 3, "Forecast revisions long history flat control");
+  await page.waitForFunction(() =>
+    document.querySelector(".revision-summary h2")?.textContent.trim()
+      === "Predicted tide range did not change"
+  );
+  const flatState = await readLongState();
+  if (
+    flatState.metrics.range !== "0.86 m"
+    || flatState.metrics["largest-update"] !== "No change"
+    || flatState.metrics["changed-updates"] !== "0 of 6"
+    || flatState.chartCount !== 0
+    || flatState.largestSegments !== 0
+    || !flatState.notice.includes("No changes to plot")
+  ) {
+    throw new Error(`Forecast revision flat history is incorrect: ${JSON.stringify(flatState)}`);
+  }
+
+  await selectOption(page, 2, 0, "Forecast revisions long history wind control");
+  await page.waitForFunction(() =>
+    document.querySelector(".revision-summary h2")?.textContent.trim()
+      === "Wind speed finished where it started"
+  );
+
+  const details = page.locator(".revision-details");
+  await details.locator("summary").focus();
+  const focusStyle = await details.locator("summary").evaluate(
+    (element) => getComputedStyle(element).outlineStyle
+  );
+  if (focusStyle === "none") throw new Error("Forecast revision details have no visible keyboard focus");
+  await details.locator("summary").press("Enter");
+  await page.waitForFunction(() => document.querySelector(".revision-details")?.open);
+  const completeRows = await page.locator(".revision-complete-table tbody tr").count();
+  const detailText = await details.innerText();
+  if (
+    completeRows !== 7
+    || !detailText.includes("run-20260731T120000Z")
+    || !detailText.includes("Complete saved history and exact run identifiers")
+  ) {
+    throw new Error("Forecast revision complete history is incomplete");
+  }
+
+  await page.unroute(historyPattern, longHistoryHandler);
+}
+
+async function assertForecastRevisionSparseStates(page, base, errors) {
+  const historyPattern = "**/forecast-history.*.json";
+  const singleHandler = async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify(payload.slice(0, 1))
+    });
+  };
+
+  await page.route(historyPattern, singleHandler);
+  await openPage(page, `${base}/forecast-revisions`, errors);
+  await page.waitForFunction(() =>
+    document.querySelector(".revision-summary")?.dataset.revisionState === "single"
+  );
+  const single = await page.evaluate(() => ({
+    headline: document.querySelector(".revision-summary h2")?.textContent.trim() ?? "",
+    latest: document.querySelector('[data-revision-metric="latest"] strong')?.textContent.trim(),
+    range: document.querySelector('[data-revision-metric="range"] strong')?.textContent.trim(),
+    changed: document.querySelector('[data-revision-metric="changed-updates"] strong')?.textContent.trim(),
+    recentRows: document.querySelectorAll(".revision-recent-table tbody tr").length,
+    chartCount: document.querySelectorAll(".revision-chart svg").length,
+    notice: document.querySelector(".revision-notice")?.textContent.trim() ?? "",
+    detailsCount: document.querySelectorAll(".revision-details").length
+  }));
+  if (
+    single.headline !== "Wind speed has one saved value"
+    || single.latest !== "19.4 km/h"
+    || single.range !== "19.4 km/h"
+    || single.changed !== "0 of 0"
+    || single.recentRows !== 1
+    || single.chartCount !== 0
+    || !single.notice.includes("Another saved forecast is needed")
+    || single.detailsCount !== 0
+  ) {
+    throw new Error(`Forecast revision single state is incorrect: ${JSON.stringify(single)}`);
+  }
+  await page.unroute(historyPattern, singleHandler);
+
+  const emptyHandler = async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "[]"
+    });
+  };
+  await page.route(historyPattern, emptyHandler);
+  await openPage(page, `${base}/forecast-revisions`, errors);
+  await page.waitForFunction(() =>
+    document.querySelector(".revision-summary")?.dataset.revisionState === "empty"
+  );
+  const empty = await page.evaluate(() => ({
+    headline: document.querySelector(".revision-summary h2")?.textContent.trim() ?? "",
+    latest: document.querySelector('[data-revision-metric="latest"] strong')?.textContent.trim(),
+    range: document.querySelector('[data-revision-metric="range"] strong')?.textContent.trim(),
+    changed: document.querySelector('[data-revision-metric="changed-updates"] strong')?.textContent.trim(),
+    notice: document.querySelector(".revision-notice")?.textContent.trim() ?? "",
+    chartCount: document.querySelectorAll(".revision-chart svg").length,
+    recentTableCount: document.querySelectorAll(".revision-recent-table").length,
+    detailsCount: document.querySelectorAll(".revision-details").length
+  }));
+  if (
+    empty.headline !== "No saved wind speed values"
+    || empty.latest !== "Unavailable"
+    || empty.range !== "Unavailable"
+    || empty.changed !== "0 of 0"
+    || !empty.notice.includes("Try another location, forecast time, or measurement")
+    || empty.chartCount !== 0
+    || empty.recentTableCount !== 0
+    || empty.detailsCount !== 0
+  ) {
+    throw new Error(`Forecast revision empty state is incorrect: ${JSON.stringify(empty)}`);
+  }
+  await page.unroute(historyPattern, emptyHandler);
+}
+
 async function assertPipelineMonitoring(page) {
   await page.waitForFunction(() => {
     const health = document.querySelector(".pipeline-health");
@@ -544,29 +889,11 @@ async function run() {
     await openPage(page, `${base}/forecast-revisions`, errors);
     await assertShell(page, "Operations and product health", "Forecast revisions");
     await page.waitForFunction(() => document.querySelectorAll("select").length === 3);
-    const detailValues = page.locator(".detail-card .detail-value");
-    const revisionTime = await detailValues.nth(1).innerText();
-    await page.waitForFunction(() => document.querySelectorAll("select")[1]?.options.length > 1);
-    const validOptions = await page.locator("select").nth(1).locator("option").count();
-    await selectOption(page, 1, validOptions - 1, "Forecast revisions valid time control");
-    await page.waitForFunction(
-      (before) => document.querySelectorAll(".detail-card .detail-value")[1]?.innerText !== before,
-      revisionTime
-    );
-    const revisionLocation = await detailValues.nth(0).innerText();
-    await selectOption(page, 0, 1, "Forecast revisions location control");
-    await page.waitForFunction(
-      (before) => document.querySelector(".detail-card .detail-value")?.innerText !== before,
-      revisionLocation
-    );
-    const tableHeader = await page.locator("table thead").innerText();
-    await selectOption(page, 2, 1, "Forecast revisions metric control");
-    await page.waitForFunction(
-      (before) => document.querySelector("table thead")?.innerText !== before,
-      tableHeader
-    );
+    await assertForecastRevisions(page);
     await assertScrollableTables(page, "Forecast revisions");
     await assertHealthy(page, errors, "Forecast revisions");
+    await assertForecastRevisionLongHistory(page, base, errors);
+    await assertForecastRevisionSparseStates(page, base, errors);
 
     await openPage(page, `${base}/pipeline-monitoring`, errors);
     await assertShell(page, "Operations and product health", "Pipeline monitoring");
