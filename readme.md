@@ -11,14 +11,13 @@ It currently collects:
 - NOAA tide predictions and hourly tide phase
 
 The current platform combines those sources into readable hourly reports and an
-interactive dashboard. The approved Spanish mackerel conditions calculation is
-implemented internally from existing SaltBytes inputs, but its results are not
-persisted or published.
+interactive dashboard. It also publishes the first Spanish mackerel conditions
+score from the approved SaltBytes method.
 
-The calculation assesses how favorable the available conditions are for
-targeting Spanish mackerel without claiming catch probability, bite likelihood,
-or fish presence. See the [roadmap](docs/roadmap.md) for the current delivery
-sequence.
+The score is calculated when dashboard data is exported and is not stored in
+DuckDB. It describes how well the available forecast conditions match the
+approved Spanish mackerel method without claiming catch probability, bite
+likelihood, or fish presence.
 
 SaltBytes is a portfolio project. It does not guarantee fishing success,
 replace official marine guidance, or operate as a production service.
@@ -31,8 +30,8 @@ and stores normalized UTC data in DuckDB. The downstream
 `coastal_conditions_hourly` view aligns available source values by exact run,
 location, and UTC hour.
 
-The MVP provides local text and HTML reports, a curated public JSON export, and
-an interactive Observable dashboard over the retained DuckDB state.
+SaltBytes provides local text and HTML reports, a curated public JSON export,
+and an interactive Observable dashboard over the retained DuckDB state.
 
 View the [public site](https://epmelito.github.io/SaltBytes/) for the latest
 successfully published dashboard, coastal conditions report, and pipeline
@@ -40,13 +39,14 @@ operations report. The site refreshes after successful scheduled or manual
 ingestion. View the committed [sample report site](docs/sample-report/index.html)
 for a fixed reviewed snapshot that does not change with hosted runs.
 
-See [the roadmap](docs/roadmap.md) for the delivery sequence,
-[decision 0010](docs/decisions/0010-research-backed-fishing-score-direction.md)
-for the product direction, and
+See the [project roadmap](docs/project-roadmap.md) for the long range direction
+and the [current roadmap](docs/roadmap.md) for the next few pieces of work.
+[Decision 0010](docs/decisions/0010-research-backed-fishing-score-direction.md)
+records the species score direction,
 [species conditions scoring requirements](docs/requirements/species-condition-scoring.md)
-for the shared boundary, and the
+define the shared boundary, and the
 [Spanish mackerel methodology](docs/requirements/spanish-mackerel-conditions-score.md)
-for the approved first calculation.
+defines the approved first calculation.
 
 ## Installation
 
@@ -153,7 +153,8 @@ saltbytes/
 ## Documentation
 
 - [Project charter](docs/project-charter.md) defines durable product intent.
-- [Roadmap](docs/roadmap.md) defines the active MVP sequence.
+- [Project roadmap](docs/project-roadmap.md) explains the long range direction.
+- [Current roadmap](docs/roadmap.md) defines the next few pieces of work.
 - [Architecture](docs/architecture.md) describes the current system.
 - [Data model](docs/data-model.md) describes persisted data and integrated
   views.

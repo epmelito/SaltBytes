@@ -5,7 +5,8 @@
 SaltBytes is a lightweight portfolio project for exploring upcoming coastal
 conditions at a small set of North Carolina fishing locations.
 
-Current delivery work is defined by the [roadmap](roadmap.md).
+The [project roadmap](project-roadmap.md) explains the long range direction.
+The [current roadmap](roadmap.md) lists the next few pieces of work.
 
 ## Product direction
 
