@@ -9,6 +9,7 @@ import {html} from "npm:htl";
 
 import {
   asDate,
+  formatMinutes,
   formatNumber,
   formatTimestamp,
   locationName,
@@ -20,272 +21,425 @@ const manifest = await FileAttachment("./data/manifest.json").json();
 const locations = await FileAttachment("./data/locations.json").json();
 const runs = await FileAttachment("./data/pipeline-runs.json").json();
 const sourceHealth = await FileAttachment("./data/source-health.json").json();
-const runRows = runs.map((run) => ({
-  ...run,
-  startedDate: asDate(run.started_at),
-  statusLabel: run.partial_data ? `${statusLabel(run.status)} · partial data` : statusLabel(run.status)
-}));
-const successfulRuns = runs.filter((run) => run.status === "success").length;
-const failedRuns = runs.filter((run) => run.status === "failed").length;
-const partialRuns = runs.filter((run) => run.partial_data).length;
-const coverageRunIds = [...new Set(sourceHealth.coverage.map((row) => row.run_id))];
+
+const sourceOrder = ["weather", "wave", "sst", "tide"];
+const sourceLabels = {
+  weather: "Weather",
+  wave: "Waves",
+  sst: "Water temperature",
+  tide: "Tides"
+};
+const sourceLabel = (source) => sourceLabels[source] ?? sourceName(source);
+const titleCase = (value) => {
+  const label = statusLabel(value);
+  return label === "Unavailable" ? label : `${label[0].toUpperCase()}${label.slice(1)}`;
+};
+const shortRunId = (value) => {
+  if (!value) return "Unavailable";
+  const text = String(value);
+  return text.length <= 16 ? text : `${text.slice(0, 6)}…${text.slice(-6)}`;
+};
+const runOutcome = (run) => {
+  if (!run) return {key: "unknown", label: "Unknown"};
+  if (run.partial_data) return {key: "partial", label: "Partial data"};
+  if (run.status === "success") return {key: "healthy", label: "Healthy"};
+  if (run.status === "failed") return {key: "failed", label: "Failed"};
+  return {key: "unknown", label: titleCase(run.status)};
+};
+const statusMeaning = (status) => ({
+  success: "Available",
+  fetch_failed: "Fetch failed",
+  validation_failed: "Validation failed",
+  not_recorded: "Not recorded"
+}[status] ?? titleCase(status));
+const statusKey = (status) => status === "success" ? "healthy" : status === "not_recorded" ? "missing" : "failed";
+const runTimeLabel = new Intl.DateTimeFormat("en-US", {
+  timeZone: manifest.display_timezone,
+  month: "short",
+  day: "numeric",
+  hour: "numeric"
+});
+const sortedRuns = [...runs].sort((left, right) =>
+  (asDate(right.started_at)?.getTime() ?? 0) - (asDate(left.started_at)?.getTime() ?? 0)
+);
+const latestRunId = manifest.latest_attempt?.run_id ?? sortedRuns[0]?.run_id;
+const latestRun = sortedRuns.find((run) => run.run_id === latestRunId) ?? sortedRuns[0] ?? null;
+const latestCoverageRows = sourceHealth.coverage.filter((row) => row.run_id === latestRun?.run_id);
+const latestCoverageExceptions = latestCoverageRows.filter((row) => row.status !== "success");
+const latestFailureRows = sourceHealth.failures.filter((row) => row.run_id === latestRun?.run_id);
+const latestMissingRows = latestCoverageExceptions.filter((row) => row.status === "not_recorded");
+const recentSuccessfulRuns = sortedRuns.filter((run) => run.status === "success" && !run.partial_data);
+const successRatioText = sortedRuns.length
+  ? `${recentSuccessfulRuns.length} of ${sortedRuns.length} recent runs completed successfully`
+  : "No recent runs are available";
+const latestCompleteAge = manifest.latest_success_freshness_minutes === null
+  || manifest.latest_success_freshness_minutes === undefined
+  ? "The age of the latest complete update is unavailable."
+  : `The latest complete update was ${formatMinutes(manifest.latest_success_freshness_minutes)} old when this report was generated.`;
+const healthState = !latestRun
+  ? "unknown"
+  : latestRun.status === "failed" && !latestRun.partial_data
+    ? "failed"
+    : latestRun.partial_data || latestCoverageExceptions.length
+      ? "degraded"
+      : latestRun.status === "success"
+        ? "healthy"
+        : "unknown";
+const healthPresentation = {
+  healthy: {
+    label: "Healthy",
+    summary: "The latest published update completed and all expected source checks are available."
+  },
+  degraded: {
+    label: "Degraded",
+    summary: latestRun?.partial_data
+      ? "The latest published update did not complete, but partial forecast data remains available."
+      : "The latest published update completed with one or more source checks needing attention."
+  },
+  failed: {
+    label: "Failed",
+    summary: "The latest published update failed and did not retain partial forecast data."
+  },
+  unknown: {
+    label: "Unknown",
+    summary: "No completed run evidence is available to determine published pipeline health."
+  }
+}[healthState];
+const coverageRunIds = [...new Set(sourceHealth.coverage.map((row) => row.run_id))]
+  .sort((left, right) => {
+    const leftRun = sortedRuns.find((run) => run.run_id === left);
+    const rightRun = sortedRuns.find((run) => run.run_id === right);
+    return (asDate(rightRun?.started_at)?.getTime() ?? 0) - (asDate(leftRun?.started_at)?.getTime() ?? 0);
+  });
+const durations = recentSuccessfulRuns
+  .map((run) => Number(run.duration_seconds))
+  .filter(Number.isFinite)
+  .sort((left, right) => left - right);
+const medianDuration = durations.length
+  ? durations.length % 2
+    ? durations[Math.floor(durations.length / 2)]
+    : (durations[durations.length / 2 - 1] + durations[durations.length / 2]) / 2
+  : null;
+const durationBaselineAvailable = durations.length >= 5;
+const durationMaximum = Math.max(
+  ...sortedRuns.map((run) => Number(run.duration_seconds)).filter(Number.isFinite),
+  medianDuration ?? 0,
+  1
+) * 1.18;
+const runRows = [...sortedRuns].reverse().map((run) => {
+  const outcome = runOutcome(run);
+  const duration = Number(run.duration_seconds);
+  return {
+    ...run,
+    startedDate: asDate(run.started_at),
+    chartLabel: runTimeLabel.format(asDate(run.started_at)),
+    outcomeKey: outcome.key,
+    outcomeLabel: outcome.label,
+    fill: `var(--pipeline-${outcome.key})`,
+    duration_seconds: Number.isFinite(duration) ? duration : null,
+    durationAnomaly: durationBaselineAvailable
+      && Number.isFinite(duration)
+      && duration > medianDuration * 1.5,
+    latest: run.run_id === latestRun?.run_id
+  };
+});
+const recentRuns = sortedRuns.slice(0, 10);
 ```
 
 ```js
 const coverageRunId = view(Inputs.select(coverageRunIds, {
-  label: "Source coverage run",
+  label: "Coverage run",
   format: (value) => {
-    const run = runs.find((item) => item.run_id === value);
-    return `${value} · ${formatTimestamp(run?.started_at, manifest.display_timezone)}`;
+    const run = sortedRuns.find((item) => item.run_id === value);
+    return `${shortRunId(value)} · ${formatTimestamp(run?.started_at, manifest.display_timezone)}`;
   },
-  value: coverageRunIds[0]
+  value: latestRun?.run_id && coverageRunIds.includes(latestRun.run_id)
+    ? latestRun.run_id
+    : coverageRunIds[0]
 }));
 ```
 
 ```js
 const coverageRows = sourceHealth.coverage.filter((row) => row.run_id === coverageRunId);
+const coverageRun = sortedRuns.find((run) => run.run_id === coverageRunId);
+const coverageMatrix = locations.map((location) => ({
+  location,
+  cells: sourceOrder.map((source) => {
+    const row = coverageRows.find((item) =>
+      item.location_id === location.location_id && item.source === source
+    );
+    const status = row?.status ?? "not_recorded";
+    return {source, status, label: statusMeaning(status), key: statusKey(status)};
+  })
+}));
+const coverageExceptions = coverageMatrix.flatMap((row) =>
+  row.cells
+    .filter((cell) => cell.status !== "success")
+    .map((cell) => ({location: row.location, ...cell}))
+);
+const coverageCheckCount = locations.length * sourceOrder.length;
+const coverageSummary = coverageExceptions.length
+  ? `${coverageExceptions.length} of ${coverageCheckCount} source checks need attention.`
+  : `All ${coverageCheckCount} source checks succeeded.`;
 ```
 
 # Pipeline monitoring
 
-Recent run history remains visible even when ingestion fails or produces partial
-data. Source failures show public-safe status metadata only; raw exception detail
-is deliberately excluded from the published dataset.
-
-<div class="metric-grid">
-  <div class="metric-card">
-    <div class="metric-label">Displayed runs</div>
-    <div class="metric-value">${runs.length}</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-label">Successful</div>
-    <div class="metric-value">${successfulRuns}</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-label">Failed</div>
-    <div class="metric-value">${failedRuns}</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-label">Failed with partial data</div>
-    <div class="metric-value">${partialRuns}</div>
-  </div>
-</div>
-
-<div class="chart-grid">
-  <div class="chart-card">
-
-## Run status timeline
+Pipeline health and recent reliability captured when this dashboard was last
+published. Public output includes safe status evidence, not raw exception details.
 
 ```js
-Plot.plot({
-  height: 250,
-  x: {type: "utc", label: "Pipeline run started"},
-  y: {label: null},
-  color: {legend: true},
-  marks: [
-    Plot.dot(runRows, {
-      x: "startedDate",
-      y: () => "run",
-      fill: "statusLabel",
-      r: 8,
-      tip: true
-    })
-  ]
-})
+display(html`<section class="pipeline-health pipeline-health-${healthState}" data-health-state=${healthState}>
+  <p class="pipeline-eyebrow">Published pipeline health</p>
+  <h2>${healthPresentation.label}</h2>
+  <p class="pipeline-health-summary">${healthPresentation.summary}</p>
+  <div class="pipeline-health-facts">
+    <div>
+      <span class="detail-label">Latest attempt</span>
+      <strong>${latestRun
+        ? `${runOutcome(latestRun).label} · ${formatTimestamp(latestRun.started_at, manifest.display_timezone)}`
+        : "Unavailable"}</strong>
+    </div>
+    <div>
+      <span class="detail-label">Complete data freshness</span>
+      <strong>${latestCompleteAge}</strong>
+    </div>
+    <div>
+      <span class="detail-label">Affected scope</span>
+      <strong>${latestCoverageExceptions.length
+        ? `${latestCoverageExceptions.length} of ${locations.length * sourceOrder.length} source checks`
+        : "No current source exceptions"}</strong>
+    </div>
+    <div>
+      <span class="detail-label">Recent reliability</span>
+      <strong>${successRatioText}</strong>
+    </div>
+  </div>
+</section>`);
 ```
 
-  </div>
-  <div class="chart-card">
-
-## Run duration
+## Active failures and missing data
 
 ```js
-Plot.plot({
-  height: 250,
-  x: {type: "utc", label: "Pipeline run started"},
-  y: {grid: true, label: "seconds"},
+display(latestCoverageExceptions.length
+  ? html`<section class="pipeline-exceptions" aria-label="Active source exceptions">
+      <p class="page-note">These exceptions belong to the latest attempt. Successful checks are omitted.</p>
+      <div class="pipeline-exception-list">
+        ${latestCoverageExceptions.map((row) => html`<article class="pipeline-exception">
+          <div>
+            <span class="pipeline-exception-status">${statusMeaning(row.status)}</span>
+            <h3>${locationName(row.location_id, locations)}</h3>
+          </div>
+          <p><strong>${sourceLabel(row.source)}</strong> needs attention.</p>
+        </article>`)}
+      </div>
+      ${latestMissingRows.length
+        ? html`<p class="pipeline-exception-note">${latestFailureRows.length} recorded failures and ${latestMissingRows.length} missing source records are represented above.</p>`
+        : null}
+    </section>`
+  : html`<div class="notice pipeline-healthy-notice"><strong>No active source failures.</strong>
+      All expected source checks succeeded for the latest attempt.</div>`);
+```
+
+## Recent reliability
+
+One view combines run outcome and duration. Bar color shows whether each run was
+healthy, partial, or failed.
+
+<div class="pipeline-reliability">
+
+```js
+resize((width) => Plot.plot({
+  width,
+  height: 300,
+  marginTop: 32,
+  marginBottom: 58,
+  x: {
+    label: null,
+    tickRotate: -25,
+    padding: 0.28
+  },
+  y: {
+    grid: true,
+    label: "Duration (seconds)",
+    domain: [0, durationMaximum]
+  },
+  color: {type: "identity"},
   marks: [
-    Plot.lineY(runRows, {
-      x: "startedDate",
+    Plot.barY(runRows, {
+      x: "chartLabel",
       y: "duration_seconds",
-      marker: true,
+      fill: "fill",
+      inset: 2,
+      title: (row) => [
+        `Run: ${row.run_id}`,
+        `Started: ${formatTimestamp(row.started_at, manifest.display_timezone)}`,
+        `Outcome: ${row.outcomeLabel}`,
+        `Duration: ${formatNumber(row.duration_seconds, 0, "s")}`,
+        `Rows: ${formatNumber(row.rows_loaded, 0)}`,
+        `Snapshots: ${formatNumber(row.snapshot_count, 0)}`,
+        row.durationAnomaly ? "Duration: unusually long" : null
+      ].filter(Boolean).join("\n"),
       tip: true
     }),
-    Plot.ruleY([0])
-  ]
-})
-```
-
-  </div>
-  <div class="chart-card">
-
-## Rows loaded
-
-```js
-Plot.plot({
-  height: 250,
-  x: {type: "utc", label: "Pipeline run started"},
-  y: {grid: true, label: "rows"},
-  marks: [
-    Plot.lineY(runRows, {
-      x: "startedDate",
-      y: "rows_loaded",
-      marker: true,
-      tip: true
+    medianDuration === null ? null : Plot.ruleY([medianDuration], {
+      stroke: "var(--saltbytes-muted)",
+      strokeDasharray: "5,4"
+    }),
+    Plot.text(runRows.filter((row) => row.latest), {
+      x: "chartLabel",
+      y: "duration_seconds",
+      text: () => "Latest",
+      dy: -12,
+      fontWeight: 700
     }),
     Plot.ruleY([0])
-  ]
-})
+  ].filter(Boolean)
+}))
 ```
 
+<div class="pipeline-chart-footer">
+  <div class="pipeline-legend" aria-label="Run outcome legend">
+    <span class="pipeline-legend-healthy">Healthy</span>
+    <span class="pipeline-legend-partial">Partial data</span>
+    <span class="pipeline-legend-failed">Failed</span>
   </div>
-  <div class="chart-card">
-
-## Snapshot counts
-
-```js
-Plot.plot({
-  height: 250,
-  x: {type: "utc", label: "Pipeline run started"},
-  y: {grid: true, label: "snapshots"},
-  marks: [
-    Plot.lineY(runRows, {
-      x: "startedDate",
-      y: "snapshot_count",
-      marker: true,
-      tip: true
-    }),
-    Plot.ruleY([0])
-  ]
-})
-```
-
-  </div>
+  <p>${medianDuration === null
+    ? "A recent successful-run duration baseline is unavailable."
+    : `Recent successful-run median: ${formatNumber(medianDuration, 0, "s")}. ${
+      durationBaselineAvailable
+        ? "Runs above 1.5 times this median are identified in their tooltip."
+        : "At least five successful runs are required before labeling duration anomalies."
+    }`}</p>
 </div>
 
-## Recent runs
+</div>
+
+## Source and location health
+
+The selected run defaults to the latest attempt. Successful checks stay quiet so
+failures and missing records remain easy to scan.
 
 ```js
-html`<div class="table-scroll">${Inputs.table(
-  runs.map((run) => ({
-    run_id: run.run_id,
-    started: formatTimestamp(run.started_at, manifest.display_timezone),
-    completed: formatTimestamp(run.completed_at, manifest.display_timezone),
-    status: `${statusLabel(run.status)}${run.partial_data ? " · partial" : ""}`,
-    duration: formatNumber(run.duration_seconds, 0, "s"),
-    rows_loaded: run.rows_loaded,
-    snapshots: run.snapshot_count
-  })),
-  {
-    columns: [
-      "run_id",
-      "started",
-      "completed",
-      "status",
-      "duration",
-      "rows_loaded",
-      "snapshots"
-    ],
-    header: {
-      run_id: "Run ID",
-      started: "Started",
-      completed: "Completed",
-      status: "Status",
-      duration: "Duration",
-      rows_loaded: "Rows",
-      snapshots: "Snapshots"
-    },
-    rows: 20,
-    select: false
-  }
-)}</div>`
+display(html`<section class="pipeline-coverage" aria-live="polite">
+  <div class="pipeline-section-summary">
+    <strong>${coverageSummary}</strong>
+    <span>${formatTimestamp(coverageRun?.started_at, manifest.display_timezone)}</span>
+  </div>
+  <div class="table-scroll pipeline-matrix-scroll">
+    <table class="pipeline-matrix">
+      <thead>
+        <tr>
+          <th scope="col">Location</th>
+          ${sourceOrder.map((source) => html`<th scope="col">${sourceLabel(source)}</th>`)}
+        </tr>
+      </thead>
+      <tbody>
+        ${coverageMatrix.map((row) => html`<tr>
+          <th scope="row">${row.location.name}</th>
+          ${row.cells.map((cell) => html`<td class=${`coverage-cell coverage-${cell.key}`}>
+            <span title=${`${row.location.name} · ${sourceLabel(cell.source)} · ${cell.label}`}>${cell.label}</span>
+          </td>`)}
+        </tr>`)}
+      </tbody>
+    </table>
+  </div>
+</section>`);
 ```
 
-## Source success rates
+## Latest runs
+
+Routine successful records are condensed. Full identifiers and exact row evidence
+remain available below.
 
 ```js
-Plot.plot({
-  marginLeft: 155,
-  height: 220,
-  x: {domain: [0, 100], grid: true, label: "Success rate (%)"},
-  y: {label: null},
-  marks: [
-    Plot.barX(sourceHealth.summary, {
-      x: "success_rate_percent",
-      y: (row) => sourceName(row.source),
-      tip: true
-    }),
-    Plot.ruleX([0])
-  ]
-})
+display(html`<div class="table-scroll">
+  <table class="pipeline-runs-table">
+    <thead>
+      <tr>
+        <th scope="col">Run</th>
+        <th scope="col">Started</th>
+        <th scope="col">Outcome</th>
+        <th scope="col">Duration</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${recentRuns.map((run) => html`<tr>
+        <td><code title=${run.run_id}>${shortRunId(run.run_id)}</code></td>
+        <td>${formatTimestamp(run.started_at, manifest.display_timezone)}</td>
+        <td><span class=${`run-status run-status-${runOutcome(run).key}`}>${runOutcome(run).label}</span></td>
+        <td>${formatNumber(run.duration_seconds, 0, "s")}</td>
+      </tr>`)}
+    </tbody>
+  </table>
+</div>`);
 ```
+
+<details class="pipeline-details">
+<summary>Detailed run evidence</summary>
+
+<p>Exact records remain available for investigation without dominating the
+current health view.</p>
+
+### Complete run records
 
 ```js
-html`<div class="table-scroll">${Inputs.table(
-  sourceHealth.summary.map((row) => ({
-    source: sourceName(row.source),
-    success: row.success_count,
-    failed: row.failure_count,
-    missing: row.missing_count,
-    success_rate: formatNumber(row.success_rate_percent, 1, "%")
-  })),
-  {
-    columns: ["source", "success", "failed", "missing", "success_rate"],
-    header: {
-      source: "Source",
-      success: "Success",
-      failed: "Failed",
-      missing: "Missing",
-      success_rate: "Success rate"
-    },
-    rows: 10,
-    select: false
-  }
-)}</div>`
+display(html`<div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Full run ID</th>
+        <th scope="col">Started</th>
+        <th scope="col">Completed</th>
+        <th scope="col">Status</th>
+        <th scope="col">Duration</th>
+        <th scope="col">Rows</th>
+        <th scope="col">Snapshots</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sortedRuns.map((run) => html`<tr>
+        <td><code>${run.run_id}</code></td>
+        <td>${formatTimestamp(run.started_at, manifest.display_timezone)}</td>
+        <td>${formatTimestamp(run.completed_at, manifest.display_timezone)}</td>
+        <td>${runOutcome(run).label}</td>
+        <td>${formatNumber(run.duration_seconds, 0, "s")}</td>
+        <td>${formatNumber(run.rows_loaded, 0)}</td>
+        <td>${formatNumber(run.snapshot_count, 0)}</td>
+      </tr>`)}
+    </tbody>
+  </table>
+</div>`);
 ```
 
-## Run and location coverage
+### Recent source summary
 
 ```js
-html`<div class="table-scroll">${Inputs.table(
-  coverageRows.map((row) => ({
-    location: locationName(row.location_id, locations),
-    source: sourceName(row.source),
-    status: statusLabel(row.status)
-  })),
-  {
-    columns: ["location", "source", "status"],
-    header: {location: "Location", source: "Source", status: "Status"},
-    rows: 20,
-    select: false
-  }
-)}</div>`
+display(html`<div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Source</th>
+        <th scope="col">Successful</th>
+        <th scope="col">Failed</th>
+        <th scope="col">Missing</th>
+        <th scope="col">Success rate</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sourceHealth.summary.map((row) => html`<tr>
+        <th scope="row">${sourceLabel(row.source)}</th>
+        <td>${formatNumber(row.success_count, 0)}</td>
+        <td>${formatNumber(row.failure_count, 0)}</td>
+        <td>${formatNumber(row.missing_count, 0)}</td>
+        <td>${formatNumber(row.success_rate_percent, 1, "%")}</td>
+      </tr>`)}
+    </tbody>
+  </table>
+</div>`);
 ```
 
-## Recent source failures
+<p class="page-note">Source failures expose public-safe status labels only.
+Raw exception details are deliberately excluded from the published dataset.</p>
 
-```js
-sourceHealth.failures.length === 0
-  ? html`<div class="notice">No recent source failures.</div>`
-  : html`<div class="table-scroll">${Inputs.table(
-      sourceHealth.failures.map((row) => ({
-        run_id: row.run_id,
-        location: locationName(row.location_id, locations),
-        source: sourceName(row.source),
-        status: statusLabel(row.status),
-        recorded: formatTimestamp(row.recorded_at, manifest.display_timezone)
-      })),
-      {
-        columns: ["run_id", "location", "source", "status", "recorded"],
-        header: {
-          run_id: "Run ID",
-          location: "Location",
-          source: "Source",
-          status: "Status",
-          recorded: "Recorded"
-        },
-        rows: 20,
-        select: false
-      }
-    )}</div>`
-```
+</details>

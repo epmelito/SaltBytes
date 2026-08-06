@@ -156,6 +156,124 @@ async function assertShell(page, section, route) {
   throw new Error("SaltBytes landing link is not reachable by keyboard");
 }
 
+async function assertPipelineMonitoring(page) {
+  await page.waitForFunction(() => {
+    const health = document.querySelector(".pipeline-health");
+    const chart = document.querySelector(".pipeline-reliability svg");
+    const matrix = document.querySelector(".pipeline-matrix");
+    return health && chart && matrix;
+  });
+
+  const state = await page.evaluate(() => {
+    const headings = [...document.querySelectorAll("#observablehq-main h2")]
+      .map((heading) => heading.textContent.trim());
+    const health = document.querySelector(".pipeline-health");
+    const activeExceptions = [...document.querySelectorAll(".pipeline-exception")];
+    const matrix = document.querySelector(".pipeline-matrix");
+    const matrixRows = [...(matrix?.querySelectorAll("tbody tr") ?? [])];
+    const latestRows = [...document.querySelectorAll(".pipeline-runs-table tbody tr")];
+    const shortIds = latestRows.map((row) => ({
+      text: row.querySelector("code")?.textContent ?? "",
+      full: row.querySelector("code")?.title ?? ""
+    }));
+    const details = document.querySelector(".pipeline-details");
+    const reliability = document.querySelector(".pipeline-reliability");
+    return {
+      headings,
+      healthState: health?.dataset.healthState,
+      healthText: health?.textContent ?? "",
+      activeCount: activeExceptions.length,
+      activeText: activeExceptions.map((item) => item.textContent.trim()),
+      matrixRows: matrixRows.length,
+      matrixColumns: matrix?.querySelectorAll("thead th").length ?? 0,
+      attentionCells: matrix?.querySelectorAll(".coverage-failed, .coverage-missing").length ?? 0,
+      latestRows: latestRows.length,
+      shortIds,
+      detailsClosed: details ? !details.open : false,
+      reliabilityCharts: reliability?.querySelectorAll("svg").length ?? 0,
+      oldChartGrid: Boolean(document.querySelector(".chart-grid")),
+      oldSourceHeading: headings.includes("Source success rates"),
+      oldRowsHeading: headings.includes("Rows loaded"),
+      gridMaxWidth: Number.parseFloat(getComputedStyle(health).maxWidth),
+      pageWidth: document.documentElement.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth
+    };
+  });
+
+  const expectedOrder = [
+    "Active failures and missing data",
+    "Recent reliability",
+    "Source and location health",
+    "Latest runs"
+  ];
+  const order = expectedOrder.map((heading) => state.headings.indexOf(heading));
+  if (order.some((index) => index < 0) || order.some((index, position) => position && index <= order[position - 1])) {
+    throw new Error(`Pipeline monitoring hierarchy is incorrect: ${JSON.stringify(state.headings)}`);
+  }
+  if (
+    state.healthState !== "degraded"
+    || !state.healthText.includes("partial forecast data remains available")
+    || !state.healthText.includes("6 of 20 source checks")
+    || state.activeCount !== 6
+    || !state.activeText.some((item) => item.includes("Fetch failed"))
+    || !state.activeText.some((item) => item.includes("Not recorded"))
+  ) {
+    throw new Error(`Pipeline degraded state is incomplete: ${JSON.stringify(state)}`);
+  }
+  if (
+    state.matrixRows !== 5
+    || state.matrixColumns !== 5
+    || state.attentionCells !== 6
+    || state.latestRows < 1
+    || state.latestRows > 10
+    || state.shortIds.some((item) => !item.text.includes("…") || item.full.length <= item.text.length)
+  ) {
+    throw new Error(`Pipeline compact evidence is incomplete: ${JSON.stringify(state)}`);
+  }
+  if (
+    !state.detailsClosed
+    || state.reliabilityCharts !== 1
+    || state.oldChartGrid
+    || state.oldSourceHeading
+    || state.oldRowsHeading
+    || Math.abs(state.gridMaxWidth - 1152) > 2
+    || state.pageWidth > state.viewportWidth
+  ) {
+    throw new Error(`Pipeline layout is incomplete: ${JSON.stringify(state)}`);
+  }
+
+  const details = page.locator(".pipeline-details");
+  await details.locator("summary").focus();
+  const focusStyle = await details.locator("summary").evaluate(
+    (element) => getComputedStyle(element).outlineStyle
+  );
+  if (focusStyle === "none") throw new Error("Pipeline details disclosure has no visible keyboard focus");
+  await details.locator("summary").press("Enter");
+  await page.waitForFunction(() => document.querySelector(".pipeline-details")?.open);
+  const detailText = await details.innerText();
+  if (
+    !detailText.includes("Complete run records")
+    || !detailText.includes("Recent source summary")
+    || !detailText.includes("Raw exception details are deliberately excluded")
+  ) {
+    throw new Error("Pipeline detailed evidence is incomplete");
+  }
+
+  const coverageSummary = await page.locator(".pipeline-section-summary strong").innerText();
+  await selectOption(page, 0, 1, "Pipeline coverage control");
+  await page.waitForFunction(
+    (before) => document.querySelector(".pipeline-section-summary strong")?.textContent !== before,
+    coverageSummary
+  );
+  const selectedCoverage = await page.evaluate(() => ({
+    summary: document.querySelector(".pipeline-section-summary strong")?.textContent ?? "",
+    attentionCells: document.querySelectorAll(".pipeline-matrix .coverage-failed, .pipeline-matrix .coverage-missing").length
+  }));
+  if (!selectedCoverage.summary.includes("All 20 source checks succeeded") || selectedCoverage.attentionCells !== 0) {
+    throw new Error(`Pipeline coverage selection did not update: ${JSON.stringify(selectedCoverage)}`);
+  }
+}
+
 async function assertConditionsHierarchy(page, available) {
   await page.waitForFunction((scoreAvailable) => {
     const headings = [...document.querySelectorAll("#observablehq-main h2")]
@@ -453,13 +571,7 @@ async function run() {
     await openPage(page, `${base}/pipeline-monitoring`, errors);
     await assertShell(page, "Operations and product health", "Pipeline monitoring");
     await page.waitForFunction(() => document.querySelectorAll("select").length === 1);
-    await page.evaluate(() => {
-      window.__saltbytesMutations = 0;
-      new MutationObserver((items) => window.__saltbytesMutations += items.length)
-        .observe(document.body, {childList: true, subtree: true, characterData: true});
-    });
-    await selectOption(page, 0, 1, "Pipeline coverage control");
-    await page.waitForFunction(() => window.__saltbytesMutations > 0);
+    await assertPipelineMonitoring(page);
     await assertScrollableTables(page, "Pipeline monitoring");
     await assertHealthy(page, errors, "Pipeline monitoring");
 
