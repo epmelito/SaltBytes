@@ -105,6 +105,21 @@ async function selectOption(page, index, optionIndex, label) {
   await select.selectOption({index: optionIndex});
 }
 
+async function assertKeyboardFocus(page, locator, label) {
+  await page.locator("body").focus();
+  for (let index = 0; index < 50; index += 1) {
+    await page.keyboard.press("Tab");
+    if (await locator.evaluate((element) => document.activeElement === element)) {
+      const outlineStyle = await locator.evaluate(
+        (element) => getComputedStyle(element).outlineStyle
+      );
+      if (outlineStyle === "none") throw new Error(`${label} has no visible keyboard focus`);
+      return;
+    }
+  }
+  throw new Error(`${label} is not reachable by keyboard`);
+}
+
 async function assertScrollableTables(page, label) {
   try {
     await page.waitForFunction(() => {
@@ -403,11 +418,11 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
   );
 
   const details = page.locator(".revision-details");
-  await details.locator("summary").focus();
-  const focusStyle = await details.locator("summary").evaluate(
-    (element) => getComputedStyle(element).outlineStyle
+  await assertKeyboardFocus(
+    page,
+    details.locator("summary"),
+    "Forecast revision details"
   );
-  if (focusStyle === "none") throw new Error("Forecast revision details have no visible keyboard focus");
   await details.locator("summary").press("Enter");
   await page.waitForFunction(() => document.querySelector(".revision-details")?.open);
   const completeRows = await page.locator(".revision-complete-table tbody tr").count();
@@ -829,6 +844,249 @@ async function assertConditionsVisualizations(page, available) {
   return visualState;
 }
 
+
+async function assertDataProvenance(page) {
+  await page.waitForFunction(() =>
+    document.querySelector('.provenance-verdict[data-traceability-state="complete"]')
+      && document.querySelectorAll(".provenance-source-option").length === 4
+      && document.querySelectorAll(".provenance-lineage li").length === 4
+  );
+
+  const readState = () => page.evaluate(() => {
+    const verdict = document.querySelector(".provenance-verdict");
+    const sourceRows = [...document.querySelectorAll(".provenance-source-option")];
+    const details = document.querySelector(".provenance-details");
+    const locationDetails = document.querySelector(".provenance-location-details");
+    const sourceInspector = document.querySelector(".provenance-source-inspector");
+    const lineage = document.querySelector(".provenance-lineage");
+    const columnNames = ["source", "provider", "captured"];
+    const columnPositions = Object.fromEntries(columnNames.map((column) => [
+      column,
+      sourceRows.map((row) =>
+        row.querySelector(`[data-provenance-column="${column}"]`)?.getBoundingClientRect().left
+      )
+    ]));
+    const columnsAligned = Object.values(columnPositions).every((positions) =>
+      positions.length === 4
+        && positions.every((position) => Number.isFinite(position))
+        && Math.max(...positions) - Math.min(...positions) < 1
+    );
+    return {
+      pageTitle: document.querySelector("#observablehq-main h1")?.textContent.trim() ?? "",
+      introText: document.querySelector(".provenance-intro")?.textContent.trim() ?? "",
+      verdictState: verdict?.dataset.traceabilityState ?? "",
+      headline: verdict?.querySelector("h2")?.textContent.trim() ?? "",
+      verdictText: verdict?.textContent.trim() ?? "",
+      sourceRows: sourceRows.map((row) => ({
+        source: row.dataset.provenanceSource,
+        state: row.dataset.traceabilityState,
+        selected: row.getAttribute("aria-pressed"),
+        text: row.textContent.trim()
+      })),
+      columnsAligned,
+      lineageStages: document.querySelectorAll(".provenance-lineage li").length,
+      detailsClosed: !details?.open,
+      locationDetailsClosed: !locationDetails?.open,
+      selectedSource: sourceInspector?.dataset.selectedSource ?? "",
+      detailsBeforeLineage: Boolean(
+        sourceInspector
+          && lineage
+          && (sourceInspector.compareDocumentPosition(lineage) & Node.DOCUMENT_POSITION_FOLLOWING)
+      ),
+      selectCount: document.querySelectorAll("select").length,
+      repeatedHealthyDetail: document.querySelector(".provenance-source-list")?.innerText
+        .includes("Source identity and preserved snapshot are available.") ?? false,
+      oldInventoryLanguage: /persisted shoreline orientation/i.test(document.body.innerText),
+      internalExportNote: /excludes raw file paths|private storage metadata/i
+        .test(document.body.innerText),
+      pageWidth: document.documentElement.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth
+    };
+  });
+
+  const initial = await readState();
+  if (
+    initial.pageTitle !== "Forecast sources"
+    || !initial.introText.includes("providers and preserved snapshots")
+    || initial.verdictState !== "complete"
+    || initial.headline !== "All four data sources are traceable"
+    || !initial.verdictText.includes("Jennette's Pier")
+    || !initial.verdictText.includes("4 of 4")
+    || initial.sourceRows.length !== 4
+    || initial.sourceRows.some((row) => row.state !== "complete")
+    || initial.sourceRows.filter((row) => row.selected === "true").length !== 1
+    || initial.sourceRows.find((row) => row.selected === "true")?.source !== "weather"
+    || !initial.sourceRows.some((row) => row.text.includes("NOAA Tides and Currents"))
+    || initial.sourceRows.filter((row) => row.text.includes("Open-Meteo")).length !== 3
+    || !initial.columnsAligned
+    || initial.lineageStages !== 4
+    || !initial.detailsClosed
+    || !initial.locationDetailsClosed
+    || initial.selectedSource !== "weather"
+    || !initial.detailsBeforeLineage
+    || initial.selectCount !== 1
+    || initial.repeatedHealthyDetail
+    || initial.oldInventoryLanguage
+    || initial.internalExportNote
+    || initial.pageWidth > initial.viewportWidth
+  ) {
+    throw new Error(`Forecast sources complete state is incorrect: ${JSON.stringify(initial)}`);
+  }
+
+  const tideButton = page.locator('[data-provenance-source="tide"]');
+  await assertKeyboardFocus(page, tideButton, "Forecast source choices");
+  await tideButton.press("Enter");
+  await page.waitForFunction(() =>
+    document.querySelector(".provenance-source-inspector")?.dataset.selectedSource === "tide"
+      && document.querySelector('[data-provenance-source="tide"]')?.getAttribute("aria-pressed") === "true"
+  );
+
+  const tideState = await readState();
+  if (
+    tideState.selectedSource !== "tide"
+    || tideState.sourceRows.find((row) => row.source === "tide")?.selected !== "true"
+  ) {
+    throw new Error(`Forecast source selection is incorrect: ${JSON.stringify(tideState)}`);
+  }
+
+  const details = page.locator(".provenance-details");
+  await assertKeyboardFocus(
+    page,
+    details.locator("summary"),
+    "Forecast source details"
+  );
+  await details.locator("summary").press("Enter");
+  await page.waitForFunction(() => document.querySelector(".provenance-details")?.open);
+  const detailText = await details.textContent();
+  if (
+    !detailText.includes("run-20260802T120000Z-jennettes_pier-tide")
+    || !detailText.includes("8652226")
+    || !detailText.includes("Tide prediction relationship")
+    || !detailText.includes("Coastal relationship")
+    || !detailText.includes("Direct use at the Atlantic-facing pier")
+    || detailText.includes("Location orientation context")
+  ) {
+    throw new Error("Forecast source technical evidence is incomplete or contains repeated location metadata");
+  }
+
+  const locationDetails = page.locator(".provenance-location-details");
+  await locationDetails.locator("summary").press("Enter");
+  await page.waitForFunction(() => document.querySelector(".provenance-location-details")?.open);
+  const locationDetailText = await locationDetails.textContent();
+  if (
+    !locationDetailText.includes("Direction straight out from shore")
+    || !locationDetailText.includes("East northeast (75°)")
+    || !locationDetailText.includes("Direction the pier points offshore")
+    || !locationDetailText.includes("East northeast (70°)")
+    || !locationDetailText.includes("Estimated from satellite imagery")
+    || !locationDetailText.includes("Google Maps satellite imagery reviewed 2026-08-01")
+    || !locationDetailText.includes("Direction limitation")
+  ) {
+    throw new Error("Forecast source location directions are incomplete");
+  }
+
+  const initialLocation = await page.locator(".provenance-verdict").innerText();
+  await selectOption(page, 0, 1, "Forecast sources location control");
+  await page.waitForFunction(
+    (before) => document.querySelector(".provenance-verdict")?.innerText !== before,
+    initialLocation
+  );
+  const updatedLocation = await page.locator(".provenance-verdict").innerText();
+  if (!updatedLocation.includes("Beach Access Ramp 72")) {
+    throw new Error("Forecast sources location control did not update the traceability scope");
+  }
+}
+
+async function assertDataProvenanceIncompleteStates(page, base, errors) {
+  const provenancePattern = "**/provenance.*.json";
+  const longSnapshotId = `snapshot-${"x".repeat(220)}`;
+  const incompleteHandler = async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    const targetLocation = payload[0].location_id;
+    const modified = payload.map((row) => {
+      if (row.location_id !== targetLocation) return row;
+      if (row.source === "weather") {
+        return {...row, captured_at: null, model_selector: null};
+      }
+      if (row.source === "wave") {
+        return {...row, snapshot_id: null, captured_at: null, model_selector: null};
+      }
+      if (row.source === "sst") {
+        return {...row, snapshot_id: longSnapshotId};
+      }
+      return row;
+    });
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify(modified)
+    });
+  };
+
+  await page.route(provenancePattern, incompleteHandler);
+  await openPage(page, `${base}/data-provenance`, errors);
+  await page.waitForFunction(() =>
+    document.querySelector(".provenance-verdict")?.dataset.traceabilityState === "attention"
+  );
+
+  const state = await page.evaluate(() => ({
+    headline: document.querySelector(".provenance-verdict h2")?.textContent.trim() ?? "",
+    verdictText: document.querySelector(".provenance-verdict")?.textContent.trim() ?? "",
+    incompleteRows: document.querySelectorAll(
+      '.provenance-source-option[data-traceability-state="incomplete"]'
+    ).length,
+    missingRows: document.querySelectorAll(
+      '.provenance-source-option[data-traceability-state="missing"]'
+    ).length,
+    completeRows: document.querySelectorAll(
+      '.provenance-source-option[data-traceability-state="complete"]'
+    ).length,
+    exceptionItems: document.querySelectorAll(".provenance-exception-list li").length,
+    pageWidth: document.documentElement.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth
+  }));
+
+  if (
+    state.headline !== "2 data sources need attention"
+    || !state.verdictText.includes("2 of 4")
+    || !state.verdictText.includes("Weather")
+    || !state.verdictText.includes("Wave")
+    || state.incompleteRows !== 1
+    || state.missingRows !== 1
+    || state.completeRows !== 2
+    || state.exceptionItems !== 2
+    || state.pageWidth > state.viewportWidth
+  ) {
+    throw new Error(`Forecast sources incomplete state is incorrect: ${JSON.stringify(state)}`);
+  }
+
+  await page.locator('[data-provenance-source="sst"]').click();
+  await page.waitForFunction(() =>
+    document.querySelector(".provenance-source-inspector")?.dataset.selectedSource === "sst"
+  );
+  const details = page.locator(".provenance-details");
+  await details.locator("summary").press("Enter");
+  await page.waitForFunction(() => document.querySelector(".provenance-details")?.open);
+  const identifier = page.locator('[data-provenance-identifier="snapshot"]');
+  const identifierState = await identifier.evaluate((element) => ({
+    text: element.textContent,
+    width: element.getBoundingClientRect().width,
+    parentWidth: element.parentElement.getBoundingClientRect().width,
+    pageWidth: document.documentElement.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth
+  }));
+  if (
+    identifierState.text !== longSnapshotId
+    || identifierState.width > identifierState.parentWidth + 1
+    || identifierState.pageWidth > identifierState.viewportWidth
+  ) {
+    throw new Error(`Forecast sources long identifier handling failed: ${JSON.stringify(identifierState)}`);
+  }
+
+  await page.unroute(provenancePattern, incompleteHandler);
+}
+
 async function run() {
   const {server, port} = await startServer();
   const browser = await chromium.launch({
@@ -903,43 +1161,11 @@ async function run() {
     await assertHealthy(page, errors, "Pipeline monitoring");
 
     await openPage(page, `${base}/data-provenance`, errors);
-    await assertShell(page, "Operations and product health", "Data provenance");
-    await page.waitForFunction(() => document.querySelectorAll("select").length === 2);
-    const metricValues = page.locator(".metric-card .metric-value");
-    await page.waitForFunction(() =>
-      document.body.innerText.includes("Tide relationship metadata is available")
-    );
-    const initialProvenance = await page.locator("body").textContent();
-    if (
-      initialProvenance.includes("${isTide ? html`")
-      || initialProvenance.includes("Prediction location")
-    ) {
-      throw new Error("Data provenance tide content did not initialize correctly");
-    }
-    const sourceValue = await metricValues.nth(1).innerText();
-    const sourceControl = page.locator("select").nth(1);
-    const sourceLabels = await sourceControl.locator("option").allTextContents();
-    const tideIndex = sourceLabels.findIndex((label) => label.trim() === "Tide");
-    if (tideIndex < 0) {
-      throw new Error("Data provenance Tide source option is not populated");
-    }
-    await sourceControl.selectOption({index: tideIndex});
-    await page.waitForFunction(
-      (before) => document.querySelectorAll(".metric-card .metric-value")[1]?.innerText !== before,
-      sourceValue
-    );
-    await page.waitForFunction(() => {
-      const text = document.body.textContent;
-      return text.includes("Prediction location")
-        && !text.includes("Tide relationship metadata is available");
-    });
-    const provenanceLocation = await metricValues.nth(0).innerText();
-    await selectOption(page, 0, 1, "Data provenance location control");
-    await page.waitForFunction(
-      (before) => document.querySelector(".metric-card .metric-value")?.innerText !== before,
-      provenanceLocation
-    );
-    await assertHealthy(page, errors, "Data provenance");
+    await assertShell(page, "Operations and product health", "Forecast sources");
+    await page.waitForFunction(() => document.querySelectorAll("select").length === 1);
+    await assertDataProvenance(page);
+    await assertHealthy(page, errors, "Forecast sources");
+    await assertDataProvenanceIncompleteStates(page, base, errors);
 
     await page.emulateMedia({colorScheme: "dark"});
     await openPage(page, `${base}/conditions`, errors);

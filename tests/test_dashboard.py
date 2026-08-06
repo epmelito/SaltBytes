@@ -289,6 +289,28 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert "effective_wind_kmh" not in serialized_export
 
 
+def test_export_dashboard_data_preserves_expected_source_without_snapshot_reference(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    output_path = tmp_path / "dashboard-data"
+    _seed_dashboard_database(database_path)
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(
+            "delete from wave_hourly where snapshot_id = 'current-wave'"
+        )
+
+    export_dashboard_data(_config(database_path), output_path)
+
+    provenance = _read_json(output_path, "provenance.json")
+    assert len(provenance) == 4
+    wave = next(row for row in provenance if row["source"] == "wave")
+    assert wave["location_id"] == "jennettes_pier"
+    assert wave["snapshot_id"] is None
+    assert wave["captured_at"] is None
+    assert wave["model_selector"] is None
+
+
 @pytest.mark.parametrize(
     ("statement", "reason"),
     [

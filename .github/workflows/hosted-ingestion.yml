@@ -196,7 +196,7 @@ jobs:
                 <a class="destination" href="dashboard/pipeline-monitoring">
                   <p class="destination-label">For product and technical review</p>
                   <strong>Operations and product health</strong>
-                  <span>Review pipeline status, forecast revisions, and the provenance behind the published data.</span>
+                  <span>Review pipeline status, forecast revisions, and the sources behind the published data.</span>
                 </a>
               </nav>
               <p class="secondary">Static reports: <a href="conditions/">Conditions report</a><a href="operations/">Operations report</a></p>
