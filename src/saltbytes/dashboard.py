@@ -423,7 +423,16 @@ def _dashboard_payloads(
     provenance = _query(
         connection,
         """
-        with snapshot_references as (
+        with expected_sources as (
+            select *
+            from (values
+                ('weather', 1),
+                ('wave', 2),
+                ('sst', 3),
+                ('tide', 4)
+            ) as sources(source, source_order)
+        ),
+        snapshot_references as (
             select distinct location_id, 'weather' as source,
                 weather_snapshot_id as snapshot_id
             from coastal_conditions_hourly
@@ -442,7 +451,7 @@ def _dashboard_payloads(
             where run_id = ? and tide_snapshot_id is not null
         )
         select
-            snapshot_refs.location_id,
+            run_locations.location_id,
             run_locations.fishing_context,
             run_locations.shore_normal_azimuth_degrees,
             run_locations.pier_seaward_azimuth_degrees,
@@ -450,7 +459,7 @@ def _dashboard_payloads(
             run_locations.orientation_source,
             run_locations.orientation_reviewed_at,
             run_locations.orientation_limitation,
-            snapshot_refs.source,
+            expected_sources.source,
             snapshot_refs.snapshot_id,
             snapshots.captured_at,
             snapshots.model_selector,
@@ -477,15 +486,20 @@ def _dashboard_payloads(
             tides.distance_km,
             tides.coastal_relationship,
             tides.known_limitation
-        from snapshot_references as snapshot_refs
-        inner join forecast_snapshots as snapshots
+        from run_locations
+        cross join expected_sources
+        left join snapshot_references as snapshot_refs
+            on snapshot_refs.location_id = run_locations.location_id
+            and snapshot_refs.source = expected_sources.source
+        left join forecast_snapshots as snapshots
             on snapshots.snapshot_id = snapshot_refs.snapshot_id
-        inner join run_locations
-            on run_locations.run_id = ?
-            and run_locations.location_id = snapshot_refs.location_id
         left join tide_snapshots as tides
             on tides.snapshot_id = snapshot_refs.snapshot_id
-        order by snapshot_refs.location_id, snapshot_refs.source, snapshot_refs.snapshot_id
+        where run_locations.run_id = ?
+        order by
+            run_locations.location_id,
+            expected_sources.source_order,
+            snapshot_refs.snapshot_id
         """,
         [run_id, run_id, run_id, run_id, run_id],
     )

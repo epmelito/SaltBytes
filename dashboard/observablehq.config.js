@@ -16,7 +16,7 @@ export default {
       pages: [
         {name: "Pipeline monitoring", path: "/pipeline-monitoring"},
         {name: "Forecast revisions", path: "/forecast-revisions"},
-        {name: "Data provenance", path: "/data-provenance"}
+        {name: "Forecast sources", path: "/data-provenance"}
       ]
     }
   ],
