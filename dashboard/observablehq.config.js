@@ -1,9 +1,13 @@
+import {themeControlMarkup, themeHeadMarkup} from "./theme.js";
+
 export default {
   title: "SaltBytes",
   root: "src",
   output: "dist",
   style: "style.css",
-  header: "<div class=\"shell-header\"><a class=\"shell-home\" href=\"https://epmelito.github.io/SaltBytes/\" target=\"_self\">SaltBytes</a><span>North Carolina coastal forecasts and product health</span></div>",
+  head: themeHeadMarkup,
+  home: "SaltBytes",
+  header: `<div class="shell-header"><div class="shell-brand"><a class="shell-home" href="https://epmelito.github.io/SaltBytes/" target="_self">SaltBytes</a><span class="shell-tagline">North Carolina coastal forecasts and product health</span></div>${themeControlMarkup}</div>`,
   pages: [
     {
       name: "Coastal conditions",

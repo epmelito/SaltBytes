@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "observable build",
+    "build:landing": "node scripts/write-landing.mjs",
     "dev": "observable preview",
     "test:runtime": "node scripts/runtime-smoke.mjs"
   },

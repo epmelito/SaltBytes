@@ -143,19 +143,58 @@ async function assertShell(page, section, route) {
       const activeSection = document.querySelector("#observablehq-sidebar section.observablehq-section-active > summary");
       const activeRoute = document.querySelector("#observablehq-sidebar .observablehq-link-active > a");
       const home = document.querySelector(".shell-home");
+      const themeControl = document.querySelector("[data-saltbytes-theme-control]");
       return activeSection?.textContent.trim() === sectionName
         && activeRoute?.textContent.trim() === routeName
-        && home?.href === landingUrl;
+        && home?.href === landingUrl
+        && themeControl
+        && themeControl.querySelector('[data-saltbytes-theme-choice][aria-pressed="true"]');
     },
     {sectionName: section, routeName: route, landingUrl: publicLandingUrl}
   );
   const colors = await page.locator(".shell-home").evaluate((element) => ({
     home: getComputedStyle(element).color,
-    header: getComputedStyle(element.parentElement).color,
+    header: getComputedStyle(element.closest(".shell-header")).color,
     page: getComputedStyle(document.body).backgroundColor
   }));
   if (colors.home === colors.page || colors.header === colors.page) {
     throw new Error("dashboard shell text is not visible against the page background");
+  }
+  const shellLayout = await page.evaluate(() => {
+    const main = document.querySelector("#observablehq-main");
+    const themeControl = document.querySelector("[data-saltbytes-theme-control]");
+    const sidebarHome = [...document.querySelectorAll("#observablehq-sidebar a")].find(
+      (anchor) => anchor.textContent.trim() === "SaltBytes"
+    );
+    const headerHome = document.querySelector(".shell-home");
+    const headingAnchors = [...document.querySelectorAll(
+      '#observablehq-main :is(h2, h3) > a[data-saltbytes-heading-anchor="true"]'
+    )];
+    return {
+      sidebarHomeHref: sidebarHome?.href ?? null,
+      headerHomeHref: headerHome?.href ?? null,
+      themeRightGap: main && themeControl
+        ? Math.abs(main.getBoundingClientRect().right - themeControl.getBoundingClientRect().right)
+        : null,
+      headingAnchorCount: headingAnchors.length,
+      headingAnchorsNoninteractive: headingAnchors.every(
+        (anchor) => !anchor.hasAttribute("href") && anchor.tabIndex === -1
+      ),
+      headingTargetsPreserved: headingAnchors.every(
+        (anchor) => Boolean(anchor.parentElement?.id)
+      )
+    };
+  });
+  if (
+    shellLayout.sidebarHomeHref !== "https://epmelito.github.io/SaltBytes/"
+    || shellLayout.headerHomeHref !== "https://epmelito.github.io/SaltBytes/"
+    || shellLayout.themeRightGap === null
+    || shellLayout.themeRightGap > 32
+    || shellLayout.headingAnchorCount === 0
+    || !shellLayout.headingAnchorsNoninteractive
+    || !shellLayout.headingTargetsPreserved
+  ) {
+    throw new Error(`dashboard shell polish is incomplete: ${JSON.stringify(shellLayout)}`);
   }
   await page.locator("body").focus();
   for (let index = 0; index < 20; index += 1) {
@@ -169,6 +208,64 @@ async function assertShell(page, section, route) {
     }
   }
   throw new Error("SaltBytes landing link is not reachable by keyboard");
+}
+
+async function assertThemeBehavior(page, base, errors) {
+  await page.evaluate(() => localStorage.removeItem("saltbytes-theme"));
+  await page.emulateMedia({colorScheme: "light"});
+  await openPage(page, `${base}/conditions`, errors);
+
+  const readTheme = () => page.evaluate(() => ({
+    resolved: document.documentElement.dataset.saltbytesTheme,
+    preference: document.documentElement.dataset.saltbytesThemePreference,
+    stored: localStorage.getItem("saltbytes-theme"),
+    activeChoice: document.querySelector(
+      '[data-saltbytes-theme-choice][aria-pressed="true"]'
+    )?.dataset.saltbytesThemeChoice
+  }));
+
+  await page.waitForFunction(() =>
+    document.documentElement.dataset.saltbytesTheme === "light"
+      && document.querySelector('[data-saltbytes-theme-choice="system"]')?.getAttribute("aria-pressed") === "true"
+  );
+  let state = await readTheme();
+  if (state.resolved !== "light" || state.preference !== "system" || state.stored !== null) {
+    throw new Error(`System theme default is incorrect: ${JSON.stringify(state)}`);
+  }
+
+  await page.locator('[data-saltbytes-theme-choice="dark"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.saltbytesTheme === "dark");
+  state = await readTheme();
+  if (state.preference !== "dark" || state.stored !== "dark" || state.activeChoice !== "dark") {
+    throw new Error(`Dark theme selection did not persist: ${JSON.stringify(state)}`);
+  }
+
+  await openPage(page, `${base}/pipeline-monitoring`, errors);
+  await page.reload({waitUntil: "networkidle"});
+  state = await readTheme();
+  if (state.resolved !== "dark" || state.preference !== "dark" || state.activeChoice !== "dark") {
+    throw new Error(`Dark theme did not persist across routes and refresh: ${JSON.stringify(state)}`);
+  }
+
+  await page.locator('[data-saltbytes-theme-choice="system"]').click();
+  await page.emulateMedia({colorScheme: "dark"});
+  await page.waitForFunction(() => document.documentElement.dataset.saltbytesTheme === "dark");
+  await page.emulateMedia({colorScheme: "light"});
+  await page.waitForFunction(() => document.documentElement.dataset.saltbytesTheme === "light");
+  state = await readTheme();
+  if (state.preference !== "system" || state.stored !== "system" || state.activeChoice !== "system") {
+    throw new Error(`System theme did not follow the operating system preference: ${JSON.stringify(state)}`);
+  }
+
+  await page.locator('[data-saltbytes-theme-choice="light"]').click();
+  await page.emulateMedia({colorScheme: "dark"});
+  state = await readTheme();
+  if (state.resolved !== "light" || state.preference !== "light" || state.stored !== "light") {
+    throw new Error(`Explicit light theme did not override the operating system: ${JSON.stringify(state)}`);
+  }
+
+  await page.locator('[data-saltbytes-theme-choice="system"]').click();
+  await page.emulateMedia({colorScheme: "light"});
 }
 
 async function assertForecastRevisions(page) {
@@ -1167,13 +1264,7 @@ async function run() {
     await assertHealthy(page, errors, "Forecast sources");
     await assertDataProvenanceIncompleteStates(page, base, errors);
 
-    await page.emulateMedia({colorScheme: "dark"});
-    await openPage(page, `${base}/conditions`, errors);
-    await assertShell(page, "Coastal conditions", "Conditions");
-    await openPage(page, `${base}/pipeline-monitoring`, errors);
-    await assertShell(page, "Operations and product health", "Pipeline monitoring");
-    await assertHealthy(page, errors, "Dark dashboard shell");
-    await page.emulateMedia({colorScheme: "light"});
+    await assertThemeBehavior(page, base, errors);
 
     for (const route of routes) {
       await openPage(page, `${base}${route}`, errors);

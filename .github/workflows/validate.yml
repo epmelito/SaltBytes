@@ -59,6 +59,10 @@ jobs:
         working-directory: dashboard
         run: npm run build
 
+      - name: build landing page
+        working-directory: dashboard
+        run: npm run build:landing
+
       - name: run dashboard runtime smoke check
         working-directory: dashboard
         run: npm run test:runtime
