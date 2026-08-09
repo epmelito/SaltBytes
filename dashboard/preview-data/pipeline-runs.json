@@ -1,0 +1,18 @@
+[
+  {"completed_at":"2026-08-02T18:02:00Z","duration_seconds":120,"partial_data":true,"rows_loaded":320,"run_id":"run-20260802T180000Z","snapshot_count":11,"started_at":"2026-08-02T18:00:00Z","status":"failed"},
+  {"completed_at":"2026-08-02T12:03:03Z","duration_seconds":183,"partial_data":false,"rows_loaded":720,"run_id":"run-20260802T120000Z","snapshot_count":20,"started_at":"2026-08-02T12:00:00Z","status":"success"},
+  {"completed_at":"2026-08-02T06:02:56Z","duration_seconds":176,"partial_data":false,"rows_loaded":720,"run_id":"run-20260802T060000Z","snapshot_count":20,"started_at":"2026-08-02T06:00:00Z","status":"success"},
+  {"completed_at":"2026-08-02T00:02:49Z","duration_seconds":169,"partial_data":false,"rows_loaded":720,"run_id":"run-20260802T000000Z","snapshot_count":20,"started_at":"2026-08-02T00:00:00Z","status":"success"},
+  {"completed_at":"2026-08-01T18:02:42Z","duration_seconds":162,"partial_data":false,"rows_loaded":720,"run_id":"run-20260801T180000Z","snapshot_count":20,"started_at":"2026-08-01T18:00:00Z","status":"success"},
+  {"completed_at":"2026-08-01T12:05:10Z","duration_seconds":310,"partial_data":false,"rows_loaded":720,"run_id":"run-20260801T120000Z","snapshot_count":20,"started_at":"2026-08-01T12:00:00Z","status":"success"},
+  {"completed_at":"2026-08-01T06:03:03Z","duration_seconds":183,"partial_data":false,"rows_loaded":720,"run_id":"run-20260801T060000Z","snapshot_count":20,"started_at":"2026-08-01T06:00:00Z","status":"success"},
+  {"completed_at":"2026-08-01T00:03:25Z","duration_seconds":205,"partial_data":true,"rows_loaded":480,"run_id":"run-20260801T000000Z","snapshot_count":15,"started_at":"2026-08-01T00:00:00Z","status":"failed"},
+  {"completed_at":"2026-07-31T18:02:49Z","duration_seconds":169,"partial_data":false,"rows_loaded":720,"run_id":"run-20260731T180000Z","snapshot_count":20,"started_at":"2026-07-31T18:00:00Z","status":"success"},
+  {"completed_at":"2026-07-31T12:02:42Z","duration_seconds":162,"partial_data":false,"rows_loaded":720,"run_id":"run-20260731T120000Z","snapshot_count":20,"started_at":"2026-07-31T12:00:00Z","status":"success"},
+  {"completed_at":"2026-07-31T06:01:35Z","duration_seconds":95,"partial_data":false,"rows_loaded":0,"run_id":"run-20260731T060000Z","snapshot_count":3,"started_at":"2026-07-31T06:00:00Z","status":"failed"},
+  {"completed_at":"2026-07-31T00:03:03Z","duration_seconds":183,"partial_data":false,"rows_loaded":720,"run_id":"run-20260731T000000Z","snapshot_count":20,"started_at":"2026-07-31T00:00:00Z","status":"success"},
+  {"completed_at":"2026-07-30T18:02:56Z","duration_seconds":176,"partial_data":false,"rows_loaded":720,"run_id":"run-20260730T180000Z","snapshot_count":20,"started_at":"2026-07-30T18:00:00Z","status":"success"},
+  {"completed_at":"2026-07-30T12:02:49Z","duration_seconds":169,"partial_data":false,"rows_loaded":720,"run_id":"run-20260730T120000Z","snapshot_count":20,"started_at":"2026-07-30T12:00:00Z","status":"success"},
+  {"completed_at":"2026-07-30T06:02:42Z","duration_seconds":162,"partial_data":false,"rows_loaded":720,"run_id":"run-20260730T060000Z","snapshot_count":20,"started_at":"2026-07-30T06:00:00Z","status":"success"},
+  {"completed_at":"2026-07-30T00:02:35Z","duration_seconds":155,"partial_data":false,"rows_loaded":720,"run_id":"run-20260730T000000Z","snapshot_count":20,"started_at":"2026-07-30T00:00:00Z","status":"success"}
+]

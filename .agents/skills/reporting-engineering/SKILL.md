@@ -302,10 +302,13 @@ Validation must match the active mode and risk.
 
 For implementation work, validate:
 
-- representative data volume when chart density, table growth, history length, or
-  responsive behavior depends on scale
-- both deterministic fixtures and representative production scale data in those
-  cases, restoring committed fixtures before final validation and commit
+- representative production shaped data when chart density, table growth,
+  history length, or responsive behavior depends on scale
+- small deterministic fixtures alone are not sufficient visual review evidence
+  in those cases
+- use deterministic fixtures for correctness and representative data for visual
+  review; record the scale and states inspected, then restore committed fixtures
+  before final validation and commit
 - affected source behavior
 - generated production artifact
 - browser behavior

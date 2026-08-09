@@ -883,7 +883,8 @@ async function assertConditionsVisualizations(page, available) {
       selectedTime: forecastTrends?.textContent ?? "",
       waterUnavailable: document.querySelector(".visual-data-unavailable")?.textContent ?? "",
       noOverflow: pageWidth <= viewportWidth,
-      limitedPreview: forecastTrends?.textContent.includes("Only 4 forecast hours are available in this preview.") ?? false,
+      forecastOptionCount: document.querySelectorAll("select")[1]?.options.length ?? 0,
+      limitedPreview: forecastTrends?.textContent.includes("forecast hours are available in this preview.") ?? false,
       localTicks: [...document.querySelectorAll(".forecast-temperature .trend-track svg text")].map((text) => text.textContent),
       gridMaxWidth: Number.parseFloat(getComputedStyle(visualGrid).maxWidth),
       plotLayouts,
@@ -904,7 +905,9 @@ async function assertConditionsVisualizations(page, available) {
     || !visualState.noOverflow
     || visualState.selectedMarkers.some((marker) => !Number.isFinite(marker))
     || !visualState.selectedTime.includes("Selected time:")
-    || !visualState.limitedPreview
+    || visualState.forecastOptionCount < 1
+    || (visualState.forecastOptionCount < 12 && !visualState.limitedPreview)
+    || (visualState.forecastOptionCount >= 12 && visualState.limitedPreview)
     || !Number.isFinite(visualState.gridMaxWidth)
     || visualState.gridMaxWidth > 1152.5
     || visualState.plotLayouts.length !== 3

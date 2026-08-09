@@ -104,9 +104,12 @@ successful run, while monitoring retains recent failed and partial attempts.
 Raw paths, credentials, connection details, and private storage metadata are not
 part of the export contract.
 
-The isolated `dashboard/` project contains deterministic fixture data for local
-and pull request builds. Hosted publication replaces those fixtures with a fresh
-curated export before building the static dashboard.
+The isolated `dashboard/` project contains compact deterministic fixture data
+for local and pull request correctness checks. When presentation depends on data
+volume, a frozen representative dataset can temporarily replace those fixtures
+for visual review and browser checks. That preview data is independent of hosted
+state and must be restored after review. Hosted publication replaces local
+dashboard data with a fresh curated export before building the static dashboard.
 
 ## Hosted ingestion
 
