@@ -120,6 +120,31 @@ The browser reads only the generated JSON and static dashboard assets. It does
 not connect to DuckDB, Azure Blob Storage, authenticated APIs, or a running
 application server.
 
+### Review with representative dashboard data
+
+Use the frozen representative dataset when chart density, table growth, history
+length, or other presentation behavior depends on realistic data volume:
+
+```powershell
+Push-Location dashboard
+npm run preview:data:apply
+npm run build
+npm run test:runtime
+npm run dev
+```
+
+After visual review, stop the preview server and restore the exact dashboard data
+that was present before the representative dataset was applied:
+
+```powershell
+npm run preview:data:restore
+Pop-Location
+```
+
+The apply command refuses to replace an active preview session. Restore refuses
+to overwrite dashboard data that changed while representative preview data was
+active. Restore the normal data before committing dashboard work.
+
 ## Validation
 
 ```powershell
