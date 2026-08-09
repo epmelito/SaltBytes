@@ -5,6 +5,8 @@
   "scripts": {
     "build": "observable build",
     "dev": "observable preview",
+    "preview:data:apply": "node scripts/preview-data.mjs apply",
+    "preview:data:restore": "node scripts/preview-data.mjs restore",
     "test:runtime": "node scripts/runtime-smoke.mjs"
   },
   "dependencies": {
