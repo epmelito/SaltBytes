@@ -146,43 +146,6 @@ const runRows = [...sortedRuns].reverse().map((run) => {
 const recentRuns = sortedRuns.slice(0, 10);
 ```
 
-```js
-const coverageRunId = view(Inputs.select(coverageRunIds, {
-  label: "Coverage run",
-  format: (value) => {
-    const run = sortedRuns.find((item) => item.run_id === value);
-    return `${shortRunId(value)} · ${formatTimestamp(run?.started_at, manifest.display_timezone)}`;
-  },
-  value: latestRun?.run_id && coverageRunIds.includes(latestRun.run_id)
-    ? latestRun.run_id
-    : coverageRunIds[0]
-}));
-```
-
-```js
-const coverageRows = sourceHealth.coverage.filter((row) => row.run_id === coverageRunId);
-const coverageRun = sortedRuns.find((run) => run.run_id === coverageRunId);
-const coverageMatrix = locations.map((location) => ({
-  location,
-  cells: sourceOrder.map((source) => {
-    const row = coverageRows.find((item) =>
-      item.location_id === location.location_id && item.source === source
-    );
-    const status = row?.status ?? "not_recorded";
-    return {source, status, label: statusMeaning(status), key: statusKey(status)};
-  })
-}));
-const coverageExceptions = coverageMatrix.flatMap((row) =>
-  row.cells
-    .filter((cell) => cell.status !== "success")
-    .map((cell) => ({location: row.location, ...cell}))
-);
-const coverageCheckCount = locations.length * sourceOrder.length;
-const coverageSummary = coverageExceptions.length
-  ? `${coverageExceptions.length} of ${coverageCheckCount} source checks need attention.`
-  : `All ${coverageCheckCount} source checks succeeded.`;
-```
-
 # Pipeline monitoring
 
 Pipeline health and recent reliability captured when this dashboard was last
@@ -321,6 +284,43 @@ The selected run defaults to the latest attempt. Successful checks stay quiet so
 failures and missing records remain easy to scan.
 
 ```js
+const coverageRunId = view(Inputs.select(coverageRunIds, {
+  label: "Coverage run",
+  format: (value) => {
+    const run = sortedRuns.find((item) => item.run_id === value);
+    return `${shortRunId(value)} · ${formatTimestamp(run?.started_at, manifest.display_timezone)}`;
+  },
+  value: latestRun?.run_id && coverageRunIds.includes(latestRun.run_id)
+    ? latestRun.run_id
+    : coverageRunIds[0]
+}));
+```
+
+```js
+const coverageRows = sourceHealth.coverage.filter((row) => row.run_id === coverageRunId);
+const coverageRun = sortedRuns.find((run) => run.run_id === coverageRunId);
+const coverageMatrix = locations.map((location) => ({
+  location,
+  cells: sourceOrder.map((source) => {
+    const row = coverageRows.find((item) =>
+      item.location_id === location.location_id && item.source === source
+    );
+    const status = row?.status ?? "not_recorded";
+    return {source, status, label: statusMeaning(status), key: statusKey(status)};
+  })
+}));
+const coverageExceptions = coverageMatrix.flatMap((row) =>
+  row.cells
+    .filter((cell) => cell.status !== "success")
+    .map((cell) => ({location: row.location, ...cell}))
+);
+const coverageCheckCount = locations.length * sourceOrder.length;
+const coverageSummary = coverageExceptions.length
+  ? `${coverageExceptions.length} of ${coverageCheckCount} source checks need attention.`
+  : `All ${coverageCheckCount} source checks succeeded.`;
+```
+
+```js
 display(html`<section class="pipeline-coverage" aria-live="polite">
   <div class="pipeline-section-summary">
     <strong>${coverageSummary}</strong>
@@ -349,11 +349,10 @@ display(html`<section class="pipeline-coverage" aria-live="polite">
 
 ## Latest runs
 
-Routine successful records are condensed. Full identifiers and exact row evidence
-remain available below.
+<p class="pipeline-section-note">Recent runs are shown here. Full run IDs and complete records are available below.</p>
 
 ```js
-display(html`<div class="table-scroll">
+display(html`<div class="table-scroll pipeline-runs-scroll">
   <table class="pipeline-runs-table">
     <thead>
       <tr>
@@ -378,8 +377,7 @@ display(html`<div class="table-scroll">
 <details class="pipeline-details">
 <summary>Detailed run evidence</summary>
 
-<p>Exact records remain available for investigation without dominating the
-current health view.</p>
+<p class="pipeline-section-note">Complete records are available here when more detail is needed.</p>
 
 ### Complete run records
 
@@ -439,7 +437,6 @@ display(html`<div class="table-scroll">
 </div>`);
 ```
 
-<p class="page-note">Source failures expose public-safe status labels only.
-Raw exception details are deliberately excluded from the published dataset.</p>
+<p class="page-note">The public dashboard shows source status labels without raw error details.</p>
 
 </details>

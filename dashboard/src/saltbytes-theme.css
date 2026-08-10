@@ -1,0 +1,223 @@
+:root,
+html[data-saltbytes-theme="light"] {
+  --theme-foreground: #17313a;
+  --theme-background: #e5efee;
+  --theme-background-alt: #edf4f3;
+  --theme-foreground-alt: #123f49;
+  --theme-foreground-muted: #526c74;
+  --theme-foreground-faint: #b9ced2;
+  --theme-foreground-fainter: #d2dfe1;
+  --theme-foreground-faintest: #e1eaeb;
+  --theme-foreground-focus: #0f6676;
+  --saltbytes-shell-emphasis: #0f6676;
+  --saltbytes-canvas: #e5efee;
+  --saltbytes-sidebar: #dce9e8;
+  --saltbytes-border: #b4c9cc;
+  --saltbytes-muted: #526c74;
+  --saltbytes-surface: #edf4f3;
+  --saltbytes-surface-raised: #f4f8f7;
+  --saltbytes-shadow: 0 0.8rem 2.2rem rgba(15, 58, 70, 0.075);
+  --saltbytes-shadow-hover: 0 1rem 2.6rem rgba(15, 58, 70, 0.13);
+  --saltbytes-wind: #2f6f8f;
+  --saltbytes-gust: #76aabd;
+  --saltbytes-wave: #2a827d;
+  --saltbytes-temperature: #4f8e9b;
+  --saltbytes-selected: #9a7427;
+  --pipeline-healthy: #227e73;
+  --pipeline-partial: #8d681d;
+  --pipeline-failed: #a85443;
+  --pipeline-unknown: #60777e;
+  --saltbytes-font-display: Georgia, "Times New Roman", serif;
+  --saltbytes-font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html[data-saltbytes-theme="dark"] {
+  --theme-foreground: #e6eff1;
+  --theme-background: #0d2027;
+  --theme-background-alt: #132b33;
+  --theme-foreground-alt: #f2f8f9;
+  --theme-foreground-muted: #a8bcc2;
+  --theme-foreground-faint: #3a555d;
+  --theme-foreground-fainter: #2d454d;
+  --theme-foreground-faintest: #233941;
+  --theme-foreground-focus: #75cbd3;
+  --saltbytes-shell-emphasis: #75cbd3;
+  --saltbytes-canvas: #0d2027;
+  --saltbytes-sidebar: #0a1a20;
+  --saltbytes-border: #3a555d;
+  --saltbytes-muted: #a8bcc2;
+  --saltbytes-surface: #132b33;
+  --saltbytes-surface-raised: #17333c;
+  --saltbytes-shadow: 0 0.8rem 2.2rem rgba(0, 0, 0, 0.28);
+  --saltbytes-shadow-hover: 0 1rem 2.8rem rgba(0, 0, 0, 0.4);
+  --saltbytes-wind: #78b8d4;
+  --saltbytes-gust: #a9cfdb;
+  --saltbytes-wave: #67c4b8;
+  --saltbytes-temperature: #8ab8c3;
+  --saltbytes-selected: #d9ba6b;
+  --pipeline-healthy: #64c4b4;
+  --pipeline-partial: #e2bf73;
+  --pipeline-failed: #e79a83;
+  --pipeline-unknown: #9aafb5;
+}
+
+html {
+  min-height: 100%;
+  background: var(--theme-background);
+}
+
+body {
+  min-height: 100vh;
+  color: var(--theme-foreground);
+  background: var(--saltbytes-canvas);
+  font-family: var(--saltbytes-font-body);
+}
+
+.saltbytes-theme-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--saltbytes-muted);
+  font-family: var(--saltbytes-font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.saltbytes-theme-options {
+  display: inline-flex;
+  padding: 0.18rem;
+  border: 1px solid var(--saltbytes-border);
+  border-radius: 0.65rem;
+  background: var(--saltbytes-surface);
+}
+
+.saltbytes-theme-options button {
+  padding: 0.3rem 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
+  color: var(--saltbytes-muted);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.saltbytes-theme-options button[aria-pressed="true"] {
+  color: var(--theme-foreground-alt);
+  background: var(--saltbytes-surface-raised);
+  box-shadow: 0 0.1rem 0.35rem rgba(15, 58, 70, 0.1);
+}
+
+.saltbytes-landing {
+  margin: 0;
+  min-width: 960px;
+}
+
+.saltbytes-landing-main {
+  width: min(72rem, calc(100% - 8rem));
+  margin: 0 auto;
+  padding: 2.5rem 0 5rem;
+}
+
+.saltbytes-landing-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 2.4rem;
+  margin-bottom: 3.2rem;
+}
+
+.saltbytes-landing .eyebrow,
+.saltbytes-landing .destination-label {
+  margin: 0 0 0.75rem;
+  color: var(--saltbytes-shell-emphasis);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.saltbytes-landing h1 {
+  max-width: 14ch;
+  margin: 0;
+  color: var(--theme-foreground-alt);
+  font-family: var(--saltbytes-font-display);
+  font-size: clamp(3.2rem, 6vw, 5.8rem);
+  line-height: 0.96;
+}
+
+.saltbytes-landing .intro {
+  max-width: 45rem;
+  margin: 1.5rem 0 3rem;
+  color: var(--saltbytes-muted);
+  font-size: 1.15rem;
+  line-height: 1.65;
+}
+
+.saltbytes-landing nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.saltbytes-landing .destination {
+  display: block;
+  padding: 1.8rem 1.9rem;
+  border: 1px solid var(--saltbytes-border);
+  border-top: 0.35rem solid var(--saltbytes-shell-emphasis);
+  border-radius: 0.75rem;
+  color: var(--theme-foreground);
+  background: var(--saltbytes-surface-raised);
+  box-shadow: var(--saltbytes-shadow);
+  text-decoration: none;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.saltbytes-landing .destination:hover,
+.saltbytes-landing .destination:focus-visible {
+  border-color: var(--saltbytes-shell-emphasis);
+  box-shadow: var(--saltbytes-shadow-hover);
+  transform: translateY(-0.2rem);
+}
+
+.saltbytes-landing .destination strong,
+.saltbytes-landing .destination span {
+  display: block;
+}
+
+.saltbytes-landing .destination strong {
+  max-width: 16ch;
+  color: var(--theme-foreground-alt);
+  font-family: var(--saltbytes-font-display);
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.saltbytes-landing .destination span {
+  max-width: 32rem;
+  margin-top: 0.9rem;
+  color: var(--saltbytes-muted);
+  line-height: 1.55;
+}
+
+.saltbytes-landing .secondary {
+  display: flex;
+  gap: 1.25rem;
+  margin-top: 2.25rem;
+  color: var(--saltbytes-muted);
+}
+
+.saltbytes-landing .secondary a {
+  color: var(--saltbytes-shell-emphasis);
+  text-underline-offset: 0.2em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

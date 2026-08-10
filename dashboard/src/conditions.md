@@ -60,6 +60,12 @@ const factorLabels = {
   schools_within_casting_range: "Schools within casting range",
   nearshore_sst_accuracy_and_site_representativeness: "Nearshore water temperature accuracy and local representativeness"
 };
+const factorSentenceLabels = {
+  seasonal_alignment: "seasonal timing",
+  thermal_context: "water temperature",
+  wind_fishability: "wind",
+  wave_fishability: "waves"
+};
 const confidenceLabels = {
   location_applicability_confidence: "Fit for this location",
   environmental_source_confidence: "Forecast data",
@@ -71,18 +77,39 @@ const confidenceLabels = {
 const confidenceState = (value) => value ? `${value[0].toUpperCase()}${value.slice(1)}` : "Unavailable";
 const factorItems = (factors) => factors?.map((factor) => factorLabels[factor] ?? factor) ?? [];
 const factorList = (factors) => factorItems(factors).map((factor) => html`<li>${factor}</li>`);
-const joinFactors = (factors) => {
-  const items = factorItems(factors);
+const joinItems = (items) => {
   if (items.length < 2) return items[0] ?? "";
-  return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 };
 const assessmentSummary = (positiveFactors, limitingFactors) => {
-  const positive = joinFactors(positiveFactors);
-  const limiting = joinFactors(limitingFactors);
-  if (positive && limiting) return `${positive} support the assessment, while ${limiting.toLowerCase()} limit it.`;
-  if (positive) return `${positive} support the assessment.`;
-  if (limiting) return `${limiting} limit the assessment.`;
+  const positiveItems = positiveFactors?.map((factor) => factorSentenceLabels[factor] ?? factorLabels[factor] ?? factor) ?? [];
+  const limitingItems = limitingFactors?.map((factor) => factorSentenceLabels[factor] ?? factorLabels[factor] ?? factor) ?? [];
+  const positive = joinItems(positiveItems);
+  const limiting = joinItems(limitingItems);
+  const positiveLead = positive ? `${positive[0].toUpperCase()}${positive.slice(1)}` : "";
+  const limitingLead = limiting ? `${limiting[0].toUpperCase()}${limiting.slice(1)}` : "";
+  const positiveVerb = positiveFactors?.length === 1 && positiveFactors[0] !== "wave_fishability"
+    ? "supports"
+    : "support";
+  const limitingVerb = limitingFactors?.length === 1 && limitingFactors[0] !== "wave_fishability"
+    ? "limits"
+    : "limit";
+  if (positive && limiting) return `${positiveLead} ${positiveVerb} the assessment, while ${limiting} ${limitingVerb} it.`;
+  if (positive) return `${positiveLead} ${positiveVerb} the assessment.`;
+  if (limiting) return `${limitingLead} ${limitingVerb} the assessment.`;
   return "The available forecast factors do not support a more specific summary.";
+};
+const assessmentUnknownFactors = spanishMackerel?.unknown_factors?.filter(
+  (factor) => factor !== "nearshore_sst_accuracy_and_site_representativeness"
+) ?? [];
+const factorHighlight = (factors) => {
+  const items = factors?.map(
+    (factor) => factorSentenceLabels[factor] ?? factorLabels[factor] ?? factor
+  ).slice(0, 2) ?? [];
+  if (!items.length) return "";
+  const first = `${items[0][0].toUpperCase()}${items[0].slice(1)}`;
+  return [first, ...items.slice(1)].join(", ");
 };
 const overallConfidence = spanishMackerel?.confidence?.find((item) => item.identifier === "overall_interpretation_confidence");
 const confidenceDetails = [
@@ -132,7 +159,8 @@ const trendHourKey = new Intl.DateTimeFormat("en-US", {
   hour: "2-digit",
   hourCycle: "h23"
 });
-const trendTickLabel = (value) => trendHourKey.format(value) === "00"
+const trendShowsDate = trendWindowEnd - trendWindowStart >= 20 * 3600_000;
+const trendTickLabel = (value) => trendShowsDate || trendHourKey.format(value) === "00"
   ? `${trendDayLabel.format(value)} · ${trendHourLabel.format(value)}`
   : trendHourLabel.format(value);
 const trendTitle = (row, label, value) => `${label}: ${value}\nForecast time: ${formatTimestamp(row.forecast_time, manifest.display_timezone)}`;
@@ -265,10 +293,10 @@ display(scoreIsAvailable ? html`<section class="conditions-assessment">
   <div class="assessment-support"><div><span class="detail-label">Score</span><strong class="assessment-score">${spanishMackerel.score} / 100</strong></div><div><span class="detail-label">Overall confidence</span><strong>${confidenceState(overallConfidence?.state)}</strong></div></div>
   <p class="assessment-limitation">This assessment does not estimate fish presence, catch likelihood, or safety.</p>
   ${factorItems(spanishMackerel.positive_factors).length || factorItems(spanishMackerel.limiting_factors).length ? html`<div class="assessment-highlights">
-    ${factorItems(spanishMackerel.positive_factors).length ? html`<div><span class="detail-label">Most helpful now</span><p>${factorItems(spanishMackerel.positive_factors).slice(0, 2).join(", ")}</p></div>` : null}
+    ${factorItems(spanishMackerel.positive_factors).length ? html`<div><span class="detail-label">Most helpful now</span><p>${factorHighlight(spanishMackerel.positive_factors)}</p></div>` : null}
     ${factorItems(spanishMackerel.limiting_factors).length ? html`<div><span class="detail-label">Main limitation</span><p>${factorItems(spanishMackerel.limiting_factors).slice(0, 1).join(", ")}</p></div>` : null}
   </div>` : null}
-  ${factorItems(spanishMackerel.unknown_factors).length ? html`<section class="assessment-unknowns"><h4>What SaltBytes cannot observe</h4><ul>${factorList(spanishMackerel.unknown_factors)}</ul></section>` : null}
+  ${assessmentUnknownFactors.length ? html`<section class="assessment-unknowns"><h4>What SaltBytes cannot observe</h4><ul>${factorList(assessmentUnknownFactors)}</ul></section>` : null}
   <details><summary>Assessment factors and confidence</summary><div class="assessment-details">
     ${factorItems(spanishMackerel.positive_factors).length ? html`<div><h4>Supporting conditions</h4><ul>${factorList(spanishMackerel.positive_factors)}</ul></div>` : null}
     ${factorItems(spanishMackerel.limiting_factors).length ? html`<div><h4>Limiting conditions</h4><ul>${factorList(spanishMackerel.limiting_factors)}</ul></div>` : null}
@@ -285,11 +313,14 @@ display(scoreIsAvailable ? html`<section class="conditions-assessment">
 
 ~~~js
 display(html`<section class="conditions-current">
-  <article><span class="detail-label">Wind</span><h3>${formatNumber(selected?.wind_speed_10m, 1, "km/h")} with gusts to ${formatNumber(selected?.wind_gusts_10m, 1, "km/h")}</h3><p>From the ${compassDirection(selected?.wind_direction_10m)} (${formatNumber(selected?.wind_direction_10m, 0)}°).</p></article>
-  <article><span class="detail-label">Waves</span><h3>${formatNumber(selected?.wave_height, 1, "m")} every ${formatNumber(selected?.wave_period, 1, "s")}</h3><p>From the ${compassDirection(selected?.wave_direction)} (${formatNumber(selected?.wave_direction, 0)}°).</p></article>
-  <article><span class="detail-label">Water temperature</span><h3>${formatNumber(selected?.sea_surface_temperature, 1, "°C")}</h3></article>
-  <article><span class="detail-label">Precipitation</span><h3>${selected?.precipitation_probability === null || selected?.precipitation_probability === undefined ? "Unavailable" : `${formatNumber(selected?.precipitation_probability, 0, "%")} chance`}</h3><p>${selected?.precipitation === null || selected?.precipitation === undefined ? "Expected amount unavailable." : `${formatNumber(selected?.precipitation, 1, "mm")} expected.`}</p></article>
-  <article class="conditions-tide"><span class="detail-label">Tide</span><h3>${selected?.tide_phase ?? "Unavailable"}</h3><details><summary>Tide details</summary><div class="tide-events"><div><strong>Previous ${selected?.tide_previous_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_previous_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(selected?.tide_previous_predicted_water_level, 1, "m")}</span></div><div><strong>Next ${selected?.tide_next_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_next_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(selected?.tide_next_predicted_water_level, 1, "m")}</span></div></div></details></article>
+  <div class="conditions-current-summary">
+    <article><span class="detail-label">Wind</span><h3>${formatNumber(selected?.wind_speed_10m, 1, "km/h")} with gusts to ${formatNumber(selected?.wind_gusts_10m, 1, "km/h")}</h3><p>From the ${compassDirection(selected?.wind_direction_10m)} (${formatNumber(selected?.wind_direction_10m, 0)}°).</p></article>
+    <article><span class="detail-label">Waves</span><h3>${formatNumber(selected?.wave_height, 1, "m")} every ${formatNumber(selected?.wave_period, 1, "s")}</h3><p>From the ${compassDirection(selected?.wave_direction)} (${formatNumber(selected?.wave_direction, 0)}°).</p></article>
+    <article><span class="detail-label">Water temperature</span><h3>${formatNumber(selected?.sea_surface_temperature, 1, "°C")}</h3></article>
+    <article><span class="detail-label">Precipitation</span><h3>${selected?.precipitation_probability === null || selected?.precipitation_probability === undefined ? "Unavailable" : `${formatNumber(selected?.precipitation_probability, 0, "%")} chance`}</h3><p>${selected?.precipitation === null || selected?.precipitation === undefined ? "Expected amount unavailable." : `${formatNumber(selected?.precipitation, 1, "mm")} expected.`}</p></article>
+    <article class="conditions-tide"><span class="detail-label">Tide</span><h3>${selected?.tide_phase ?? "Unavailable"}</h3></article>
+  </div>
+  <details class="conditions-tide-details"><summary>Tide details</summary><div class="tide-events"><div><strong>Previous ${selected?.tide_previous_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_previous_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(selected?.tide_previous_predicted_water_level, 1, "m")}</span></div><div><strong>Next ${selected?.tide_next_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_next_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(selected?.tide_next_predicted_water_level, 1, "m")}</span></div></div></details>
 </section>`);
 ~~~
 
@@ -310,6 +341,16 @@ const selectedRuleMark = () => Plot.ruleX([selectedForecastDate], {
   strokeWidth: 2.5
 });
 const trendTickCount = (width) => width < 480 ? 3 : width < 760 ? 5 : 7;
+const trendTickValues = (width) => {
+  const dates = trendRows.map((row) => row.forecastDate).filter(Boolean);
+  const count = Math.min(trendTickCount(width), dates.length);
+  if (count <= 1) return dates.slice(0, 1);
+
+  const indexes = Array.from({length: count}, (_, index) =>
+    Math.round(index * (dates.length - 1) / (count - 1))
+  );
+  return [...new Set(indexes)].map((index) => dates[index]);
+};
 const trendPlot = ({width, height, marks, yDomain}) => Plot.plot({
   width,
   height,
@@ -320,7 +361,7 @@ const trendPlot = ({width, height, marks, yDomain}) => Plot.plot({
   x: {
     type: "utc",
     domain: forecastDomain,
-    ticks: trendTickCount(width),
+    ticks: trendTickValues(width),
     tickFormat: trendTickLabel,
     tickPadding: 8,
     label: null,
@@ -499,6 +540,6 @@ display(html`<section class="conditions-visual-grid">
 
   <div class="forecast-limitations">
     <div><strong>Tide times</strong><p>Tide times are predictions for the selected location.</p></div>
-    <div><strong>Water temperature</strong><p>Water temperature comes from a regional marine forecast grid.</p></div>
+    <div><strong>Water temperature</strong><p>Water temperature comes from a regional marine forecast grid, so conditions at the exact fishing location may differ.</p></div>
   </div>
 </details>
