@@ -5,10 +5,16 @@
 Approved product boundary. The Spanish mackerel version 1 methodology is
 approved separately. No scoring implementation is approved by this document.
 
+## Scope
+
+These requirements apply only to the existing Spanish mackerel score and any
+future numeric species method that is explicitly approved. They do not require
+numeric scoring for every species assessment.
+
 ## Purpose
 
-SaltBytes will provide deterministic and explainable 0 to 100 conditions scores
-for individual target species.
+An approved numeric methodology provides a deterministic and explainable 0 to
+100 conditions score for its individual target species.
 
 A species conditions score represents how favorable the available location,
 seasonal, habitat, environmental, and practical fishability conditions are for
@@ -19,7 +25,7 @@ presence.
 
 ## Required score contract
 
-Each species scoring methodology must define:
+Each approved species scoring methodology must define:
 
 - the meaning of the 0 to 100 range
 - the species and location contexts where the score applies
@@ -118,29 +124,20 @@ The methodology does not approve scoring code, persistence schemas, report or
 dashboard behavior, or new data providers. Those choices require a bounded
 implementation work package.
 
-## Future overall fishing conditions score
+## Future general fishing-conditions or fishability score
 
-SaltBytes may later publish an overall fishing conditions score for a location
-and forecast period.
-
-The overall score should represent the quality of relevant species-targeting
-options, not the average catch probability across species.
-
-Its aggregation rule remains deferred until multiple species models exist.
-Future design must resolve:
-
-- species applicability and seasonal relevance
-- treatment of unavailable species scores
-- whether one strong species can dominate the result
-- whether the result uses an average, weighted blend, top-species blend, or
-  another transparent method
-- explanation and confidence across the contributing species
+A general fishing-conditions or fishability score remains a deep-future
+possibility. It is not governed or designed by this numeric-species
+requirements document. Its inputs, meaning, weighting, confidence treatment,
+evidence requirements, and feasibility remain deferred. Individual species
+scores are not prerequisites; any future method requires separate evidence and
+approval.
 
 ## Related governance
 
 - [Project charter](../project-charter.md)
 - [Roadmap](../roadmap.md)
-- [Decision 0010](../decisions/0010-research-backed-fishing-score-direction.md)
+- [Decision 0011](../decisions/0011-location-first-species-assessment-direction.md)
 - [Fishing-condition requirements](fishing-conditions.md)
 - [Analysis-ready feature contract](analysis-ready-features.md)
 - [User-facing language requirements](user-facing-language.md)

@@ -14,22 +14,27 @@ SaltBytes should:
 
 - collect a focused set of coastal environmental data
 - combine it into deterministic and inspectable data products
-- produce explainable 0 to 100 species conditions scores
-- keep score confidence separate from the score itself
-- identify positive, limiting, and unknown factors behind each score
+- provide location-first, species-aware fishing assessments from reusable
+  species knowledge, recent observations, and forecast and site conditions
+- keep assessment confidence and evidence scope separate from the assessment
+- identify positive, limiting, and unknown factors behind each assessment
+- use an explainable numeric species method only when a separately approved
+  methodology supports it
 - preserve missing or rejected source data instead of hiding uncertainty
-- develop a future overall fishing conditions score after multiple species
-  models exist
+- keep factual observations, source advice, forecasts, and environmental
+  observations for forecast verification distinct
+- consider a future general fishing-conditions or fishability score only after
+  the evidence foundation matures
 - demonstrate practical ingestion, validation, persistence, modeling, and
   reporting
 - present reports, dashboards, metrics, explanations, and warnings in clear,
   natural language for recreational anglers and other general users
 - remain simple enough to maintain
 
-A species conditions score represents how favorable the available location,
-seasonal, habitat, environmental, and practical fishability conditions are for
-targeting a species according to approved research. It is a conditions
-alignment index, not a prediction of catch or fish presence.
+A location-first species assessment explains which species may be realistic
+targets in the available context, when the evidence supports that interpretation,
+and why. It is not a prediction of catch or fish presence. Recent observations
+can strengthen an assessment, but cannot be its only basis.
 
 The project should preserve the smallest hosted architecture that keeps data,
 failures, provenance, scoring methodology, and publication behavior
@@ -52,7 +57,7 @@ SaltBytes does not:
 
 - Prefer a simple working result over speculative refinement.
 - Preserve deterministic, traceable behavior.
-- Make scoring assumptions, material contributions, and uncertainty visible.
+- Make assessment assumptions, material contributions, and uncertainty visible.
 - Keep internal research technically precise, but translate user-facing output
   into familiar everyday language without weakening accuracy, limitations, or
   safety meaning.

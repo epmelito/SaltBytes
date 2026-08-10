@@ -5,11 +5,11 @@ limitations, and source inventory are in the consolidated
 [North Carolina shore-fishing species research package](nc-shore-species-research.md).
 Use the linked sections below; do not treat this index as an evidence summary.
 
-The product direction for 0 to 100 species conditions scores is governed by
-[decision 0010](../decisions/0010-research-backed-fishing-score-direction.md)
-and the
-[species conditions scoring requirements](../requirements/species-condition-scoring.md).
-The research package supplies evidence and boundaries. The approved
+The active product direction is governed by the
+[location-first species-assessment decision](../decisions/0011-location-first-species-assessment-direction.md).
+The [species conditions scoring requirements](../requirements/species-condition-scoring.md)
+apply only to approved numeric methods. The research package supplies evidence
+and boundaries. The approved
 [Spanish mackerel methodology](../requirements/spanish-mackerel-conditions-score.md)
 defines the first score formula.
 

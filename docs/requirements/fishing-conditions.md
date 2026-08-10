@@ -3,13 +3,13 @@
 ## Status
 
 This document defines the approved environmental baseline established before
-the current scoring milestone. It does not define a species scoring
+the active location-first assessment direction. It does not define a species
 methodology, formula, threshold, weight, or implementation.
 
-The product direction for species conditions scores is governed by
-[decision 0010](../decisions/0010-research-backed-fishing-score-direction.md)
-and the
-[species conditions scoring requirements](species-condition-scoring.md).
+The active product direction is governed by the
+[location-first species-assessment decision](../decisions/0011-location-first-species-assessment-direction.md).
+The [species conditions scoring requirements](species-condition-scoring.md)
+apply when an explicitly approved numeric method uses this baseline.
 
 ## Purpose
 
@@ -28,9 +28,9 @@ success. Any user-facing presentation of these conditions must follow the
 
 Fishing-quality information and safety information serve different purposes.
 
-Environmental conditions may contribute to deterministic and explainable
-species conditions scores under the separately approved scoring direction.
-This document does not define the formulas, thresholds, weights, or
+Environmental conditions may inform location-first species assessments where
+research supports that relationship. When a separately approved numeric method
+uses this baseline, its methodology governs formulas, thresholds, weights, and
 species-specific interpretation.
 
 Safety-only information must:
@@ -232,11 +232,12 @@ The following remain deferred:
 - catch history
 - lunar phase
 - bathymetry and sandbar state
-- score formulas, thresholds, weights, and validation methods
+- numeric score formulas, thresholds, weights, and validation methods
 
-Species-specific variables and interpretations are governed by the approved
-species research and scoring requirements. Additional data inputs remain
-deferred until separately approved.
+Species-specific variables and interpretations are governed by approved species
+research and the active location-first assessment direction. Numeric methods
+also follow the scoring requirements when separately approved. Additional data
+inputs remain deferred until separately approved.
 
 ## Excluded interpretations
 
@@ -311,7 +312,7 @@ Sources:
 - [NOAA Tides and Currents frequently asked questions](https://tidesandcurrents.noaa.gov/faq.html),
   publication or update date not shown, accessed 2026-07-28
 
-## Provider and scoring boundary
+## Provider and assessment boundary
 
 This requirements document does not:
 
@@ -319,7 +320,8 @@ This requirements document does not:
   provider
 - select a supplemental provider
 - define final source-authority or fallback rules
-- define species score inputs, formulas, thresholds, or weights
+- define species-assessment inputs or, for a separately approved numeric method,
+  formulas, thresholds, or weights
 - determine whether safety products suppress or modify recommendations
 - define retention or scheduling
 - define publication, API, dashboard, Azure, or deployment architecture
@@ -342,6 +344,6 @@ A condition requirement must:
 - [Coastal location requirements](coastal-locations.md)
 - [First-release user and fishing-context decision](../decisions/0001-first-release-user-and-fishing-context.md)
 - [First-release environmental requirement baseline decision](../decisions/0003-first-release-environmental-requirement-baseline.md)
-- [Research backed species conditions scoring direction](../decisions/0010-research-backed-fishing-score-direction.md)
+- [Location-first species-assessment direction](../decisions/0011-location-first-species-assessment-direction.md)
 - [Species conditions scoring requirements](species-condition-scoring.md)
 - [User-facing language requirements](user-facing-language.md)
