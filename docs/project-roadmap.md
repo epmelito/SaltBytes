@@ -84,28 +84,29 @@ species.
 
 ## 5. Make the reports clear and useful
 
-**Status: Current**
+**Status: Complete**
 
-SaltBytes is turning its reports and dashboard from technical output into a
-coherent product for two different needs:
+SaltBytes made its reports and dashboard into a coherent desktop product for two
+different needs:
 
 - anglers need a clear view of coastal conditions and species assessments
 - maintainers need clear evidence about pipeline health, forecast changes, and
   source traceability
 
-The Conditions page, Pipeline Monitoring, and Forecast Revisions have already
-been reorganized around plain language, useful summaries, and deeper evidence
-only when needed.
+The public landing page and dashboard now provide direct routes for those
+audiences. Conditions presents coastal conditions and species assessments;
+Operations presents pipeline health, forecast changes, and source traceability.
+The desktop views use plain language, useful summaries, and deeper evidence only
+when needed.
 
-The remaining work is tracked in the [current roadmap](roadmap.md). This phase
-must finish before SaltBytes starts another major product expansion.
+Mobile refinement and static HTML report redesign remain later work.
 
 ## 6. Add scores for more species
 
 **Status: Likely next direction**
 
-After the reporting phase, SaltBytes is likely to develop scores for more of the
-reviewed shore fishing species.
+SaltBytes may next develop scores for more of the reviewed shore fishing
+species.
 
 Each species will need its own approved method. A new score should use only
 factors supported by the species research, keep confidence separate from the

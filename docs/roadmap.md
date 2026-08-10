@@ -15,35 +15,21 @@ published through the dashboard. They are not stored in the database. SaltBytes
 does not provide catch probability, ranked fishing windows, or an overall
 fishing conditions score.
 
-The project is now finishing the reporting phase. The main Conditions and
-Operations views have been reorganized, and representative preview data is
-available for scale dependent review. Final desktop polish remains.
+The reporting phase is complete. The public landing page and the desktop
+Conditions and Operations views are organized for their different audiences and
+ready for ordinary use and investigation.
 
 ## Next work
 
-### 1. Finish desktop reporting polish
+### 1. Select the next species score work package
 
-Resume the landing page and maintained dashboard review as one product using the
-representative dataset for scale dependent visual checks.
+Choose the next reviewed species and approve a bounded method before beginning
+implementation. No next species or method is selected yet.
 
-Complete shared themes, route consistency, everyday language, keyboard access,
-focus states, spacing, charts, tables, controls, and empty or unavailable
-states. Keep mobile refinement and static HTML report redesign outside this
-phase.
-
-### 2. Decide whether Operations needs shared detail pages
-
-After desktop reporting polish, check whether shared views for runs, sources,
-failures, forecast updates, or source records would remove real duplication and
-improve investigation.
-
-Do not build shared detail pages unless the completed pages show a clear need.
-
-## After this phase
-
-The likely next direction is to add conditions scores for more reviewed
-species. The next species and its method still require a separate decision and
-bounded work package.
+## Later work
 
 Fishing opportunity comparisons and an overall conditions score remain later
 work. Their methods will not be selected until several species models exist.
+
+Forecast Sources spatial presentation remains deferred outside the active work
+sequence.

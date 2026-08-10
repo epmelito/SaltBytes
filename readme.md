@@ -24,11 +24,9 @@ replace official marine guidance, or operate as a production service.
 
 ## Current status
 
-The ingestion pipeline is implemented. It loads YAML configuration, requests
-each source independently, validates results, preserves accepted raw responses,
-and stores normalized UTC data in DuckDB. The downstream
-`coastal_conditions_hourly` view aligns available source values by exact run,
-location, and UTC hour.
+The ingestion pipeline collects and validates configured source data, preserves
+accepted raw responses, and stores normalized UTC data in DuckDB. Reports and
+the dashboard use the retained pipeline state.
 
 SaltBytes provides local text and HTML reports, a curated public JSON export,
 and an interactive Observable dashboard over the retained DuckDB state.
@@ -95,14 +93,11 @@ saltbytes report conditions --format html --output conditions.html
 saltbytes report operations --format html --output operations.html
 ```
 
-Both report types select the latest attempted run by default, including a failed
-or partial run. The text conditions report displays the first 24 forecast hours
-at or after the run start, while the text operations report summarizes the
-selected run and source status. The HTML conditions report adds forecast charts,
-and the HTML operations report adds retained pipeline history, source coverage,
-revisions, and provenance. Use `--run-id`, `--location`, or `--hours` to select a
-specific run, configured location, or forecast window. Stored timestamps remain
-UTC; output uses the configured local display timezone.
+Use `--run-id`, `--location`, or `--hours` to select a specific run, configured
+location, or forecast window. Stored timestamps remain UTC; output uses the
+configured local display timezone. See the [architecture](docs/architecture.md)
+and [data model](docs/data-model.md) for reporting behavior and retained-data
+contracts.
 
 ## Build the dashboard
 
@@ -116,9 +111,8 @@ npm run build
 Pop-Location
 ```
 
-The browser reads only the generated JSON and static dashboard assets. It does
-not connect to DuckDB, Azure Blob Storage, authenticated APIs, or a running
-application server.
+The dashboard publishes a curated static export. See the
+[architecture](docs/architecture.md) for its export and browser boundaries.
 
 ### Review with representative dashboard data
 
