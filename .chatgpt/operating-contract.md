@@ -271,7 +271,10 @@ support it.
 - Have Codex inspect minimum context and implement the largest safe bounded
   unit.
 - Require proportionate validation, complete affected diff inspection, and a
-  concise evidence report.
+  concise evidence report with exact files changed, change summary, validation
+  results, repository status, and a review artifact path when needed. Write
+  substantial review diffs to a review artifact rather than printing them in
+  chat; return a very small diff inline when that is simpler and proportionate.
 - Stop Codex at genuine decision, failure, unclear state, destructive action,
   independent review, or finalization boundaries.
 - Do not ask Codex for patches, large replacement files, or routine narration
