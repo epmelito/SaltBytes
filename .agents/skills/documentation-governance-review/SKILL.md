@@ -19,7 +19,8 @@ mutable state.
 
 Use this skill when a permanent document is proposed, documentation overlaps or
 conflicts, a material project boundary changes, a major roadmap stage completes,
-or a deliberate documentation review is requested.
+completion of a meaningful work package may leave authoritative documentation
+stale, or a deliberate documentation review is requested.
 
 Do not use it automatically for routine code changes.
 

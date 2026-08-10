@@ -96,6 +96,11 @@ snapshots. Identify documentation conflicts rather than silently resolving them.
 Update documentation only when current instructions or behavior would otherwise
 be wrong.
 
+After a meaningful work package or roadmap phase completes, check whether its
+completion makes authoritative documentation stale. If so, update affected
+authorities before finalization. For a major roadmap phase, use the
+`documentation-governance-review` skill against affected project-level documents.
+
 Use an ADR only for a durable blocking decision that cannot be resolved from
 existing behavior and evidence. Do not create ADRs for routine implementation,
 reversible local choices, speculative architecture, or deferred features.
