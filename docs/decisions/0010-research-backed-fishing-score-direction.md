@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [decision 0011](0011-location-first-species-assessment-direction.md).
 
 ## Context
 

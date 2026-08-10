@@ -122,4 +122,5 @@ Do not invent evidence, alternatives, or retrospective rationale.
 | 0007 | [Final first-release location-to-source relationships](0007-final-location-source-relationships.md) | Accepted | None |
 | 0008 | [First-release NOAA tide relationships and phase](0008-noaa-tide-relationships-and-phase.md) | Accepted | None |
 | 0009 | [Minimum coastal source-result validity rules](0009-coastal-source-result-validity-rules.md) | Accepted | None |
-| 0010 | [Research backed species conditions scoring direction](0010-research-backed-fishing-score-direction.md) | Accepted | Resolves only the deterministic species conditions scoring deferral in 0001 and 0003; other boundaries remain active |
+| 0010 | [Research backed species conditions scoring direction](0010-research-backed-fishing-score-direction.md) | Superseded | Replaced by [0011](0011-location-first-species-assessment-direction.md); preserves the rationale for the Spanish mackerel numeric experiment |
+| 0011 | [Location-first species-assessment direction](0011-location-first-species-assessment-direction.md) | Accepted | Supersedes 0010; establishes the active product direction |

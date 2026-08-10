@@ -39,10 +39,10 @@ for a fixed reviewed snapshot that does not change with hosted runs.
 
 See the [project roadmap](docs/project-roadmap.md) for the long range direction
 and the [current roadmap](docs/roadmap.md) for the next few pieces of work.
-[Decision 0010](docs/decisions/0010-research-backed-fishing-score-direction.md)
-records the species score direction,
+The [location-first species-assessment decision](docs/decisions/0011-location-first-species-assessment-direction.md)
+records the active product direction,
 [species conditions scoring requirements](docs/requirements/species-condition-scoring.md)
-define the shared boundary, and the
+define approved numeric methods, and the
 [Spanish mackerel methodology](docs/requirements/spanish-mackerel-conditions-score.md)
 defines the approved first calculation.
 
@@ -178,7 +178,7 @@ saltbytes/
 - [Data model](docs/data-model.md) describes persisted data and integrated
   views.
 - [Species conditions scoring requirements](docs/requirements/species-condition-scoring.md)
-  define the approved scoring boundary.
+  govern approved numeric species methods.
 - [Spanish mackerel conditions score methodology](docs/requirements/spanish-mackerel-conditions-score.md)
   defines the approved first score calculation.
 - [Agent guidance](AGENTS.md) defines repository working rules.
