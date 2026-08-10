@@ -1,7 +1,7 @@
 # Research navigation
 
-This index is navigation only. The authoritative evidence, conclusions,
-limitations, and source inventory are in the consolidated
+This index is navigation only. The authoritative biological species evidence,
+conclusions, limitations, and source inventory are in the consolidated
 [North Carolina shore-fishing species research package](nc-shore-species-research.md).
 Use the linked sections below; do not treat this index as an evidence summary.
 
@@ -12,6 +12,12 @@ apply only to approved numeric methods. The research package supplies evidence
 and boundaries. The approved
 [Spanish mackerel methodology](../requirements/spanish-mackerel-conditions-score.md)
 defines the first score formula.
+
+## Fishing observation research
+
+| Task | Authoritative research |
+| --- | --- |
+| Report, assertion, time, scope, terminology, quantity, and provenance semantics | [Fishing observation contract trial](fishing-observation-contract-trial.md) |
 
 ## Approved scope
 
