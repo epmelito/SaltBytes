@@ -1232,8 +1232,8 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
     minmax(10rem, 1.15fr)
     minmax(9rem, 0.9fr)
     minmax(13rem, 1.2fr)
-    minmax(8rem, auto)
-    minmax(5.5rem, auto);
+    minmax(8rem, 0.8fr)
+    minmax(5.5rem, 0.55fr);
   gap: 1rem;
   align-items: center;
 }
