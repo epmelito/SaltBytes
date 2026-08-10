@@ -20,6 +20,30 @@ html[data-saltbytes-theme="dark"] #observablehq-sidebar {
   box-shadow: 0.35rem 0 1.4rem rgba(0, 0, 0, 0.16);
 }
 
+#observablehq-sidebar > ol:first-child {
+  color: var(--saltbytes-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+#observablehq-sidebar > ol:first-child::before {
+  border-bottom: 1px solid var(--saltbytes-border);
+  background: var(--saltbytes-sidebar);
+}
+
+#observablehq-sidebar > ol:first-child > li::before {
+  display: flex;
+  align-items: center;
+  min-height: calc(var(--observablehq-header-height) - 1rem);
+  padding-left: 1rem;
+  color: var(--saltbytes-muted);
+  content: "Navigation";
+}
+
+#observablehq-sidebar > ol:first-child > li > a {
+  display: none;
+}
+
 #observablehq-main {
   background: transparent;
 }
@@ -45,7 +69,7 @@ html[data-saltbytes-theme="dark"] #observablehq-sidebar {
 .shell-home {
   color: var(--saltbytes-shell-emphasis);
   font-family: var(--saltbytes-font-display);
-  font-size: 1.5rem;
+  font-size: 1.65rem;
   font-weight: 700;
   line-height: 1;
   text-decoration: none;
@@ -78,10 +102,15 @@ select {
 
 #observablehq-sidebar section > summary {
   color: var(--saltbytes-muted);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 750;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.055em;
+  line-height: 1.15;
   text-transform: uppercase;
+}
+
+#observablehq-sidebar section .observablehq-link a {
+  font-size: 0.9rem;
 }
 
 #observablehq-sidebar .observablehq-section-active > summary {
@@ -278,11 +307,37 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 
 .assessment-support,
 .assessment-highlights,
-.assessment-details,
-.conditions-current {
+.assessment-details {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.conditions-current {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.conditions-current-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+  align-items: start;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--saltbytes-border);
+}
+
+.conditions-current > .conditions-tide-details {
+  margin-top: 0;
+}
+
+.conditions-tide-details > summary {
+  width: fit-content;
+  margin-left: 0;
+}
+
+.conditions-tide-details[open] > summary {
+  margin-bottom: 0.75rem;
 }
 
 .assessment-support {
@@ -387,8 +442,7 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .conditions-current article {
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--saltbytes-border);
+  min-width: 0;
 }
 
 .conditions-current article p {
@@ -398,6 +452,7 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 
 .tide-events {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
   margin-top: 0.75rem;
 }
@@ -496,7 +551,7 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
   flex: 0 0 auto;
   gap: 0.85rem;
   color: var(--saltbytes-muted);
-  font-size: 0.83rem;
+  font-size: 0.88rem;
 }
 
 .series-legend span {
@@ -547,7 +602,7 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .trend-track svg text {
-  font-size: 0.8rem;
+  font-size: 0.88rem;
 }
 
 .trend-track svg [aria-label="y-grid"] line {
@@ -585,7 +640,14 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 .tide-graphic text,
 .direction-panel svg text {
   fill: currentColor;
+}
+
+.tide-graphic text {
   font-size: 0.9rem;
+}
+
+.direction-panel svg text {
+  font-size: 1rem;
 }
 
 .tide-guide,
@@ -700,7 +762,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 
 .direction-wave .direction-arrow {
   stroke: var(--saltbytes-wave);
-  stroke-dasharray: 8 5;
 }
 
 .direction-wave marker path {
@@ -710,6 +771,10 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 @media (max-width: 1050px) {
   .conditions-visual-grid {
     grid-template-columns: 1fr;
+  }
+
+  .conditions-tide-details > summary {
+    margin-left: 0;
   }
 
   .forecast-wind {
@@ -868,7 +933,7 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .pipeline-reliability svg text {
-  font-size: 0.8rem;
+  font-size: 0.88rem;
 }
 
 .pipeline-reliability svg [aria-label="y-grid"] line {
@@ -890,7 +955,7 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
   max-width: 60ch;
   margin: 0;
   color: var(--saltbytes-muted);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   text-align: right;
 }
 
@@ -899,7 +964,7 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
   flex-wrap: wrap;
   gap: 0.85rem;
   color: var(--saltbytes-muted);
-  font-size: 0.83rem;
+  font-size: 0.88rem;
 }
 
 .pipeline-legend span {
@@ -994,6 +1059,15 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
   background: var(--saltbytes-surface);
 }
 
+.pipeline-runs-scroll {
+  width: 100%;
+  max-width: 72rem;
+}
+
+.pipeline-section-note {
+  max-width: 88ch;
+}
+
 .pipeline-runs-table code,
 .pipeline-details code {
   font-size: 0.82rem;
@@ -1014,7 +1088,11 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .pipeline-details > p {
-  max-width: 72ch;
+  max-width: 88ch;
+}
+
+.pipeline-details > .page-note {
+  max-width: 88ch;
 }
 
 .pipeline-details h3 {
@@ -1235,8 +1313,11 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
 }
 
 .provenance-status-complete {
-  color: var(--pipeline-healthy);
-  background: color-mix(in srgb, var(--pipeline-healthy) 11%, transparent);
+  padding: 0;
+  border-radius: 0;
+  color: var(--saltbytes-muted);
+  background: transparent;
+  font-weight: 650;
 }
 
 .provenance-status-incomplete {
@@ -1333,6 +1414,11 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
   max-width: 72ch;
 }
 
+.provenance-detail-note {
+  max-width: 72ch;
+  color: var(--saltbytes-muted);
+}
+
 .provenance-details h4 {
   margin: 1.5rem 0 0.75rem;
 }
@@ -1353,8 +1439,17 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
   display: block;
   max-width: 100%;
   overflow-wrap: anywhere;
+  color: var(--saltbytes-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
   white-space: pre-wrap;
   user-select: all;
+}
+
+.provenance-secondary-detail strong {
+  color: var(--saltbytes-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .provenance-limitation {
@@ -1532,6 +1627,13 @@ body:has(.conditions-assessment) #observablehq-main > .observablehq--block:has(f
   background: var(--saltbytes-surface);
 }
 
+.revision-chart-measure {
+  margin: 0 0 0.35rem;
+  color: var(--saltbytes-muted);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
 .revision-chart svg {
   display: block;
   width: 100%;
@@ -1540,7 +1642,7 @@ body:has(.conditions-assessment) #observablehq-main > .observablehq--block:has(f
 }
 
 .revision-chart svg text {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
 }
 
 .revision-chart svg * {
@@ -1564,7 +1666,7 @@ body:has(.conditions-assessment) #observablehq-main > .observablehq--block:has(f
   padding-top: 0.7rem;
   border-top: 1px solid var(--saltbytes-border);
   color: var(--saltbytes-muted);
-  font-size: 0.84rem;
+  font-size: 0.9rem;
 }
 
 .revision-recent-table code,
@@ -1606,6 +1708,68 @@ body:has(.revision-summary) #observablehq-main > .observablehq--block:has(form) 
   vertical-align: top;
 }
 
+body:has(.revision-summary) #observablehq-main > .observablehq--block:has(.revision-measurement-control) {
+  display: inline-block;
+  margin: 0 0 0.4rem;
+  vertical-align: top;
+}
+
+.revision-measurement-control {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.revision-measurement-label {
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.revision-measurement-picker {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border: 1px solid var(--saltbytes-border);
+  border-radius: 0.65rem;
+  background: var(--saltbytes-surface);
+}
+
+.revision-measurement-option {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  color: var(--theme-foreground);
+  background: transparent;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.revision-measurement-option:hover {
+  border-color: var(--saltbytes-border);
+  transform: translateY(-1px);
+}
+
+.revision-measurement-option[data-selected="true"] {
+  border-color: var(--saltbytes-shell-emphasis);
+  color: var(--saltbytes-shell-emphasis);
+  background: color-mix(in srgb, var(--saltbytes-shell-emphasis) 9%, transparent);
+  box-shadow: 0 0.15rem 0.45rem color-mix(in srgb, var(--saltbytes-shell-emphasis) 10%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revision-measurement-option {
+    transition: none;
+  }
+
+  .revision-measurement-option:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 760px) {
   .revision-summary-main {
     grid-template-columns: 1fr;
@@ -1635,6 +1799,55 @@ body:has(.revision-summary) #observablehq-main > .observablehq--block:has(form) 
     display: block;
     margin-top: 0.25rem;
   }
+}
+
+body:has(.pipeline-health) #observablehq-main {
+  max-width: 72rem;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+body:has(.conditions-assessment) #observablehq-main {
+  max-width: 72rem;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+body:has(.revision-summary) #observablehq-main,
+body:has(.provenance-verdict) #observablehq-main {
+  max-width: 82rem;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+#observablehq-main > p,
+.assessment-summary,
+.assessment-limitation,
+.pipeline-health-summary,
+.provenance-verdict-summary,
+.provenance-detail-note,
+.revision-summary-story > p:last-child,
+.revision-details > p {
+  max-width: 88ch;
+}
+
+body:has(.conditions-assessment) #observablehq-main > p,
+body:has(.pipeline-health) #observablehq-main > p,
+body:has(.revision-summary) #observablehq-main > p,
+body:has(.provenance-verdict) #observablehq-main > p {
+  width: 100%;
+  max-width: none;
+}
+
+.conditions-visual-grid {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.trend-track svg text,
+.pipeline-reliability svg text,
+.revision-chart svg text {
+  font-size: 0.9rem;
 }
 
 /* shared shell polish */

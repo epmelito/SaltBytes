@@ -27,6 +27,43 @@ const metrics = [
   {field: "sea_surface_temperature", label: "Sea surface temperature", unit: "°C", digits: 1},
   {field: "tide_predicted_range", label: "Predicted tide range", unit: "m", digits: 2}
 ];
+function measurementPicker(items) {
+  const picker = html`
+    <div class="revision-measurement-control">
+      <span class="revision-measurement-label">Measurement</span>
+      <div class="revision-measurement-picker" role="group" aria-label="Measurement">
+        ${items.map((item) => html`
+          <button
+            type="button"
+            class="revision-measurement-option"
+            data-revision-measurement=${item.field}
+            aria-pressed="false"
+          >${item.label}</button>
+        `)}
+      </div>
+    </div>
+  `;
+  const buttons = [...picker.querySelectorAll(".revision-measurement-option")];
+
+  function selectMeasurement(field, notify = false) {
+    picker.value = field;
+    for (const button of buttons) {
+      const selected = button.dataset.revisionMeasurement === field;
+      button.setAttribute("aria-pressed", String(selected));
+      button.dataset.selected = String(selected);
+    }
+    if (notify) picker.dispatchEvent(new Event("input", {bubbles: true}));
+  }
+
+  for (const button of buttons) {
+    button.addEventListener("click", () =>
+      selectMeasurement(button.dataset.revisionMeasurement, true)
+    );
+  }
+
+  selectMeasurement(items[0]?.field);
+  return picker;
+}
 const shortRunId = (value) => {
   if (!value) return "Unavailable";
   const text = String(value);
@@ -100,11 +137,7 @@ const validTime = view(Inputs.select(validTimeOptions, {
 ```
 
 ```js
-const metricField = view(Inputs.select(metrics.map((metric) => metric.field), {
-  label: "Measurement",
-  format: (value) => metrics.find((metric) => metric.field === value)?.label ?? value,
-  value: metrics[0].field
-}));
+const metricField = view(measurementPicker(metrics));
 ```
 
 ```js
@@ -254,6 +287,7 @@ if (chartRows.length === 0) {
   </div>`);
 } else {
   display(html`<div class="revision-chart">
+    <p class="revision-chart-measure">${metric.label} (${metric.unit})</p>
     ${Plot.plot({
       width: Math.max(Math.min(width - 32, 1280), 320),
       height: 300,
@@ -269,7 +303,7 @@ if (chartRows.length === 0) {
       },
       y: {
         grid: true,
-        label: `${metric.label} (${metric.unit})`,
+        label: null,
         ticks: 5
       },
       marks: [

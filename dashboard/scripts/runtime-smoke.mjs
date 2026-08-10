@@ -105,6 +105,17 @@ async function selectOption(page, index, optionIndex, label) {
   await select.selectOption({index: optionIndex});
 }
 
+async function selectRevisionMetric(page, field, label) {
+  const option = page.locator(`[data-revision-measurement="${field}"]`);
+  if (await option.count() !== 1) throw new Error(`${label} is not populated`);
+  await option.click();
+  await page.waitForFunction(
+    (selectedField) => document.querySelector(`[data-revision-measurement="${selectedField}"]`)
+      ?.getAttribute("aria-pressed") === "true",
+    field
+  );
+}
+
 async function assertKeyboardFocus(page, locator, label) {
   await page.locator("body").focus();
   for (let index = 0; index < 50; index += 1) {
@@ -163,16 +174,22 @@ async function assertShell(page, section, route) {
   const shellLayout = await page.evaluate(() => {
     const main = document.querySelector("#observablehq-main");
     const themeControl = document.querySelector("[data-saltbytes-theme-control]");
-    const sidebarHome = [...document.querySelectorAll("#observablehq-sidebar a")].find(
-      (anchor) => anchor.textContent.trim() === "SaltBytes"
-    );
+    const sidebarHome = document.querySelector("#observablehq-sidebar > ol:first-child a");
+    const sidebar = document.querySelector("#observablehq-sidebar");
+    const sidebarHeader = sidebar?.querySelector(":scope > ol:first-child");
+    const sidebarHeaderItem = sidebarHeader?.querySelector(":scope > li");
     const headerHome = document.querySelector(".shell-home");
     const headingAnchors = [...document.querySelectorAll(
       '#observablehq-main :is(h2, h3) > a[data-saltbytes-heading-anchor="true"]'
     )];
     return {
-      sidebarHomeHref: sidebarHome?.href ?? null,
+      sidebarHomeDisplay: sidebarHome ? getComputedStyle(sidebarHome).display : null,
+      sidebarHeaderLabel: sidebarHeaderItem
+        ? getComputedStyle(sidebarHeaderItem, "::before").content.replaceAll('"', "")
+        : null,
       headerHomeHref: headerHome?.href ?? null,
+      sidebarBackground: sidebar ? getComputedStyle(sidebar).backgroundColor : null,
+      sidebarHeaderBackground: sidebarHeader ? getComputedStyle(sidebarHeader, "::before").backgroundColor : null,
       themeRightGap: main && themeControl
         ? Math.abs(main.getBoundingClientRect().right - themeControl.getBoundingClientRect().right)
         : null,
@@ -186,8 +203,11 @@ async function assertShell(page, section, route) {
     };
   });
   if (
-    shellLayout.sidebarHomeHref !== "https://epmelito.github.io/SaltBytes/"
+    shellLayout.sidebarHomeDisplay !== "none"
+    || shellLayout.sidebarHeaderLabel !== "Navigation"
     || shellLayout.headerHomeHref !== "https://epmelito.github.io/SaltBytes/"
+    || !shellLayout.sidebarBackground
+    || shellLayout.sidebarHeaderBackground !== shellLayout.sidebarBackground
     || shellLayout.themeRightGap === null
     || shellLayout.themeRightGap > 32
     || shellLayout.headingAnchorCount === 0
@@ -315,6 +335,9 @@ async function assertForecastRevisions(page) {
       largestSegments: chart?.querySelectorAll(".revision-largest-segment").length ?? 0,
       latestDots: chart?.querySelectorAll(".revision-latest-dot").length ?? 0,
       oldLanguage: /forecast vintage|persisted vintages|persisted values|universal significance threshold|factual change summary/i.test(document.body.innerText),
+      measurementChoices: document.querySelectorAll(".revision-measurement-option").length,
+      selectedMeasurement: document.querySelector('.revision-measurement-option[aria-pressed="true"]')
+        ?.dataset.revisionMeasurement ?? "",
       summaryMaxWidth: Number.parseFloat(getComputedStyle(summary).maxWidth),
       pageWidth: document.documentElement.scrollWidth,
       viewportWidth: document.documentElement.clientWidth
@@ -350,6 +373,8 @@ async function assertForecastRevisions(page) {
     || !initial.chartText.includes("Aug 1, 8 PM")
     || initial.chartText.includes("Aug 2, 12 AM")
     || initial.oldLanguage
+    || initial.measurementChoices !== 4
+    || initial.selectedMeasurement !== "wind_speed_10m"
     || Math.abs(initial.summaryMaxWidth - 1312) > 2
     || initial.pageWidth > initial.viewportWidth
   ) {
@@ -357,7 +382,9 @@ async function assertForecastRevisions(page) {
   }
 
   const initialHeadline = initial.headline;
-  await selectOption(page, 2, 1, "Forecast revisions measurement control");
+  const waveChoice = page.locator('[data-revision-measurement="wave_height"]');
+  await assertKeyboardFocus(page, waveChoice, "Forecast revisions measurement control");
+  await waveChoice.press("Enter");
   await page.waitForFunction(
     (before) => document.querySelector(".revision-summary h2")?.textContent.trim() !== before,
     initialHeadline
@@ -462,7 +489,7 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
     throw new Error(`Forecast revision long history is incomplete: ${JSON.stringify(state)}`);
   }
 
-  await selectOption(page, 2, 1, "Forecast revisions long history wave control");
+  await selectRevisionMetric(page, "wave_height", "Forecast revisions long history wave control");
   await page.waitForFunction(() =>
     document.querySelector(".revision-summary h2")?.textContent.trim()
       === "Wave height finished where it started"
@@ -491,7 +518,7 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
     throw new Error("Forecast revision tooltip does not show the full local saved time");
   }
 
-  await selectOption(page, 2, 3, "Forecast revisions long history flat control");
+  await selectRevisionMetric(page, "tide_predicted_range", "Forecast revisions long history flat control");
   await page.waitForFunction(() =>
     document.querySelector(".revision-summary h2")?.textContent.trim()
       === "Predicted tide range did not change"
@@ -508,7 +535,7 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
     throw new Error(`Forecast revision flat history is incorrect: ${JSON.stringify(flatState)}`);
   }
 
-  await selectOption(page, 2, 0, "Forecast revisions long history wind control");
+  await selectRevisionMetric(page, "wind_speed_10m", "Forecast revisions long history wind control");
   await page.waitForFunction(() =>
     document.querySelector(".revision-summary h2")?.textContent.trim()
       === "Wind speed finished where it started"
@@ -651,6 +678,9 @@ async function assertPipelineMonitoring(page) {
       oldChartGrid: Boolean(document.querySelector(".chart-grid")),
       oldSourceHeading: headings.includes("Source success rates"),
       oldRowsHeading: headings.includes("Rows loaded"),
+      coverageControlAfterHeading: Boolean([...document.querySelectorAll("#observablehq-main h2")]
+        .find((heading) => heading.textContent.trim() === "Source and location health")
+        ?.compareDocumentPosition(document.querySelector("select")?.closest(".observablehq--block")) & Node.DOCUMENT_POSITION_FOLLOWING),
       gridMaxWidth: Number.parseFloat(getComputedStyle(health).maxWidth),
       pageWidth: document.documentElement.scrollWidth,
       viewportWidth: document.documentElement.clientWidth
@@ -693,6 +723,7 @@ async function assertPipelineMonitoring(page) {
     || state.oldChartGrid
     || state.oldSourceHeading
     || state.oldRowsHeading
+    || !state.coverageControlAfterHeading
     || Math.abs(state.gridMaxWidth - 1152) > 2
     || state.pageWidth > state.viewportWidth
   ) {
@@ -711,9 +742,17 @@ async function assertPipelineMonitoring(page) {
   if (
     !detailText.includes("Complete run records")
     || !detailText.includes("Recent source summary")
-    || !detailText.includes("Raw exception details are deliberately excluded")
+    || !detailText.includes("The public dashboard shows source status labels without raw error details.")
   ) {
     throw new Error("Pipeline detailed evidence is incomplete");
+  }
+
+  const pipelineWidths = await page.evaluate(() => ({
+    runs: document.querySelector(".pipeline-runs-scroll")?.getBoundingClientRect().width ?? 0,
+    details: document.querySelector(".pipeline-details")?.getBoundingClientRect().width ?? 0
+  }));
+  if (!pipelineWidths.runs || Math.abs(pipelineWidths.runs - pipelineWidths.details) > 2) {
+    throw new Error(`Pipeline run sections are not aligned: ${JSON.stringify(pipelineWidths)}`);
   }
 
   const coverageSummary = await page.locator(".pipeline-section-summary strong").innerText();
@@ -748,6 +787,7 @@ async function assertConditionsHierarchy(page, available) {
           && assessment.textContent.includes("support the assessment, while waves limit it.")
           && assessment.textContent.includes("Overall confidence")
           && assessment.textContent.includes("What SaltBytes cannot observe")
+          && !assessment.textContent.includes("Nearshore water temperature accuracy and local representativeness")
           && assessment.textContent.includes("does not estimate fish presence, catch likelihood, or safety")
           && details?.querySelector("summary")?.textContent.includes("Assessment factors and confidence")
           && !assessment.textContent.includes("spanish-mackerel-v1.0.0")
@@ -755,7 +795,7 @@ async function assertConditionsHierarchy(page, available) {
           && !current.textContent.includes("Success")
           && !current.textContent.includes("Exact forecast values")
           && current.textContent.includes("From the E (110°)")
-          && current.querySelector(".conditions-tide summary")?.textContent.includes("Tide details")
+          && current.querySelector(".conditions-tide-details summary")?.textContent.includes("Tide details")
           && current.querySelectorAll("article").length === 5
         : assessment.classList.contains("conditions-assessment-unavailable")
           && assessment.textContent.includes("Assessment unavailable")
@@ -800,15 +840,67 @@ async function assertConditionsHierarchy(page, available) {
       };
     });
     if (!layout.ready) throw new Error("Conditions layout did not render as required");
-    const tideDetails = page.locator(".conditions-tide details");
-    if ((await page.locator(".conditions-tide").innerText()).includes("Previous ")) {
+    const tideDetails = page.locator(".conditions-tide-details");
+    if ((await tideDetails.innerText()).includes("Previous ")) {
       throw new Error("tide events are visible before Tide details opens");
     }
+    const summaryLayoutBefore = await page.evaluate(() => {
+      const summary = document.querySelector(".conditions-current-summary");
+      if (!summary) return [];
+      const summaryBox = summary.getBoundingClientRect();
+      return [...summary.querySelectorAll("article")].map((article) => {
+        const box = article.getBoundingClientRect();
+        return {
+          left: box.left - summaryBox.left,
+          top: box.top - summaryBox.top,
+          width: box.width,
+          height: box.height
+        };
+      });
+    });
     await tideDetails.locator("summary").press("Enter");
-    await page.waitForFunction(() => document.querySelector(".conditions-tide details")?.open);
+    await page.waitForFunction(() => document.querySelector(".conditions-tide-details")?.open);
     const tideText = await tideDetails.innerText();
     if (!tideText.includes("Previous low") || !tideText.includes("Next high")) {
       throw new Error("Tide details does not show separate predicted events");
+    }
+    const tideLayout = await page.evaluate((before) => {
+      const summary = document.querySelector(".conditions-current-summary");
+      const details = document.querySelector(".conditions-tide-details");
+      if (!summary || !details) return null;
+      const summaryBox = summary.getBoundingClientRect();
+      const after = [...summary.querySelectorAll("article")].map((article) => {
+        const box = article.getBoundingClientRect();
+        return {
+          left: box.left - summaryBox.left,
+          top: box.top - summaryBox.top,
+          width: box.width,
+          height: box.height
+        };
+      });
+      const detailBox = details.getBoundingClientRect();
+      const stable = before.length === after.length && before.every((item, index) => {
+        const current = after[index];
+        return Math.abs(item.left - current.left) <= 2
+          && Math.abs(item.top - current.top) <= 2
+          && Math.abs(item.width - current.width) <= 2
+          && Math.abs(item.height - current.height) <= 2;
+      });
+      return {
+        stable,
+        summaryWidth: summaryBox.width,
+        summaryBottom: summaryBox.bottom,
+        detailWidth: detailBox.width,
+        detailTop: detailBox.top
+      };
+    }, summaryLayoutBefore);
+    if (
+      !tideLayout
+      || !tideLayout.stable
+      || tideLayout.detailTop < tideLayout.summaryBottom - 2
+      || Math.abs(tideLayout.detailWidth - tideLayout.summaryWidth) > 2
+    ) {
+      throw new Error(`Expanded Tide details changed the metric summary layout: ${JSON.stringify(tideLayout)}`);
     }
     const sourceDetails = page.locator("#observablehq-main > details").filter({
       hasText: "Sources and forecast limitations"
@@ -817,6 +909,7 @@ async function assertConditionsHierarchy(page, available) {
     const sourceText = await sourceDetails.innerText();
     if (
       !sourceText.includes("regional marine forecast grid")
+      || !sourceText.includes("exact fishing location may differ")
       || sourceText.includes("Previous low")
       || sourceText.includes("Next high")
     ) {
@@ -886,6 +979,12 @@ async function assertConditionsVisualizations(page, available) {
       forecastOptionCount: document.querySelectorAll("select")[1]?.options.length ?? 0,
       limitedPreview: forecastTrends?.textContent.includes("forecast hours are available in this preview.") ?? false,
       localTicks: [...document.querySelectorAll(".forecast-temperature .trend-track svg text")].map((text) => text.textContent),
+      duplicateLocalTimeTicks: (() => {
+        const labels = [...document.querySelectorAll(".forecast-temperature .trend-track svg text")]
+          .map((text) => text.textContent.trim())
+          .filter((text) => /(?:AM|PM)$/.test(text));
+        return new Set(labels).size !== labels.length;
+      })(),
       gridMaxWidth: Number.parseFloat(getComputedStyle(visualGrid).maxWidth),
       plotLayouts,
       tideBox: tide?.querySelector("svg")?.getBoundingClientRect(),
@@ -895,7 +994,15 @@ async function assertConditionsVisualizations(page, available) {
         const svg = panel.querySelector("svg");
         const box = arrow?.getBoundingClientRect();
         const svgBox = svg?.getBoundingClientRect();
-        return {left: box?.left, top: box?.top, length: Math.hypot(box?.width ?? 0, box?.height ?? 0), inside: box && svgBox && box.left >= svgBox.left && box.right <= svgBox.right && box.top >= svgBox.top && box.bottom <= svgBox.bottom};
+        const style = arrow ? getComputedStyle(arrow) : null;
+        return {
+          left: box?.left,
+          top: box?.top,
+          length: Math.hypot(box?.width ?? 0, box?.height ?? 0),
+          inside: box && svgBox && box.left >= svgBox.left && box.right <= svgBox.right && box.top >= svgBox.top && box.bottom <= svgBox.bottom,
+          dashArray: style?.strokeDasharray,
+          strokeWidth: style?.strokeWidth
+        };
       }),
       scoreAvailable
     };
@@ -908,6 +1015,7 @@ async function assertConditionsVisualizations(page, available) {
     || visualState.forecastOptionCount < 1
     || (visualState.forecastOptionCount < 12 && !visualState.limitedPreview)
     || (visualState.forecastOptionCount >= 12 && visualState.limitedPreview)
+    || visualState.duplicateLocalTimeTicks
     || !Number.isFinite(visualState.gridMaxWidth)
     || visualState.gridMaxWidth > 1152.5
     || visualState.plotLayouts.length !== 3
@@ -918,7 +1026,8 @@ async function assertConditionsVisualizations(page, available) {
     || visualState.tideBox.width > 1024
     || visualState.tideBox.height > 300
     || visualState.arrows.length !== 2
-    || visualState.arrows.some((arrow) => arrow.length < 20 || !arrow.inside)
+    || visualState.arrows.some((arrow) => arrow.length < 20 || !arrow.inside || arrow.dashArray !== "none")
+    || new Set(visualState.arrows.map((arrow) => arrow.strokeWidth)).size !== 1
   ) {
     throw new Error(`Conditions visualization hierarchy did not render correctly: ${JSON.stringify(visualState)}`);
   }
@@ -995,8 +1104,10 @@ async function assertDataProvenance(page) {
       ),
       selectCount: document.querySelectorAll("select").length,
       repeatedHealthyDetail: document.querySelector(".provenance-source-list")?.innerText
-        .includes("Source identity and preserved snapshot are available.") ?? false,
+        .includes("Provider details and a saved source record are available.") ?? false,
       oldInventoryLanguage: /persisted shoreline orientation/i.test(document.body.innerText),
+      oldSourceLanguage: /traceability status|\btraceable\b|snapshot captured|how the forecast is traced|technical evidence for/i
+        .test(document.body.innerText),
       internalExportNote: /excludes raw file paths|private storage metadata/i
         .test(document.body.innerText),
       pageWidth: document.documentElement.scrollWidth,
@@ -1007,9 +1118,9 @@ async function assertDataProvenance(page) {
   const initial = await readState();
   if (
     initial.pageTitle !== "Forecast sources"
-    || !initial.introText.includes("providers and preserved snapshots")
+    || !initial.introText.includes("providers support the latest published forecast")
     || initial.verdictState !== "complete"
-    || initial.headline !== "All four data sources are traceable"
+    || initial.headline !== "Details are available for all four forecast sources"
     || !initial.verdictText.includes("Jennette's Pier")
     || !initial.verdictText.includes("4 of 4")
     || initial.sourceRows.length !== 4
@@ -1018,6 +1129,8 @@ async function assertDataProvenance(page) {
     || initial.sourceRows.find((row) => row.selected === "true")?.source !== "weather"
     || !initial.sourceRows.some((row) => row.text.includes("NOAA Tides and Currents"))
     || initial.sourceRows.filter((row) => row.text.includes("Open-Meteo")).length !== 3
+    || initial.sourceRows.some((row) => row.text.includes("Traceable"))
+    || initial.sourceRows.some((row) => !row.text.includes("Available"))
     || !initial.columnsAligned
     || initial.lineageStages !== 4
     || !initial.detailsClosed
@@ -1027,6 +1140,7 @@ async function assertDataProvenance(page) {
     || initial.selectCount !== 1
     || initial.repeatedHealthyDetail
     || initial.oldInventoryLanguage
+    || initial.oldSourceLanguage
     || initial.internalExportNote
     || initial.pageWidth > initial.viewportWidth
   ) {
@@ -1061,13 +1175,43 @@ async function assertDataProvenance(page) {
   if (
     !detailText.includes("run-20260802T120000Z-jennettes_pier-tide")
     || !detailText.includes("8652226")
-    || !detailText.includes("Tide prediction relationship")
-    || !detailText.includes("Coastal relationship")
+    || !detailText.includes("Tide prediction location")
+    || !detailText.includes("NOAA prediction location")
+    || !detailText.includes("How the prediction is used")
+    || !detailText.includes("NOAA prediction used directly")
+    || !detailText.includes("How it applies here")
+    || !detailText.includes("Water level reference")
+    || !detailText.includes("Mean Lower Low Water (MLLW)")
+    || !detailText.includes("Distance to fishing location")
     || !detailText.includes("Direct use at the Atlantic-facing pier")
+    || !detailText.includes("Tide predictions are not observed water levels.")
+    || !detailText.includes("Tide source details")
+    || detailText.includes("Coastal relationship")
+    || detailText.includes("Datum")
     || detailText.includes("Location orientation context")
   ) {
     throw new Error("Forecast source technical evidence is incomplete or contains repeated location metadata");
   }
+
+  await page.locator('[data-provenance-source="sst"]').click();
+  await page.waitForFunction(() =>
+    document.querySelector(".provenance-source-inspector")?.dataset.selectedSource === "sst"
+      && document.querySelector(".provenance-details")?.open
+  );
+  const gridDetailText = await page.locator(".provenance-details").textContent();
+  if (
+    !gridDetailText.includes("Forecast grid location")
+    || !gridDetailText.includes("Point SaltBytes requested")
+    || !gridDetailText.includes("Provider grid point returned")
+  ) {
+    throw new Error("Forecast source grid location language is incomplete");
+  }
+
+  await page.locator('[data-provenance-source="tide"]').click();
+  await page.waitForFunction(() =>
+    document.querySelector(".provenance-source-inspector")?.dataset.selectedSource === "tide"
+      && document.querySelector(".provenance-details")?.open
+  );
 
   const locationDetails = page.locator(".provenance-location-details");
   await locationDetails.locator("summary").press("Enter");
@@ -1080,7 +1224,9 @@ async function assertDataProvenance(page) {
     || !locationDetailText.includes("East northeast (70°)")
     || !locationDetailText.includes("Estimated from satellite imagery")
     || !locationDetailText.includes("Google Maps satellite imagery reviewed 2026-08-01")
-    || !locationDetailText.includes("Direction limitation")
+    || !locationDetailText.includes("How directions were estimated")
+    || !locationDetailText.includes("Reference imagery")
+    || !locationDetailText.includes("Direction note")
   ) {
     throw new Error("Forecast source location directions are incomplete");
   }
@@ -1092,8 +1238,12 @@ async function assertDataProvenance(page) {
     initialLocation
   );
   const updatedLocation = await page.locator(".provenance-verdict").innerText();
-  if (!updatedLocation.includes("Beach Access Ramp 72")) {
-    throw new Error("Forecast sources location control did not update the traceability scope");
+  const disclosuresStayedOpen = await page.evaluate(() =>
+    document.querySelector(".provenance-details")?.open
+      && document.querySelector(".provenance-location-details")?.open
+  );
+  if (!updatedLocation.includes("Beach Access Ramp 72") || !disclosuresStayedOpen) {
+    throw new Error("Forecast sources location control did not update while preserving open details");
   }
 }
 
@@ -1148,7 +1298,7 @@ async function assertDataProvenanceIncompleteStates(page, base, errors) {
   }));
 
   if (
-    state.headline !== "2 data sources need attention"
+    state.headline !== "2 forecast sources need attention"
     || !state.verdictText.includes("2 of 4")
     || !state.verdictText.includes("Weather")
     || !state.verdictText.includes("Wave")
@@ -1246,7 +1396,10 @@ async function run() {
 
     await openPage(page, `${base}/forecast-revisions`, errors);
     await assertShell(page, "Operations and product health", "Forecast revisions");
-    await page.waitForFunction(() => document.querySelectorAll("select").length === 3);
+    await page.waitForFunction(() =>
+      document.querySelectorAll("select").length === 2
+        && document.querySelectorAll(".revision-measurement-option").length === 4
+    );
     await assertForecastRevisions(page);
     await assertScrollableTables(page, "Forecast revisions");
     await assertHealthy(page, errors, "Forecast revisions");

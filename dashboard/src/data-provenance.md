@@ -35,17 +35,17 @@ function traceabilityState(row) {
 
 function traceabilityLabel(state) {
   return {
-    complete: "Traceable",
-    incomplete: "Incomplete evidence",
-    missing: "Missing snapshot"
+    complete: "Available",
+    incomplete: "Some details missing",
+    missing: "Source record missing"
   }[state];
 }
 
 function traceabilityDetail(state) {
   return {
-    complete: "Source identity and preserved snapshot are available.",
-    incomplete: "A snapshot is linked, but source details are incomplete.",
-    missing: "No preserved source snapshot is linked to this published scope."
+    complete: "Provider details and a saved source record are available.",
+    incomplete: "A saved source record is linked, but some source details are missing.",
+    missing: "No saved source record is linked to this forecast."
   }[state];
 }
 
@@ -105,14 +105,58 @@ function orientationLimitationLabel(value) {
   }[value] ?? String(value);
 }
 
+function formatCoordinatePair(latitude, longitude) {
+  if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) {
+    return "Unavailable";
+  }
+  return `${formatNumber(latitude, 5)}, ${formatNumber(longitude, 5)}`;
+}
+
+function tideRelationshipLabel(value) {
+  return {
+    direct: "NOAA prediction used directly",
+    transfer: "Nearby NOAA prediction used for this fishing location"
+  }[value] ?? "Unavailable";
+}
+
+function waterLevelReferenceLabel(value) {
+  if (value === "MLLW") return "Mean Lower Low Water (MLLW)";
+  return value ?? "Unavailable";
+}
+
+function tideLimitationLabel(value) {
+  if (value === null || value === undefined || value === "") return "Unavailable";
+  return {
+    "Prediction behavior remains distinct from observed water levels":
+      "Tide predictions are not observed water levels.",
+    "Transfer does not authorize inlet-current interpretation":
+      "This tide relationship does not describe inlet currents.",
+    "It is not a prediction location at the park destination":
+      "The NOAA prediction location is nearby, not at the park itself.",
+    "The prediction relationship is materially north of the destination":
+      "The NOAA prediction location is north of the fishing location."
+  }[value] ?? String(value);
+}
+
+const disclosureState = {source: false, location: false};
+
+function preserveDisclosureState(element, key) {
+  if (!element) return element;
+  element.open = disclosureState[key];
+  element.addEventListener("toggle", () => {
+    disclosureState[key] = element.open;
+  });
+  return element;
+}
+
 function sourcePicker(rows) {
   const picker = html`
-    <div class="provenance-source-list" role="group" aria-label="Source traceability coverage">
+    <div class="provenance-source-list" role="group" aria-label="Forecast source details">
       <div class="provenance-source-list-header" aria-hidden="true">
         <span>Source</span>
         <span>Provider</span>
-        <span>Snapshot captured</span>
-        <span>Status</span>
+        <span>Source record saved</span>
+        <span>Details</span>
         <span></span>
       </div>
       ${rows.map((row) => html`
@@ -165,8 +209,8 @@ function sourcePicker(rows) {
 # Forecast sources
 
 <p class="provenance-intro">
-  See which providers and preserved snapshots support the latest published
-  forecast. Open any source for its exact identifiers and request details.
+  See which providers support the latest published forecast. Open any source for
+  its saved source record, identifiers, and request details.
 </p>
 
 ```js
@@ -211,14 +255,14 @@ display(html`
   class="provenance-verdict"
   data-traceability-state=${traceabilityGaps.length === 0 ? "complete" : "attention"}
 >
-  <p class="provenance-eyebrow">Traceability status</p>
+  <p class="provenance-eyebrow">Source details</p>
   <h2>${traceabilityGaps.length === 0
-    ? "All four data sources are traceable"
-    : `${traceabilityGaps.length} data ${traceabilityGaps.length === 1 ? "source needs" : "sources need"} attention`}</h2>
+    ? "Details are available for all four forecast sources"
+    : `${traceabilityGaps.length} forecast ${traceabilityGaps.length === 1 ? "source needs" : "sources need"} attention`}</h2>
   <p class="provenance-verdict-summary">
     ${traceabilityGaps.length === 0
-      ? `Each published source for ${locationName(locationId, locations)} links to identified source data from the latest successful run.`
-      : `${completeSourceCount} of 4 published sources for ${locationName(locationId, locations)} have complete traceability evidence.`}
+      ? `Each source used for ${locationName(locationId, locations)} links to identified source data from the latest successful update.`
+      : `${completeSourceCount} of 4 forecast sources for ${locationName(locationId, locations)} have saved source details.`}
   </p>
   ${traceabilityGaps.length === 0 ? null : html`
     <ul class="provenance-exception-list">
@@ -229,7 +273,7 @@ display(html`
   `}
   <div class="provenance-scope" aria-label="Published forecast scope">
     <div>
-      <span>Published run</span>
+      <span>Published update</span>
       <strong>${formatTimestamp(latestRun?.started_at, manifest.display_timezone)}</strong>
     </div>
     <div>
@@ -237,7 +281,7 @@ display(html`
       <strong>${formatTimestamp(forecastStart, manifest.display_timezone)} to ${formatTimestamp(forecastEnd, manifest.display_timezone)}</strong>
     </div>
     <div>
-      <span>Sources traced</span>
+      <span>Sources with details</span>
       <strong>${completeSourceCount} of 4</strong>
     </div>
   </div>
@@ -247,7 +291,7 @@ display(html`
 
 ## Source coverage
 
-Select a source to inspect the evidence retained for this location and run.
+Select a source to see the details saved for this location and update.
 
 ```js
 const source = view(sourcePicker(traceabilityRows));
@@ -270,10 +314,10 @@ const hasCoordinates = [
 ```
 
 ```js
-display(html`
+const sourceInspector = html`
 <section class="provenance-source-inspector" data-selected-source=${source}>
   <details class="provenance-details">
-    <summary>Technical evidence for ${sourceName(source)}</summary>
+    <summary>${sourceName(source)} source details</summary>
     <p>
       ${providerName(source)} · ${traceabilityDetail(selectedState)}
       Missing values are shown explicitly.
@@ -289,7 +333,7 @@ display(html`
         <code class="provenance-identifier" data-provenance-identifier="snapshot">${selected?.snapshot_id ?? "Unavailable"}</code>
       </div>
       <div>
-        <span>Snapshot captured</span>
+        <span>Source record saved</span>
         <strong>${selected?.captured_at
           ? formatTimestamp(selected.captured_at, manifest.display_timezone)
           : "Unavailable"}</strong>
@@ -305,61 +349,69 @@ display(html`
     </div>
 
     ${hasCoordinates ? html`
-      <h4>Forecast request and returned grid</h4>
+      <h4>Forecast grid location</h4>
+      <p class="provenance-detail-note">
+        SaltBytes sends a coordinate with the request. Open-Meteo returns the
+        grid coordinate represented by the forecast.
+      </p>
       <div class="provenance-technical-grid">
-        <div><span>Requested latitude</span><strong>${formatNumber(selected?.request_latitude, 5)}</strong></div>
-        <div><span>Requested longitude</span><strong>${formatNumber(selected?.request_longitude, 5)}</strong></div>
-        <div><span>Returned latitude</span><strong>${formatNumber(selected?.returned_latitude, 5)}</strong></div>
-        <div><span>Returned longitude</span><strong>${formatNumber(selected?.returned_longitude, 5)}</strong></div>
+        <div><span>Point SaltBytes requested</span><strong>${formatCoordinatePair(selected?.request_latitude, selected?.request_longitude)}</strong></div>
+        <div><span>Provider grid point returned</span><strong>${formatCoordinatePair(selected?.returned_latitude, selected?.returned_longitude)}</strong></div>
       </div>
     ` : null}
 
     ${isTide ? html`
-      <h4>Tide prediction relationship</h4>
+      <h4>Tide prediction location</h4>
+      <p class="provenance-detail-note">
+        NOAA predictions come from the location below. SaltBytes shows how
+        that prediction location relates to the selected fishing location.
+      </p>
       <div class="provenance-technical-grid">
-        <div><span>Prediction location</span><strong>${selected?.prediction_location ?? "Unavailable"}</strong></div>
-        <div><span>Relationship</span><strong>${selected?.relationship_type ?? "Unavailable"}</strong></div>
-        <div><span>Coastal relationship</span><strong>${selected?.coastal_relationship ?? "Unavailable"}</strong></div>
-        <div><span>Reference station</span><strong>${selected?.reference_station ?? "Unavailable"}</strong></div>
-        <div><span>Datum</span><strong>${selected?.datum ?? "Unavailable"}</strong></div>
-        <div><span>Distance</span><strong>${formatNumber(selected?.distance_km, 3, "km")}</strong></div>
+        <div><span>NOAA prediction location</span><strong>${selected?.prediction_location ?? "Unavailable"}</strong></div>
+        <div><span>How the prediction is used</span><strong>${tideRelationshipLabel(selected?.relationship_type)}</strong></div>
+        <div><span>How it applies here</span><strong>${selected?.coastal_relationship ?? "Unavailable"}</strong></div>
+        <div><span>NOAA reference station</span><strong>${selected?.reference_station ?? "Unavailable"}</strong></div>
+        <div><span>Water level reference</span><strong>${waterLevelReferenceLabel(selected?.datum)}</strong></div>
+        <div><span>Distance to fishing location</span><strong>${formatNumber(selected?.distance_km, 3, "km")}</strong></div>
       </div>
       <div class="provenance-limitation">
-        <strong>Known tide limitation</strong>
-        <p>${selected?.known_limitation ?? "Unavailable"}</p>
+        <strong>Tide limitation</strong>
+        <p>${tideLimitationLabel(selected?.known_limitation)}</p>
       </div>
     ` : null}
   </details>
 </section>
-`);
+`;
+preserveDisclosureState(sourceInspector.querySelector(".provenance-details"), "source");
+display(sourceInspector);
 ```
 
-## How the forecast is traced
+## How source data becomes the forecast
 
 ```js
 display(html`
-<ol class="provenance-lineage" aria-label="Source lineage stages">
+<ol class="provenance-lineage" aria-label="Source data stages">
   <li data-lineage-stage="provider">
     <span>1</span>
     <div>
-      <h3>Provider response</h3>
-      <p>Weather, wave, water temperature, and tide data come from their identified providers.</p>
+      <h3>Source data</h3>
+      <p>Weather, wave, water temperature, and tide data come from the providers listed above.</p>
     </div>
   </li>
   <li data-lineage-stage="snapshot">
     <span>2</span>
     <div>
-      <h3>Preserved snapshot</h3>
+      <h3>Saved source record</h3>
       <p>${traceabilityGaps.length === 0
-        ? "Each provider response has an immutable snapshot linked to this published run."
-        : `${traceabilityGaps.length} source ${traceabilityGaps.length === 1 ? "has" : "have"} missing or incomplete snapshot evidence.`}</p>
+        ? "Each provider response is saved and linked to this forecast update."
+        : `${traceabilityGaps.length} forecast ${traceabilityGaps.length === 1 ? "source has" : "sources have"} missing or incomplete saved source details.`}</p>
     </div>
   </li>
   <li data-lineage-stage="normalized">
     <span>3</span>
     <div>
-      <h3>Forecast records</h3>
-      <p>SaltBytes standardizes available values for the selected run and location.</p>
+      <h3>Forecast data</h3>
+      <p>SaltBytes standardizes the available values for the selected update and location.</p>
     </div>
   </li>
   <li data-lineage-stage="published">
@@ -373,7 +425,8 @@ display(html`
 `);
 ```
 
-<details class="provenance-location-details">
+```js
+const locationDetails = html`<details class="provenance-location-details">
   <summary>Location directions</summary>
   <p>
     These approximate directions describe the selected shoreline and pier.
@@ -381,12 +434,15 @@ display(html`
   <div class="provenance-technical-grid">
     <div><span>Direction straight out from shore</span><strong>${directionLabel(locationMetadata?.shore_normal_azimuth_degrees)}</strong></div>
     <div><span>Direction the pier points offshore</span><strong>${directionLabel(locationMetadata?.pier_seaward_azimuth_degrees)}</strong></div>
-    <div><span>Reviewed</span><strong>${locationMetadata?.orientation_reviewed_at ?? "Unavailable"}</strong></div>
-    <div><span>Review method</span><strong>${orientationMethodLabel(locationMetadata?.orientation_method)}</strong></div>
-    <div><span>Review source</span><strong>${orientationSourceLabel(locationMetadata?.orientation_source)}</strong></div>
+    <div class="provenance-secondary-detail"><span>Reviewed</span><strong>${locationMetadata?.orientation_reviewed_at ?? "Unavailable"}</strong></div>
+    <div class="provenance-secondary-detail"><span>How directions were estimated</span><strong>${orientationMethodLabel(locationMetadata?.orientation_method)}</strong></div>
+    <div class="provenance-secondary-detail"><span>Reference imagery</span><strong>${orientationSourceLabel(locationMetadata?.orientation_source)}</strong></div>
   </div>
   <div class="provenance-limitation">
-    <strong>Direction limitation</strong>
+    <strong>Direction note</strong>
     <p>${orientationLimitationLabel(locationMetadata?.orientation_limitation)}</p>
   </div>
-</details>
+</details>`;
+preserveDisclosureState(locationDetails, "location");
+display(locationDetails);
+```
