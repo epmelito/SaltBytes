@@ -101,24 +101,59 @@ when needed.
 
 Mobile refinement and static HTML report redesign remain later work.
 
-## 6. Add scores for more species
+## 6. Grow species assessments and establish operating evidence
 
 **Status: Likely next direction**
 
-SaltBytes may next develop scores for more of the reviewed shore fishing
-species.
+SaltBytes may next develop a second reviewed species assessment while establishing
+a minimal hosted workflow telemetry baseline. These independent efforts may
+advance in parallel. Telemetry should establish measured evidence about hosted
+execution, state movement, and reliability; its implementation, schema, exact
+metrics, and migration thresholds require separate bounded work.
 
 Each species will need its own approved method. A new score should use only
 factors supported by the species research, keep confidence separate from the
 number, and clearly mark local biological information that SaltBytes cannot
 observe as unknown.
 
-The next species has not been selected. This phase is a likely direction, not an
-active implementation promise.
+After the second species assessment, SaltBytes will evaluate whether a
+demonstrated historical reprocessing need justifies replay sooner. Research and
+feasibility work for a third species may proceed independently while replay is
+evaluated or implemented. After the third total species assessment, SaltBytes
+will pause additional species breadth for platform maturation.
 
-## 7. Help users compare fishing opportunities
+## 7. Mature the data foundation before broader product work
 
 **Status: Later, with decisions still required**
+
+SaltBytes will complete deterministic historical replay and backfill before
+observation ingestion and forecast verification if replay has not already been
+required. Environmental observations are the first intentional major new data
+family after the initial species expansion. SaltBytes will then reconcile
+forecasts with later observations.
+
+Only after that evidence exists may SaltBytes evaluate species score behavior
+against responsibly collected fishing or catch results. Catch based validation
+remains a separate, harder future research direction.
+
+After replay, observations, and verification, SaltBytes will reassess storage
+and batch execution against measured limitations. That checkpoint may conclude
+that no migration is needed: DuckDB, GitHub Actions, and the existing hosted
+design remain valid while they are effective. Analytical storage, dedicated
+batch compute, infrastructure as code, and deeper cloud telemetry remain
+conditional on demonstrated need.
+
+SaltBytes will add metrics only when an approved species method, verification
+need, data quality need, or demonstrated product requirement consumes them. It
+will add external forecast sources only when an approved method or important
+shared capability requires them.
+
+## 8. Resume species and cross species product work
+
+**Status: Later, with decisions still required**
+
+After the first platform maturation cycle, SaltBytes may resume additional
+species assessments and cross species product work.
 
 Several species scores could support clearer comparisons across upcoming times
 and fishing opportunities. SaltBytes may later help users see which species and
@@ -132,18 +167,18 @@ opportunities, confidence, and explanations should affect the result.
 No ranking method, fishing window method, or overall score formula is approved
 yet. SaltBytes will not turn these comparisons into catch probability.
 
-## 8. Expand evidence and coverage when justified
+## 9. Expand coverage when justified
 
 **Status: Conditional**
 
-SaltBytes may later improve its evidence and reach through work such as:
+After the platform foundation is stronger, SaltBytes may expand through reviewed
+North Carolina coastal locations. Mapped user selected points remain later work;
+fully automatic coordinate resolution remains conditional on later evidence.
 
-- comparing forecasts with later observations
-- checking score behavior against responsibly collected fishing results
-- adding more reviewed North Carolina fishing locations
+SaltBytes may also later improve its evidence and reach through work such as:
+
 - improving mobile use or the static reports
 - adding alerts or other delivery options
-- changing the hosted design when the current approach shows a real limit
 
 These are possible directions, not a fixed sequence. Each one needs a clear
 user benefit, suitable evidence, and a bounded decision before implementation.
