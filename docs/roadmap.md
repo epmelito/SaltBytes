@@ -21,10 +21,14 @@ ready for ordinary use and investigation.
 
 ## Next work
 
-### 1. Select the next species score work package
+### 1. Prepare the next species assessment and a hosted telemetry baseline
 
-Choose the next reviewed species and approve a bounded method before beginning
-implementation. No next species or method is selected yet.
+SaltBytes may advance a second reviewed species assessment and a minimal hosted
+workflow telemetry baseline in parallel. The next species, its method, and the
+telemetry design remain decisions for separate bounded work packages.
+
+After the second species assessment, evaluate whether a demonstrated historical
+reprocessing need justifies beginning replay before the third species package.
 
 ## Later work
 

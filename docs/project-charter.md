@@ -3,7 +3,7 @@
 ## Purpose
 
 SaltBytes is a lightweight portfolio project for exploring upcoming coastal
-conditions at a small set of North Carolina fishing locations.
+conditions at North Carolina fishing locations.
 
 The [project roadmap](project-roadmap.md) explains the long range direction.
 The [current roadmap](roadmap.md) lists the next few pieces of work.
