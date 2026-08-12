@@ -1,6 +1,6 @@
 # SaltBytes ChatGPT Operating Contract
 
-Version: 1.9
+Version: 1.10
 Updated: 2026-08-12
 
 ## 1. Purpose, authority, and conflict resolution
@@ -549,12 +549,34 @@ diagnosed and remove them when no longer needed.
 
 ### Repeated command failure prevention
 
-- Treat `Invoke-NativeCommand` output as a mixed diagnostic stream unless the
-  invoked command and helper behavior guarantee otherwise. Do not assume output
-  captured from Git or GitHub CLI contains only machine-readable values.
-- Prefer explicit authorized file paths for staging. When path verification is
-  needed, verify the staged index after `git add` instead of parsing raw
-  `git status --porcelain` whitespace.
+Treat `Invoke-NativeCommand` as an evidence transport, not a machine-readable
+API. Its returned stream may contain stdout, stderr, warnings, diagnostics, and
+formatted text. Do not parse that combined stream to drive workflow decisions
+unless the invoked command deliberately emits a verified structured format for
+that purpose.
+
+Prefer the simplest reliable control signal, in this order:
+
+1. A native exit code when success or failure is sufficient.
+2. A known identifier or explicit authorized path already established by the
+   current workflow.
+3. Deliberately structured output such as JSON when a value must be extracted.
+4. Formatted command output only when its documented shape has been verified and
+   no safer signal is available.
+
+Do not rediscover state that is already known. Reuse confirmed branch names,
+commit SHAs, pull request numbers or URLs, issue numbers, and authorized file
+paths instead of parsing human-oriented command output to reconstruct them.
+
+Before issuing a nontrivial `git`, `gh`, `az`, or similar native command whose
+correctness depends on specific flags or argument forms, use syntax already
+verified in the current repository workflow or verify the supported syntax. Do
+not invent or infer CLI flags from memory.
+
+Additional safeguards:
+
+- Prefer explicit authorized file paths for staging. Verify the staged index
+  after `git add` rather than parsing raw `git status --porcelain` whitespace.
 - Do not compare raw porcelain status lines using exact leading-space strings.
   If status parsing is unavoidable, parse documented fields deliberately.
 - Guard empty or null native command output before calling PowerShell string
