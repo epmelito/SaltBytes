@@ -29,12 +29,14 @@ real examples from multiple sources. Preserve exact-site, nearby or local, and
 regional evidence separately, and validate that different observation strengths
 remain distinct.
 
-Little Bridge Sound Access is the leading seventh-location candidate, pending
-final confirmation of the sound-side expansion decision. Finalize that decision
-before defining bounded observational ingestion work. Then add Sunset Beach Pier
-through the normal location-expansion process. Sunset Beach Pier is the planned
-sixth SaltBytes location, subject to normal implementation feasibility. Resume
-species-assessment implementation only after those foundations exist.
+Sound-side expansion is approved, with Little Bridge Sound Access as the planned
+seventh SaltBytes location. Its environmental source relationships remain
+unresolved and require bounded evaluation before implementation; existing
+ocean-facing marine relationships must not be reused without supporting
+evidence. Define bounded observational ingestion work next. Sunset Beach Pier
+remains the planned sixth SaltBytes location, subject to normal implementation
+feasibility. Resume species-assessment implementation only after those
+foundations exist.
 
 The deterministic red drum score path is paused; its research remains useful
 for later location-first assessment work.
