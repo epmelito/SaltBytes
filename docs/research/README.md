@@ -18,6 +18,7 @@ defines the first score formula.
 | Task | Authoritative research |
 | --- | --- |
 | Report, assertion, time, scope, terminology, quantity, and provenance semantics | [Fishing observation contract trial](fishing-observation-contract-trial.md) |
+| Dated production-suitability evidence for initial observation candidates | [Initial fishing-observation source suitability assessment](fishing-observation-source-suitability.md) |
 
 ## Approved scope
 
