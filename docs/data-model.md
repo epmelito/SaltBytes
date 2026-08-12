@@ -47,6 +47,26 @@ One outcome per attempted location and source: `success`, `fetch_failed`, or
 Fetch and validation failures do not create accepted snapshots or normalized
 rows, but do not prevent independent source attempts from continuing.
 
+### Fishing observations
+
+`fishing_observation_reports` stores one bounded source-entry content version:
+its content hash, raw source date and title text, first-retrieval provenance,
+and supported location scope. `fishing_observation_retrievals` records every
+retrieval of that unchanged content version. `fishing_observation_assertions`
+links each classified statement to the specific bounded content version that
+supported it, including raw subject wording and source-supported temporal text,
+granularity, and evidence basis.
+
+`fishing_observation_review_candidates` is separate from factual assertions. It
+stores only a version-linked raw segment and deterministic reason when an
+otherwise-unclassified segment may be useful for later review. Candidates are
+not observations and do not supply assessment input.
+
+These entities are independent of pipeline runs and forecast-hour tables. They
+do not turn report text into forecast data, normalized species, quantities,
+measurements, dispositions, or fishing assessments when the source does not
+support those values.
+
 ### Normalized hourly tables
 
 - `forecast_hourly` stores atmospheric forecast values

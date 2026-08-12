@@ -193,3 +193,40 @@ def test_main_requires_output_for_html_report(
 
     with pytest.raises(ValueError, match="--output is required"):
         main(["report", "conditions", "--format", "html"])
+
+
+def test_observation_command_uses_explicit_database_without_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    monkeypatch.setattr(
+        "saltbytes.cli.load_config",
+        lambda: pytest.fail("explicit observation database must not load configuration"),
+    )
+    monkeypatch.setattr(
+        "saltbytes.cli.run_pipeline",
+        lambda _: pytest.fail("observation ingestion must not run the pipeline"),
+    )
+    monkeypatch.setattr(
+        "saltbytes.cli.retrieve_and_ingest_jennettes_pier",
+        lambda path: {"reports": 2, "assertions": 3, "retrievals": 2},
+    )
+
+    main(["observations", "ingest-jennettes", "--database", str(database_path)])
+
+    assert capsys.readouterr().out == "reports persisted: 2\nassertions persisted: 3\n"
+
+
+def test_observation_command_reports_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "saltbytes.cli.retrieve_and_ingest_jennettes_pier",
+        lambda _: (_ for _ in ()).throw(ValueError("report entries missing")),
+    )
+
+    with pytest.raises(SystemExit, match="Jennette's Pier observation ingestion failed"):
+        main(["observations", "ingest-jennettes", "--database", str(tmp_path / "db")])
