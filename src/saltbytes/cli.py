@@ -4,7 +4,10 @@ from pathlib import Path
 from saltbytes.config import load_config
 from saltbytes.dashboard import DashboardSchemaError, export_dashboard_data
 from saltbytes.logging import configure_logging
-from saltbytes.observations import retrieve_and_ingest_jennettes_pier
+from saltbytes.observations import (
+    retrieve_and_ingest_jennettes_pier,
+    review_jennettes_pier_candidates,
+)
 from saltbytes.pipeline import run_pipeline
 from saltbytes.report import render_conditions_report, render_operations_report
 from saltbytes.reporting.html import (
@@ -43,6 +46,12 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
     )
     jennettes_parser = observations_subparsers.add_parser("ingest-jennettes")
     jennettes_parser.add_argument("--database")
+    review_parser = observations_subparsers.add_parser("review-candidates")
+    review_parser.add_argument("--database")
+    review_parser.add_argument("--limit", type=int, default=20)
+    review_parser.add_argument("--occurrence-limit", type=int, default=5)
+    review_parser.add_argument("--pattern-id")
+    review_parser.add_argument("--disposition")
 
     return parser.parse_args(argv)
 
@@ -50,6 +59,37 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
 # load configuration and run the pipeline
 def main(argv: list[str] | None = None) -> None:
     arguments = _parse_arguments(argv)
+
+    if (
+        arguments.command == "observations"
+        and arguments.observations_command == "review-candidates"
+    ):
+        database_path = arguments.database
+        if database_path is None:
+            database_path = load_config()["storage"]["database_path"]
+        try:
+            result = review_jennettes_pier_candidates(
+                database_path,
+                arguments.limit,
+                arguments.occurrence_limit,
+                arguments.pattern_id,
+                arguments.disposition,
+            )
+        except Exception as exc:
+            raise SystemExit(f"error: observation candidate review failed: {exc}") from None
+        print(f"outstanding review patterns: {result['outstanding_patterns']}")
+        for pattern in result["patterns"]:
+            print(f"pattern id: {pattern['pattern_id']}")
+            print(f"reason: {pattern['reason']}")
+            print(f"candidate wording: {pattern['raw_segment']}")
+            print(f"occurrences: {pattern['occurrence_count']}")
+            for occurrence in pattern["occurrences"]:
+                print(
+                    "report version: "
+                    f"{occurrence['report_id']} "
+                    f"({occurrence['content_hash']}, {occurrence['report_time_text']})"
+                )
+        return
 
     if arguments.command == "observations" and arguments.database is not None:
         try:
@@ -60,6 +100,10 @@ def main(argv: list[str] | None = None) -> None:
             ) from None
         print(f"reports persisted: {result['reports']}")
         print(f"assertions persisted: {result['assertions']}")
+        print(f"review candidates persisted: {result['review_candidates']}")
+        print(f"new review patterns: {result['new_review_patterns']}")
+        print(f"previously seen review patterns: {result['previously_seen_review_patterns']}")
+        print(f"outstanding review patterns: {result['outstanding_review_patterns']}")
         return
 
     config = load_config()
@@ -75,6 +119,10 @@ def main(argv: list[str] | None = None) -> None:
             ) from None
         print(f"reports persisted: {result['reports']}")
         print(f"assertions persisted: {result['assertions']}")
+        print(f"review candidates persisted: {result['review_candidates']}")
+        print(f"new review patterns: {result['new_review_patterns']}")
+        print(f"previously seen review patterns: {result['previously_seen_review_patterns']}")
+        print(f"outstanding review patterns: {result['outstanding_review_patterns']}")
         return
 
     if arguments.command == "dashboard":

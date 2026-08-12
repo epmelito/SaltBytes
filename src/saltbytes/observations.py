@@ -15,6 +15,12 @@ _NAMED_CATCH = re.compile(r"^(?P<name>[A-Z][A-Za-z .'-]+) caught (?:a |an )?(?P<
 _CAUGHT_SUMMARY = re.compile(r"(?:anglers have )?caught\s+(?P<subject>.+)$", re.I)
 _BEING_CAUGHT = re.compile(r"^(?P<subject>.+?)\s+(?:are|is) being caught\b", re.I)
 _BITING = re.compile(r"\b(?P<subject>[A-Z][A-Z ]*[A-Z])\s+biting\b")
+_WIND_DIRECTION = r"(?:[nesw]{1,3}|north|south|east|west|northeast|northwest|southeast|southwest)"
+_REVIEW_DISPOSITIONS = {
+    "irrelevant",
+    "useful_existing_semantics",
+    "accepted_for_parser",
+}
 
 
 class ObservationParseError(ValueError):
@@ -149,7 +155,7 @@ def _summary_subject(sentence: str) -> str | None:
 
 def _candidate_reason(sentence: str) -> str | None:
     lower = sentence.lower()
-    if any(word in lower for word in ("fish", "catch", "angler", "bait", "pier")):
+    if any(word in lower for word in ("fish", "catch", "angler", "bait")):
         return "fishing terminology"
     if any(word in lower for word in ("wind", "ocean", "water", "tide", "sea")):
         return "environmental terminology"
@@ -196,8 +202,10 @@ def _assertions_for_report(
             word in lower for word in ("should", "expect", "recommend", "will be")
         ) and (
             re.search(
-                r"\b(winds?\b.*\b[nesw]{1,3}\b|[nesw]{1,3}\s+winds?|wind\s+[nesw]{1,3}|"
-                r"ocean temp|water temp|water is \d|sea is flat|flat, glassy ocean)",
+                rf"\b(winds?\b.*\b{_WIND_DIRECTION}\b|{_WIND_DIRECTION}\s+winds?|"
+                rf"wind\s+{_WIND_DIRECTION}|{_WIND_DIRECTION}\s+breeze\b|"
+                r"ocean temp|ocean\b.*\b\d+\s+degrees?\b|water temp|water is \d|"
+                r"sea is flat|flat, glassy ocean|(?:high|low) tides?\b)",
                 lower,
             )
             is not None
@@ -309,8 +317,16 @@ def _persist_candidate(
     report_id: str,
     raw_segment: str,
     reason: str,
+    source: str,
 ) -> bool:
-    is_new = (
+    pattern_id = hashlib.sha256(f"{source}|{reason}|{raw_segment}".encode()).hexdigest()
+    connection.execute(
+        """insert into fishing_observation_review_patterns
+        (pattern_id, source, reason, raw_segment) values (?, ?, ?, ?)
+        on conflict do nothing""",
+        [pattern_id, source, reason, raw_segment],
+    )
+    is_new_candidate = (
         connection.execute(
             """select count(*) from fishing_observation_review_candidates
             where candidate_id = ?""",
@@ -323,7 +339,90 @@ def _persist_candidate(
         on conflict do nothing""",
         [candidate_id, report_id, raw_segment, reason],
     )
-    return is_new
+    connection.execute(
+        """insert into fishing_observation_review_candidate_patterns values (?, ?)
+        on conflict do nothing""",
+        [candidate_id, pattern_id],
+    )
+    return is_new_candidate
+
+
+def review_jennettes_pier_candidates(
+    database_path: Path | str,
+    limit: int = 20,
+    occurrence_limit: int = 5,
+    pattern_id: str | None = None,
+    disposition: str | None = None,
+) -> dict[str, object]:
+    if limit < 1 or occurrence_limit < 1:
+        raise ValueError("review limits must be positive")
+    if (pattern_id is None) != (disposition is None):
+        raise ValueError("--pattern-id and --disposition must be used together")
+    if disposition is not None and disposition not in _REVIEW_DISPOSITIONS:
+        raise ValueError("disposition must be one of: " + ", ".join(sorted(_REVIEW_DISPOSITIONS)))
+    initialize_database(database_path)
+    with duckdb.connect(str(database_path)) as connection:
+        if pattern_id is not None and disposition is not None:
+            found = connection.execute(
+                """select count(*) from fishing_observation_review_patterns
+                where pattern_id = ? and source = 'jennettes_pier'""",
+                [pattern_id],
+            ).fetchone()[0]
+            if found != 1:
+                raise ValueError("review pattern was not found")
+            connection.execute(
+                """update fishing_observation_review_patterns
+                set disposition = ?, dispositioned_at = ?
+                where pattern_id = ? and source = 'jennettes_pier'""",
+                [disposition, datetime.now(timezone.utc), pattern_id],
+            )
+        outstanding_patterns = connection.execute(
+            """select count(*) from fishing_observation_review_patterns
+            where source = 'jennettes_pier' and disposition is null"""
+        ).fetchone()[0]
+        patterns = connection.execute(
+            """select pattern_id, reason, raw_segment
+            from fishing_observation_review_patterns
+            where source = 'jennettes_pier' and disposition is null
+            order by pattern_id
+            limit ?""",
+            [limit],
+        ).fetchall()
+        reviewed = []
+        for current_pattern_id, reason, raw_segment in patterns:
+            occurrences = connection.execute(
+                """select candidate.report_id, report.content_hash, report.report_time_text
+                from fishing_observation_review_candidates as candidate
+                inner join fishing_observation_review_candidate_patterns as linked
+                    using (candidate_id)
+                inner join fishing_observation_reports as report using (report_id)
+                where linked.pattern_id = ?
+                order by candidate.report_id
+                limit ?""",
+                [current_pattern_id, occurrence_limit],
+            ).fetchall()
+            occurrence_count = connection.execute(
+                """select count(*) from fishing_observation_review_candidate_patterns
+                where pattern_id = ?""",
+                [current_pattern_id],
+            ).fetchone()[0]
+            reviewed.append(
+                {
+                    "pattern_id": current_pattern_id,
+                    "reason": reason,
+                    "raw_segment": raw_segment,
+                    "occurrence_count": occurrence_count,
+                    "occurrences": [
+                        {
+                            "report_id": report_id,
+                            "content_hash": content_hash,
+                            "report_time_text": report_time_text,
+                        }
+                        for report_id, content_hash, report_time_text in occurrences
+                    ],
+                }
+            )
+    return {"outstanding_patterns": outstanding_patterns, "patterns": reviewed}
 
 
 def ingest_jennettes_pier(
@@ -335,8 +434,16 @@ def ingest_jennettes_pier(
     reports, diagnostics = extract_jennettes_pier_reports(html)
     initialize_database(database_path)
     inserted_reports = inserted_assertions = inserted_candidates = zero_assertion_reports = 0
+    encountered_pattern_ids: set[str] = set()
     kinds: Counter[str] = Counter()
     with duckdb.connect(str(database_path)) as connection:
+        existing_pattern_ids = {
+            row[0]
+            for row in connection.execute(
+                """select pattern_id from fishing_observation_review_patterns
+                where source = 'jennettes_pier'"""
+            ).fetchall()
+        }
         connection.execute("begin transaction")
         try:
             for report in reports:
@@ -417,26 +524,38 @@ def ingest_jennettes_pier(
                         ],
                     )
                 for candidate in candidates:
+                    pattern_id = hashlib.sha256(
+                        f"jennettes_pier|{candidate['reason']}|{candidate['raw_segment']}".encode()
+                    ).hexdigest()
+                    encountered_pattern_ids.add(pattern_id)
                     candidate_id = hashlib.sha256(
                         f"{report_id}|{candidate['reason']}|{candidate['raw_segment']}".encode()
                     ).hexdigest()
-                    inserted_candidates += int(
-                        _persist_candidate(
-                            connection,
-                            candidate_id,
-                            report_id,
-                            candidate["raw_segment"],
-                            candidate["reason"],
-                        )
+                    candidate_is_new = _persist_candidate(
+                        connection,
+                        candidate_id,
+                        report_id,
+                        candidate["raw_segment"],
+                        candidate["reason"],
+                        "jennettes_pier",
                     )
+                    inserted_candidates += int(candidate_is_new)
             connection.execute("commit")
         except Exception:
             connection.execute("rollback")
             raise
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        outstanding_patterns = connection.execute(
+            """select count(*) from fishing_observation_review_patterns
+            where source = 'jennettes_pier' and disposition is null"""
+        ).fetchone()[0]
     return {
         "reports": inserted_reports,
         "assertions": inserted_assertions,
         "review_candidates": inserted_candidates,
+        "new_review_patterns": len(encountered_pattern_ids - existing_pattern_ids),
+        "previously_seen_review_patterns": len(encountered_pattern_ids & existing_pattern_ids),
+        "outstanding_review_patterns": outstanding_patterns,
         "retrievals": len(reports),
         **diagnostics,
         "assertions_by_kind": dict(kinds),

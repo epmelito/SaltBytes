@@ -31,6 +31,8 @@ EXPECTED_TABLES = {
     "fishing_observation_reports",
     "fishing_observation_retrievals",
     "fishing_observation_review_candidates",
+    "fishing_observation_review_candidate_patterns",
+    "fishing_observation_review_patterns",
     "pipeline_runs",
     "run_locations",
     "run_location_solar_context",

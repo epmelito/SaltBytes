@@ -1,3 +1,4 @@
+import hashlib
 import math
 from contextlib import nullcontext
 from datetime import datetime, timezone
@@ -194,6 +195,23 @@ create table if not exists fishing_observation_review_candidates (
     reason varchar not null,
     unique (report_id, raw_segment, reason),
     foreign key (report_id) references fishing_observation_reports(report_id)
+);
+
+create table if not exists fishing_observation_review_patterns (
+    pattern_id varchar primary key,
+    source varchar not null,
+    reason varchar not null,
+    raw_segment varchar not null,
+    disposition varchar,
+    dispositioned_at timestamptz,
+    unique (source, reason, raw_segment)
+);
+
+create table if not exists fishing_observation_review_candidate_patterns (
+    candidate_id varchar primary key,
+    pattern_id varchar not null,
+    foreign key (candidate_id) references fishing_observation_review_candidates(candidate_id),
+    foreign key (pattern_id) references fishing_observation_review_patterns(pattern_id)
 );
 
 create table if not exists solar_context_hourly (
@@ -632,6 +650,7 @@ def initialize_database(database_path: Path | str) -> None:
         try:
             connection.execute(_SCHEMA_SQL)
             _migrate_source_result_statuses(connection)
+            _migrate_review_candidate_patterns(connection)
         except Exception:
             connection.execute("rollback")
             raise
@@ -681,6 +700,32 @@ def _migrate_source_result_statuses(connection: duckdb.DuckDBPyConnection) -> No
         """
     )
     connection.execute("drop table source_results_legacy")
+
+
+def _migrate_review_candidate_patterns(connection: duckdb.DuckDBPyConnection) -> None:
+    candidates = connection.execute(
+        """select candidate.candidate_id, report.source, candidate.reason, candidate.raw_segment
+        from fishing_observation_review_candidates as candidate
+        inner join fishing_observation_reports as report using (report_id)
+        left join fishing_observation_review_candidate_patterns as linked
+            using (candidate_id)
+        where linked.candidate_id is null"""
+    ).fetchall()
+    for candidate_id, source, reason, raw_segment in candidates:
+        pattern_id = hashlib.sha256(
+            f"{source}|{reason}|{raw_segment}".encode()
+        ).hexdigest()
+        connection.execute(
+            """insert into fishing_observation_review_patterns
+            (pattern_id, source, reason, raw_segment) values (?, ?, ?, ?)
+            on conflict do nothing""",
+            [pattern_id, source, reason, raw_segment],
+        )
+        connection.execute(
+            """insert into fishing_observation_review_candidate_patterns values (?, ?)
+            on conflict do nothing""",
+            [candidate_id, pattern_id],
+        )
 
 
 # insert a new pipeline run
