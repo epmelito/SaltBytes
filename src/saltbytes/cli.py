@@ -5,7 +5,7 @@ from saltbytes.config import load_config
 from saltbytes.dashboard import DashboardSchemaError, export_dashboard_data
 from saltbytes.logging import configure_logging
 from saltbytes.observations import (
-    retrieve_and_ingest_jennettes_pier,
+    retrieve_and_record_jennettes_pier_attempt,
     review_jennettes_pier_candidates,
 )
 from saltbytes.pipeline import run_pipeline
@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if arguments.command == "observations" and arguments.database is not None:
         try:
-            result = retrieve_and_ingest_jennettes_pier(arguments.database)
+            result = retrieve_and_record_jennettes_pier_attempt(arguments.database)
         except Exception as exc:
             raise SystemExit(
                 f"error: Jennette's Pier observation ingestion failed: {exc}"
@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if arguments.command == "observations":
         try:
-            result = retrieve_and_ingest_jennettes_pier(config["storage"]["database_path"])
+            result = retrieve_and_record_jennettes_pier_attempt(config["storage"]["database_path"])
         except Exception as exc:
             raise SystemExit(
                 f"error: Jennette's Pier observation ingestion failed: {exc}"

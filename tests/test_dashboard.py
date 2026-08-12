@@ -19,6 +19,7 @@ _EXPECTED_FILES = {
     "forecast-history.json",
     "locations.json",
     "manifest.json",
+    "observation-health.json",
     "pipeline-runs.json",
     "provenance.json",
     "source-health.json",
@@ -202,7 +203,7 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert manifest["latest_attempt"]["run_id"] == "run-failed"
     assert manifest["latest_success"]["run_id"] == "run-success"
     assert manifest["latest_success_freshness_minutes"] == 365
-    assert manifest["schema_version"] == 2
+    assert manifest["schema_version"] == 3
     assert manifest["forecast_window"] == {
         "start": "2026-07-30T00:00:00Z",
         "end": "2026-07-30T00:00:00Z",
@@ -266,6 +267,9 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert source_health["failures"][0]["status"] == "fetch_failed"
     assert "detail" not in source_health["failures"][0]
 
+    observation_health = _read_json(output_path, "observation-health.json")
+    assert observation_health == {"latest_attempt": None, "outstanding_patterns": []}
+
     provenance = _read_json(output_path, "provenance.json")
     assert {row["source"] for row in provenance} == {
         "weather",
@@ -309,6 +313,70 @@ def test_export_dashboard_data_preserves_expected_source_without_snapshot_refere
     assert wave["snapshot_id"] is None
     assert wave["captured_at"] is None
     assert wave["model_selector"] is None
+
+
+def test_export_dashboard_data_groups_outstanding_review_patterns(tmp_path: Path) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    output_path = tmp_path / "dashboard-data"
+    _seed_dashboard_database(database_path)
+    with duckdb.connect(str(database_path)) as connection:
+        for index in range(21):
+            pattern_id = f"pattern-{index:02d}"
+            connection.execute(
+                """insert into fishing_observation_review_patterns
+                (pattern_id, source, reason, raw_segment)
+                values (?, 'jennettes_pier', 'reason', ?)""",
+                [pattern_id, f"Candidate {index}"],
+            )
+            occurrence_count = 2 if index == 0 else 1
+            for occurrence in range(occurrence_count):
+                report_id = f"report-{index:02d}-{occurrence}"
+                candidate_id = f"candidate-{index:02d}-{occurrence}"
+                connection.execute(
+                """insert into fishing_observation_reports values
+                    (?, 'jennettes_pier', 'url', ?, 'DATE', 'TITLE',
+                    'jennettes_pier', 'exact_site',
+                    timestamptz '2026-08-13 12:00:00+00')""",
+                    [report_id, report_id],
+                )
+                connection.execute(
+                    """insert into fishing_observation_review_candidates values
+                    (?, ?, 'wording', 'reason')""",
+                    [candidate_id, report_id],
+                )
+                connection.execute(
+                    "insert into fishing_observation_review_candidate_patterns values (?, ?)",
+                    [candidate_id, pattern_id],
+                )
+
+    export_dashboard_data(_config(database_path), output_path)
+
+    patterns = _read_json(output_path, "observation-health.json")["outstanding_patterns"]
+    first = next(pattern for pattern in patterns if pattern["pattern_id"] == "pattern-00")
+    assert len(patterns) == 20
+    assert first["occurrence_count"] == 2
+    assert first["report_id"]
+    assert first["report_time_text"] == "DATE"
+    assert "pattern-20" not in {pattern["pattern_id"] for pattern in patterns}
+
+
+def test_export_dashboard_data_selects_latest_observation_attempt_deterministically(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    output_path = tmp_path / "dashboard-data"
+    _seed_dashboard_database(database_path)
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(
+            """insert into fishing_observation_ingestion_attempts values
+            ('attempt-a', timestamptz '2026-08-13 12:00:00+00', 'success', 1, 0, 1),
+            ('attempt-b', timestamptz '2026-08-13 12:00:00+00', 'failed', 0, 0, 1)"""
+        )
+
+    export_dashboard_data(_config(database_path), output_path)
+
+    latest_attempt = _read_json(output_path, "observation-health.json")["latest_attempt"]
+    assert latest_attempt["status"] == "failed"
 
 
 @pytest.mark.parametrize(

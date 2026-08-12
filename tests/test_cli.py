@@ -210,7 +210,7 @@ def test_observation_command_uses_explicit_database_without_pipeline(
         lambda _: pytest.fail("observation ingestion must not run the pipeline"),
     )
     monkeypatch.setattr(
-        "saltbytes.cli.retrieve_and_ingest_jennettes_pier",
+        "saltbytes.cli.retrieve_and_record_jennettes_pier_attempt",
         lambda path: {
             "reports": 2,
             "assertions": 3,
@@ -274,7 +274,7 @@ def test_observation_command_reports_failure(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        "saltbytes.cli.retrieve_and_ingest_jennettes_pier",
+        "saltbytes.cli.retrieve_and_record_jennettes_pier_attempt",
         lambda _: (_ for _ in ()).throw(ValueError("report entries missing")),
     )
 

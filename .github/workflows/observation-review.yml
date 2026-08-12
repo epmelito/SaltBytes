@@ -1,0 +1,56 @@
+name: apply fishing observation review
+
+on:
+  workflow_dispatch:
+    inputs:
+      pattern_id:
+        description: Review pattern ID from Pipeline Monitoring
+        required: true
+        type: string
+      disposition:
+        description: Human review decision
+        required: true
+        type: choice
+        options:
+          - irrelevant
+          - useful_existing_semantics
+          - accepted_for_parser
+
+concurrency:
+  group: saltbytes-hosted-ingestion
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+      AZURE_STORAGE_CONTAINER: saltbytes-state
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --editable .
+      - uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: restore, apply, and publish review state
+        env:
+          PATTERN_ID: ${{ inputs.pattern_id }}
+          DISPOSITION: ${{ inputs.disposition }}
+        run: |
+          mkdir -p data/local
+          az storage blob download --account-name "$AZURE_STORAGE_ACCOUNT" --container-name "$AZURE_STORAGE_CONTAINER" --name state/saltbytes.duckdb --file data/local/saltbytes.duckdb --auth-mode login --no-progress --only-show-errors
+          saltbytes observations review-candidates --database data/local/saltbytes.duckdb --pattern-id "$PATTERN_ID" --disposition "$DISPOSITION"
+          python scripts/validate_hosted_database.py data/local/saltbytes.duckdb
+          az storage blob upload --account-name "$AZURE_STORAGE_ACCOUNT" --container-name "$AZURE_STORAGE_CONTAINER" --name state/saltbytes.duckdb --file data/local/saltbytes.duckdb --overwrite true --auth-mode login --only-show-errors
+      - if: always()
+        run: az logout

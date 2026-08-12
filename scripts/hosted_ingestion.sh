@@ -183,6 +183,10 @@ main() {
 
     saltbytes || pipeline_status=$?
 
+    if ! saltbytes observations ingest-jennettes --database "$database_path"; then
+        echo "fishing observation ingestion failed; preserved prior observation state" >&2
+    fi
+
     publish_raw_snapshots
     if run_id="$(validate_database)"; then
         validation_status="passed"

@@ -214,6 +214,15 @@ create table if not exists fishing_observation_review_candidate_patterns (
     foreign key (pattern_id) references fishing_observation_review_patterns(pattern_id)
 );
 
+create table if not exists fishing_observation_ingestion_attempts (
+    attempt_id varchar primary key,
+    attempted_at timestamptz not null,
+    status varchar not null check (status in ('success', 'failed')),
+    new_review_patterns integer not null default 0,
+    previously_seen_review_patterns integer not null default 0,
+    outstanding_review_patterns integer not null default 0
+);
+
 create table if not exists solar_context_hourly (
     run_id varchar not null,
     location_id varchar not null,
