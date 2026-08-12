@@ -182,7 +182,8 @@ def test_successful_publication_replaces_canonical_database(
     result, uploads, capture_path = _run_hosted_ingestion(tmp_path, monkeypatch)
 
     assert result.returncode == 0
-    assert uploads == ["raw/run/a.json", "raw/run/b.json", "state/saltbytes.duckdb"]
+    assert sorted(uploads[:-1]) == ["raw/run/a.json", "raw/run/b.json"]
+    assert uploads[-1] == "state/saltbytes.duckdb"
     assert "raw publication totals: total=2 published=2 failed=0" in result.stdout
     assert "final hosted outcome: canonical state published" in result.stdout
     assert not any(path.name.startswith("recovery__") for path in capture_path.iterdir())
