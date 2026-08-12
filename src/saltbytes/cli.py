@@ -4,6 +4,7 @@ from pathlib import Path
 from saltbytes.config import load_config
 from saltbytes.dashboard import DashboardSchemaError, export_dashboard_data
 from saltbytes.logging import configure_logging
+from saltbytes.observations import retrieve_and_ingest_jennettes_pier
 from saltbytes.pipeline import run_pipeline
 from saltbytes.report import render_conditions_report, render_operations_report
 from saltbytes.reporting.html import (
@@ -35,15 +36,46 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
     export_parser = dashboard_subparsers.add_parser("export")
     export_parser.add_argument("--output", required=True)
 
+    observations_parser = subparsers.add_parser("observations")
+    observations_subparsers = observations_parser.add_subparsers(
+        dest="observations_command",
+        required=True,
+    )
+    jennettes_parser = observations_subparsers.add_parser("ingest-jennettes")
+    jennettes_parser.add_argument("--database")
+
     return parser.parse_args(argv)
 
 
 # load configuration and run the pipeline
 def main(argv: list[str] | None = None) -> None:
     arguments = _parse_arguments(argv)
+
+    if arguments.command == "observations" and arguments.database is not None:
+        try:
+            result = retrieve_and_ingest_jennettes_pier(arguments.database)
+        except Exception as exc:
+            raise SystemExit(
+                f"error: Jennette's Pier observation ingestion failed: {exc}"
+            ) from None
+        print(f"reports persisted: {result['reports']}")
+        print(f"assertions persisted: {result['assertions']}")
+        return
+
     config = load_config()
 
     configure_logging(config)
+
+    if arguments.command == "observations":
+        try:
+            result = retrieve_and_ingest_jennettes_pier(config["storage"]["database_path"])
+        except Exception as exc:
+            raise SystemExit(
+                f"error: Jennette's Pier observation ingestion failed: {exc}"
+            ) from None
+        print(f"reports persisted: {result['reports']}")
+        print(f"assertions persisted: {result['assertions']}")
+        return
 
     if arguments.command == "dashboard":
         output_path = Path(arguments.output)

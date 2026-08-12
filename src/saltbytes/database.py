@@ -155,6 +155,47 @@ create table if not exists source_results (
     foreign key (run_id) references pipeline_runs(run_id)
 );
 
+create table if not exists fishing_observation_reports (
+    report_id varchar primary key,
+    source varchar not null,
+    source_url varchar not null,
+    content_hash varchar not null,
+    report_time_text varchar,
+    report_title varchar,
+    location_id varchar not null,
+    spatial_scope varchar not null,
+    first_retrieved_at timestamptz not null,
+    unique (source, source_url, content_hash)
+);
+
+create table if not exists fishing_observation_retrievals (
+    report_id varchar not null,
+    retrieved_at timestamptz not null,
+    primary key (report_id, retrieved_at),
+    foreign key (report_id) references fishing_observation_reports(report_id)
+);
+
+create table if not exists fishing_observation_assertions (
+    assertion_id varchar primary key,
+    report_id varchar not null,
+    assertion_kind varchar not null,
+    granularity varchar not null,
+    evidence_basis varchar not null,
+    observation_time_text varchar,
+    raw_subject varchar,
+    assertion_text varchar not null,
+    foreign key (report_id) references fishing_observation_reports(report_id)
+);
+
+create table if not exists fishing_observation_review_candidates (
+    candidate_id varchar primary key,
+    report_id varchar not null,
+    raw_segment varchar not null,
+    reason varchar not null,
+    unique (report_id, raw_segment, reason),
+    foreign key (report_id) references fishing_observation_reports(report_id)
+);
+
 create table if not exists solar_context_hourly (
     run_id varchar not null,
     location_id varchar not null,
