@@ -6,7 +6,11 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from saltbytes.observations import ObservationParseError, ingest_jennettes_pier
+from saltbytes.observations import (
+    ObservationParseError,
+    ingest_jennettes_pier,
+    review_jennettes_pier_candidates,
+)
 
 
 def _card(date: str, title: str, body: str) -> str:
@@ -162,7 +166,8 @@ def test_explicit_negative_catch_and_uppercase_prose_do_not_become_catches(tmp_p
         assertions = connection.execute(
             "select assertion_kind, assertion_text from fishing_observation_assertions"
         ).fetchall()
-    assert assertions == []
+    assert all(kind != "catch" for kind, _ in assertions)
+    assert sum(kind == "environmental_context" for kind, _ in assertions) == 3
 
 
 @pytest.mark.parametrize(
@@ -272,6 +277,129 @@ def test_candidates_are_version_linked_not_assertions_or_other_prose(tmp_path: P
     assert candidates[0][0]
     assert candidates[0][1:] == ("Anglers were nearby.", "fishing terminology")
     assert assertions == (0,)
+
+
+def test_candidate_patterns_group_versions_and_retain_review_disposition(tmp_path: Path) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    first = ingest_jennettes_pier(
+        database_path,
+        _html(
+            _card("DATE", "REPORT", "Anglers were nearby."),
+            _card("DATE", "UPDATED REPORT", "Anglers were nearby. Community photo event."),
+        ),
+        datetime.now(timezone.utc),
+    )
+
+    review = review_jennettes_pier_candidates(database_path)
+    pattern = review["patterns"][0]
+    reviewed = review_jennettes_pier_candidates(
+        database_path,
+        pattern_id=pattern["pattern_id"],
+        disposition="irrelevant",
+    )
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        disposition = connection.execute(
+            """select disposition from fishing_observation_review_patterns
+            where pattern_id = ?""",
+            [pattern["pattern_id"]],
+        ).fetchone()
+
+    assert first["new_review_patterns"] == 1
+    assert first["previously_seen_review_patterns"] == 0
+    assert review["outstanding_patterns"] == 1
+    assert pattern["occurrence_count"] == len(pattern["occurrences"]) == 2
+    assert reviewed["outstanding_patterns"] == 0
+    assert disposition == ("irrelevant",)
+
+    later = ingest_jennettes_pier(
+        database_path,
+        _html(_card("DATE", "LATER REPORT", "Anglers were nearby.")),
+        datetime.now(timezone.utc),
+    )
+    assert later["new_review_patterns"] == 0
+    assert later["previously_seen_review_patterns"] == 1
+
+
+@pytest.mark.parametrize(
+    "disposition",
+    ["irrelevant", "useful_existing_semantics", "accepted_for_parser"],
+)
+def test_review_accepts_only_approved_dispositions(tmp_path: Path, disposition: str) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    ingest_jennettes_pier(
+        database_path,
+        _html(_card("DATE", "REPORT", "Anglers were nearby.")),
+        datetime.now(timezone.utc),
+    )
+    pattern_id = review_jennettes_pier_candidates(database_path)["patterns"][0]["pattern_id"]
+
+    review_jennettes_pier_candidates(database_path, pattern_id=pattern_id, disposition=disposition)
+
+
+@pytest.mark.parametrize("disposition", ["", "not useful", "useful", "accepted"])
+def test_review_rejects_unknown_dispositions(tmp_path: Path, disposition: str) -> None:
+    with pytest.raises(ValueError, match="disposition must be one of"):
+        review_jennettes_pier_candidates(
+            tmp_path / "observations.duckdb",
+            pattern_id="pattern123",
+            disposition=disposition,
+        )
+
+
+def test_database_initialization_backfills_existing_candidate_patterns(tmp_path: Path) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    ingest_jennettes_pier(
+        database_path,
+        _html(_card("DATE", "REPORT", "Anglers were nearby.")),
+        datetime.now(timezone.utc),
+    )
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("delete from fishing_observation_review_candidate_patterns")
+        connection.execute("delete from fishing_observation_review_patterns")
+
+    review = review_jennettes_pier_candidates(database_path)
+
+    assert review["outstanding_patterns"] == 1
+    assert review["patterns"][0]["occurrence_count"] == 1
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "High tide 12:51 p.m.",
+        "High tides 5:39 a.m.",
+        "Low tide 11:42 a.m.",
+        "Low tides 6:33 a.m.",
+        "Winds are West at 7 knots.",
+        "There's a gentle SW breeze at 10 knots.",
+        "Ocean cold again at 68 degrees.",
+    ],
+)
+def test_approved_environmental_wording_is_preserved_raw(
+    tmp_path: Path,
+    sentence: str,
+) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    ingest_jennettes_pier(
+        database_path,
+        _html(_card("DATE", "REPORT", sentence)),
+        datetime.now(timezone.utc),
+    )
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        row = connection.execute(
+            """select assertion_kind, raw_subject, assertion_text
+            from fishing_observation_assertions"""
+        ).fetchone()
+    assert row == ("environmental_context", "reported environmental context", sentence)
+
+
+def test_pier_mention_alone_does_not_create_a_review_candidate(tmp_path: Path) -> None:
+    result = ingest_jennettes_pier(
+        tmp_path / "observations.duckdb",
+        _html(_card("DATE", "REPORT", "The pier hosts a camp today.")),
+        datetime.now(timezone.utc),
+    )
+    assert result["review_candidates"] == 0
 
 
 def test_candidate_write_failure_rolls_back_observation_transaction(

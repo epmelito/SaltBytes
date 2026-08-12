@@ -211,12 +211,62 @@ def test_observation_command_uses_explicit_database_without_pipeline(
     )
     monkeypatch.setattr(
         "saltbytes.cli.retrieve_and_ingest_jennettes_pier",
-        lambda path: {"reports": 2, "assertions": 3, "retrievals": 2},
+        lambda path: {
+            "reports": 2,
+            "assertions": 3,
+            "review_candidates": 1,
+            "new_review_patterns": 1,
+            "previously_seen_review_patterns": 0,
+            "outstanding_review_patterns": 1,
+        },
     )
 
     main(["observations", "ingest-jennettes", "--database", str(database_path)])
 
-    assert capsys.readouterr().out == "reports persisted: 2\nassertions persisted: 3\n"
+    assert capsys.readouterr().out == (
+        "reports persisted: 2\n"
+        "assertions persisted: 3\n"
+        "review candidates persisted: 1\n"
+        "new review patterns: 1\n"
+        "previously seen review patterns: 0\n"
+        "outstanding review patterns: 1\n"
+    )
+
+
+def test_observation_review_command_uses_explicit_database_without_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "saltbytes.cli.load_config",
+        lambda: pytest.fail("explicit observation database must not load configuration"),
+    )
+    monkeypatch.setattr(
+        "saltbytes.cli.review_jennettes_pier_candidates",
+        lambda *_: {
+            "outstanding_patterns": 1,
+            "patterns": [
+                {
+                    "pattern_id": "pattern123",
+                    "reason": "fishing terminology",
+                    "raw_segment": "Anglers were nearby.",
+                    "occurrence_count": 1,
+                    "occurrences": [
+                        {
+                            "report_id": "report123",
+                            "content_hash": "content123",
+                            "report_time_text": "DATE",
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    main(["observations", "review-candidates", "--database", str(tmp_path / "db")])
+
+    assert "outstanding review patterns: 1" in capsys.readouterr().out
 
 
 def test_observation_command_reports_failure(
