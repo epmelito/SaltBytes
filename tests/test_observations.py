@@ -9,6 +9,7 @@ import pytest
 from saltbytes.observations import (
     ObservationParseError,
     ingest_jennettes_pier,
+    retrieve_and_record_jennettes_pier_attempt,
     review_jennettes_pier_candidates,
 )
 
@@ -361,6 +362,101 @@ def test_database_initialization_backfills_existing_candidate_patterns(tmp_path:
 
     assert review["outstanding_patterns"] == 1
     assert review["patterns"][0]["occurrence_count"] == 1
+
+
+def test_observation_attempt_commits_with_successful_ingestion(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    monkeypatch.setattr(
+        "saltbytes.observations.fetch_jennettes_pier_report",
+        lambda: _html(_card("DATE", "REPORT", "Anglers were nearby.")),
+    )
+
+    result = retrieve_and_record_jennettes_pier_attempt(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        counts = connection.execute(
+            """select (select count(*) from fishing_observation_review_candidates),
+            (select count(*) from fishing_observation_ingestion_attempts)"""
+        ).fetchone()
+        attempt = connection.execute(
+            """select status, new_review_patterns, previously_seen_review_patterns,
+            outstanding_review_patterns from fishing_observation_ingestion_attempts"""
+        ).fetchone()
+    assert result["new_review_patterns"] == 1
+    assert counts == (1, 1)
+    assert attempt == ("success", 1, 0, 1)
+
+
+def test_success_attempt_failure_rolls_back_observation_changes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    attempted_at = datetime(2026, 8, 13, tzinfo=timezone.utc)
+    monkeypatch.setattr(
+        "saltbytes.observations._persist_ingestion_attempt",
+        lambda *_: (_ for _ in ()).throw(RuntimeError("attempt write failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="attempt write failed"):
+        ingest_jennettes_pier(
+            database_path,
+            _html(_card("DATE", "REPORT", "Anglers were nearby.")),
+            attempted_at=attempted_at,
+        )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        counts = connection.execute(
+            """select (select count(*) from fishing_observation_reports),
+            (select count(*) from fishing_observation_assertions),
+            (select count(*) from fishing_observation_ingestion_attempts)"""
+        ).fetchone()
+    assert counts == (0, 0, 0)
+
+
+def test_failed_observation_attempt_preserves_history_and_records_current_count(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    ingest_jennettes_pier(
+        database_path,
+        _html(_card("DATE", "REPORT", "Anglers were nearby.")),
+    )
+    monkeypatch.setattr(
+        "saltbytes.observations.fetch_jennettes_pier_report",
+        lambda: (_ for _ in ()).throw(ObservationParseError("source failed")),
+    )
+
+    with pytest.raises(ObservationParseError, match="source failed"):
+        retrieve_and_record_jennettes_pier_attempt(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        report_count = connection.execute(
+            "select count(*) from fishing_observation_reports"
+        ).fetchone()
+        attempt = connection.execute(
+            """select status, new_review_patterns, previously_seen_review_patterns,
+            outstanding_review_patterns from fishing_observation_ingestion_attempts"""
+        ).fetchone()
+    assert report_count == (1,)
+    assert attempt == ("failed", 0, 0, 1)
+
+
+def test_observation_attempt_history_orders_latest_deterministically(tmp_path: Path) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    for index, wording in enumerate(("Anglers were nearby.", "Bait was available.")):
+        ingest_jennettes_pier(
+            database_path,
+            _html(_card("DATE", str(index), wording)),
+            attempted_at=datetime(2026, 8, 13, 12, tzinfo=timezone.utc),
+        )
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        attempts = connection.execute(
+            """select status from fishing_observation_ingestion_attempts
+            order by attempted_at desc, attempt_id desc"""
+        ).fetchall()
+    assert attempts == [("success",), ("success",)]
 
 
 @pytest.mark.parametrize(

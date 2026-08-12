@@ -23,6 +23,7 @@ _EXPORT_FILES = (
     "forecast-history.json",
     "pipeline-runs.json",
     "source-health.json",
+    "observation-health.json",
     "provenance.json",
 )
 
@@ -420,6 +421,30 @@ def _dashboard_payloads(
         order by results.recorded_at desc, results.run_id desc
         """,
     )
+    observation_attempt = _query(
+        connection,
+        """select attempted_at, status, new_review_patterns,
+        previously_seen_review_patterns, outstanding_review_patterns
+        from fishing_observation_ingestion_attempts
+        order by attempted_at desc, attempt_id desc limit 1""",
+    )
+    observation_patterns = _query(
+        connection,
+        """select pattern.pattern_id, pattern.raw_segment, pattern.reason,
+        count(candidate.candidate_id)::integer as occurrence_count,
+        min(candidate.report_id) as report_id,
+        arg_min(report.report_time_text, candidate.report_id) as report_time_text
+        from fishing_observation_review_patterns as pattern
+        inner join fishing_observation_review_candidate_patterns as linked
+            using (pattern_id)
+        inner join fishing_observation_review_candidates as candidate
+            using (candidate_id)
+        inner join fishing_observation_reports as report using (report_id)
+        where pattern.source = 'jennettes_pier' and pattern.disposition is null
+        group by pattern.pattern_id, pattern.raw_segment, pattern.reason
+        order by pattern.pattern_id
+        limit 20""",
+    )
     provenance = _query(
         connection,
         """
@@ -509,7 +534,7 @@ def _dashboard_payloads(
         0,
     )
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "generated_at": _json_value(generated_at),
         "display_timezone": config["display_timezone"],
         "latest_attempt": (
@@ -542,6 +567,10 @@ def _dashboard_payloads(
             "summary": source_summary,
             "coverage": source_coverage,
             "failures": source_failures,
+        },
+        "observation-health.json": {
+            "latest_attempt": observation_attempt[0] if observation_attempt else None,
+            "outstanding_patterns": observation_patterns,
         },
         "provenance.json": provenance,
     }

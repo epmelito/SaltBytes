@@ -21,6 +21,7 @@ const manifest = await FileAttachment("./data/manifest.json").json();
 const locations = await FileAttachment("./data/locations.json").json();
 const runs = await FileAttachment("./data/pipeline-runs.json").json();
 const sourceHealth = await FileAttachment("./data/source-health.json").json();
+const observationHealth = await FileAttachment("./data/observation-health.json").json();
 
 const sourceOrder = ["weather", "wave", "sst", "tide"];
 const sourceLabels = {
@@ -202,6 +203,21 @@ display(latestCoverageExceptions.length
     </section>`
   : html`<div class="notice pipeline-healthy-notice"><strong>No active source failures.</strong>
       All expected source checks succeeded for the latest attempt.</div>`);
+```
+
+## Fishing observation review
+
+```js
+const observationAttempt = observationHealth.latest_attempt;
+const outstandingPatterns = observationHealth.outstanding_patterns;
+display(html`<section class="pipeline-coverage">
+  <div class="observation-review-summary">
+    <strong>${observationAttempt?.status === "success" ? "Latest fishing observation update completed." : observationAttempt?.status === "failed" ? "Latest fishing observation update failed; prior observations remain available." : "Fishing observation update has not run yet."}</strong>
+    <span>${formatTimestamp(observationAttempt?.attempted_at, manifest.display_timezone)}</span>
+  </div>
+  <p class="page-note">New review patterns: ${formatNumber(observationAttempt?.new_review_patterns, 0)}. Outstanding patterns: ${formatNumber(observationAttempt?.outstanding_review_patterns, 0)}.</p>
+  ${outstandingPatterns.length ? html`<div class="table-scroll"><table><thead><tr><th>Pattern ID</th><th>Candidate wording</th><th>Reason</th><th>Occurrences</th><th>Report version</th></tr></thead><tbody>${outstandingPatterns.map((pattern) => html`<tr><td><code>${pattern.pattern_id}</code></td><td>${pattern.raw_segment}</td><td>${pattern.reason}</td><td>${formatNumber(pattern.occurrence_count, 0)}</td><td><code>${pattern.report_id}</code>${pattern.report_time_text ? ` · ${pattern.report_time_text}` : ""}</td></tr>`)}</tbody></table></div>` : html`<p class="page-note">No outstanding fishing observation review patterns.</p>`}
+</section>`);
 ```
 
 ## Recent reliability

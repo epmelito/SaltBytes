@@ -3,8 +3,10 @@
 The `hosted ingestion and report publication` GitHub Actions workflow runs
 from `main` every six
 hours (`17 */6 * * *`) and can be started with **Run workflow** on the Actions
-page. One fixed concurrency group does not cancel in-progress work, so
-scheduled and manual runs cannot publish state concurrently.
+page. It continues to ingest and publish forecast state and also ingests
+Jennette's Pier fishing observations. The hosted workflow and the manual
+fishing observation review workflow share one fixed concurrency group with
+cancellation disabled, so canonical-state writers cannot publish concurrently.
 
 ## Azure setup
 
@@ -78,6 +80,16 @@ failed pipeline can therefore retain its run record and accepted raw data when
 state publication succeeds, while its nonzero status prevents report generation
 and Pages deployment.
 
+Fishing observation ingestion is isolated from forecast ingestion. A Jennette's
+Pier fetch, parse, or persistence failure preserves prior valid observation
+history, records a failed observation attempt when possible, and does not by
+itself prevent an otherwise valid forecast canonical publication. New review
+candidates are normal source evolution and do not fail the hosted workflow.
+Observation attempt state and outstanding review patterns remain in the
+canonical DuckDB. Pipeline Monitoring shows the latest observation attempt, new
+pattern count, outstanding count, and bounded pattern wording and provenance
+needed for manual review.
+
 After a successful pipeline and canonical database publication, the runner:
 
 1. generates the deterministic conditions and operations reports
@@ -96,16 +108,30 @@ The stable public paths are:
 A failed report, export, dashboard build, artifact upload, or deployment fails
 the workflow without rolling back canonical state. GitHub Pages keeps the
 previously deployed site available because deployment starts only after the
-complete site artifact is generated successfully. Scheduled and manual runs use
-the same ingestion and publication path.
+complete site artifact is generated successfully.
+
+## Manual observation review
+
+Use the `apply fishing observation review` GitHub Actions workflow to apply a
+manual decision. The operator supplies a pattern ID from Pipeline Monitoring
+and one approved disposition: `irrelevant`, `useful_existing_semantics`, or
+`accepted_for_parser`. The workflow restores the latest canonical DuckDB from
+Azure, applies the decision through the SaltBytes review command, validates the
+result, and replaces canonical state only after those steps succeed. Failed
+validation or application publishes nothing.
+
+There are two authorized canonical-state writers: hosted ingestion and
+publication, and manual fishing observation review. Both use the
+`saltbytes-hosted-ingestion` concurrency group with cancellation disabled, so
+neither can overwrite the other's newer state.
 
 Pull request validation installs the committed dashboard lock file and builds
 Observable from deterministic fixture JSON. That validation does not authenticate
 to Azure or read the hosted DuckDB database.
 
-To recover from a failed run, inspect its Action log and any run-specific
+To recover from a failed hosted ingestion run, inspect its Action log and any run-specific
 failure manifest, then correct the source, build, or Azure permission problem
 and manually run the workflow from `main`. Do not copy a recovery database or
-upload an unvalidated local database over `state/saltbytes.duckdb`; the workflow
-is the supported publisher. Blob soft delete permits recovery of a deleted state
-blob for seven days.
+upload an unvalidated local database over `state/saltbytes.duckdb`; the two
+workflows above are the supported canonical publishers. Blob soft delete permits
+recovery of a deleted state blob for seven days.

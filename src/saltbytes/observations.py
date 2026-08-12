@@ -1,5 +1,6 @@
 import hashlib
 import re
+import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from html.parser import HTMLParser
@@ -425,8 +426,33 @@ def review_jennettes_pier_candidates(
     return {"outstanding_patterns": outstanding_patterns, "patterns": reviewed}
 
 
+def _persist_ingestion_attempt(
+    connection: duckdb.DuckDBPyConnection,
+    attempted_at: datetime,
+    status: str,
+    new_patterns: int,
+    previously_seen_patterns: int,
+    outstanding_patterns: int,
+) -> None:
+    connection.execute(
+        """insert into fishing_observation_ingestion_attempts values
+        (?, ?, ?, ?, ?, ?)""",
+        [
+            str(uuid.uuid4()),
+            attempted_at,
+            status,
+            new_patterns,
+            previously_seen_patterns,
+            outstanding_patterns,
+        ],
+    )
+
+
 def ingest_jennettes_pier(
-    database_path: Path | str, html: str, retrieved_at: datetime | None = None
+    database_path: Path | str,
+    html: str,
+    retrieved_at: datetime | None = None,
+    attempted_at: datetime | None = None,
 ) -> dict[str, object]:
     retrieved_at = retrieved_at or datetime.now(timezone.utc)
     if retrieved_at.tzinfo is None or retrieved_at.utcoffset() is None:
@@ -540,28 +566,61 @@ def ingest_jennettes_pier(
                         "jennettes_pier",
                     )
                     inserted_candidates += int(candidate_is_new)
+            outstanding_patterns = connection.execute(
+                """select count(*) from fishing_observation_review_patterns
+                where source = 'jennettes_pier' and disposition is null"""
+            ).fetchone()[0]
+            result = {
+                "reports": inserted_reports,
+                "assertions": inserted_assertions,
+                "review_candidates": inserted_candidates,
+                "new_review_patterns": len(encountered_pattern_ids - existing_pattern_ids),
+                "previously_seen_review_patterns": len(
+                    encountered_pattern_ids & existing_pattern_ids
+                ),
+                "outstanding_review_patterns": outstanding_patterns,
+                "retrievals": len(reports),
+                **diagnostics,
+                "assertions_by_kind": dict(kinds),
+                "zero_assertion_reports": zero_assertion_reports,
+            }
+            if attempted_at is not None:
+                _persist_ingestion_attempt(
+                    connection,
+                    attempted_at,
+                    "success",
+                    result["new_review_patterns"],
+                    result["previously_seen_review_patterns"],
+                    result["outstanding_review_patterns"],
+                )
             connection.execute("commit")
         except Exception:
             connection.execute("rollback")
             raise
-    with duckdb.connect(str(database_path), read_only=True) as connection:
-        outstanding_patterns = connection.execute(
-            """select count(*) from fishing_observation_review_patterns
-            where source = 'jennettes_pier' and disposition is null"""
-        ).fetchone()[0]
-    return {
-        "reports": inserted_reports,
-        "assertions": inserted_assertions,
-        "review_candidates": inserted_candidates,
-        "new_review_patterns": len(encountered_pattern_ids - existing_pattern_ids),
-        "previously_seen_review_patterns": len(encountered_pattern_ids & existing_pattern_ids),
-        "outstanding_review_patterns": outstanding_patterns,
-        "retrievals": len(reports),
-        **diagnostics,
-        "assertions_by_kind": dict(kinds),
-        "zero_assertion_reports": zero_assertion_reports,
-    }
+    return result
 
 
 def retrieve_and_ingest_jennettes_pier(database_path: Path | str) -> dict[str, object]:
     return ingest_jennettes_pier(database_path, fetch_jennettes_pier_report())
+
+
+def retrieve_and_record_jennettes_pier_attempt(
+    database_path: Path | str,
+) -> dict[str, object]:
+    attempted_at = datetime.now(timezone.utc)
+    try:
+        html = fetch_jennettes_pier_report()
+        result = ingest_jennettes_pier(database_path, html, attempted_at=attempted_at)
+    except Exception:
+        initialize_database(database_path)
+        with duckdb.connect(str(database_path)) as connection:
+            outstanding = connection.execute(
+                """select count(*) from fishing_observation_review_patterns
+                where source = 'jennettes_pier' and disposition is null"""
+            ).fetchone()[0]
+            _persist_ingestion_attempt(
+                connection, attempted_at, "failed", 0, 0, outstanding
+            )
+        raise
+
+    return result
