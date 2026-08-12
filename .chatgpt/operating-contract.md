@@ -1,7 +1,7 @@
 # SaltBytes ChatGPT Operating Contract
 
-Version: 1.8
-Updated: 2026-08-06
+Version: 1.9
+Updated: 2026-08-12
 
 ## 1. Purpose, authority, and conflict resolution
 
@@ -549,6 +549,19 @@ diagnosed and remove them when no longer needed.
 
 ### Repeated command failure prevention
 
+- Treat `Invoke-NativeCommand` output as a mixed diagnostic stream unless the
+  invoked command and helper behavior guarantee otherwise. Do not assume output
+  captured from Git or GitHub CLI contains only machine-readable values.
+- Prefer explicit authorized file paths for staging. When path verification is
+  needed, verify the staged index after `git add` instead of parsing raw
+  `git status --porcelain` whitespace.
+- Do not compare raw porcelain status lines using exact leading-space strings.
+  If status parsing is unavoidable, parse documented fields deliberately.
+- Guard empty or null native command output before calling PowerShell string
+  methods such as `.Trim()`.
+- Treat ordinary LF/CRLF conversion warnings as diagnostics, not repository
+  paths or proof of content changes. Do not change line-ending configuration
+  merely to suppress those warnings.
 - Write temporary issue and pull request Markdown as UTF-8 without a byte order
   mark. Do not use Windows PowerShell `Set-Content -Encoding utf8` where it
   introduces a visible byte order mark.
