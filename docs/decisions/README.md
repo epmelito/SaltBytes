@@ -124,3 +124,4 @@ Do not invent evidence, alternatives, or retrospective rationale.
 | 0009 | [Minimum coastal source-result validity rules](0009-coastal-source-result-validity-rules.md) | Accepted | None |
 | 0010 | [Research backed species conditions scoring direction](0010-research-backed-fishing-score-direction.md) | Superseded | Replaced by [0011](0011-location-first-species-assessment-direction.md); preserves the rationale for the Spanish mackerel numeric experiment |
 | 0011 | [Location-first species-assessment direction](0011-location-first-species-assessment-direction.md) | Accepted | Supersedes 0010; establishes the active product direction |
+| 0012 | [Sound-side location expansion](0012-sound-side-location-expansion.md) | Accepted | None |
