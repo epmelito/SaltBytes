@@ -2,7 +2,12 @@
 
 ## Status
 
-Approved methodology version `spanish-mackerel-v1.0.0`.
+Current approved methodology version `spanish-mackerel-v1.1.0`.
+
+`spanish-mackerel-v1.0.0` remains the complete immutable first-release
+contract. Version `spanish-mackerel-v1.1.0` is an applicability-only revision:
+it adds Sunset Beach Pier and retains v1.0.0 scoring behavior, confidence,
+explanations, rounding, and interpretation boundaries unchanged.
 
 This document defines the deterministic scoring contract. It does not implement,
 persist, publish, or display the score.
@@ -31,6 +36,8 @@ Location applicability is an eligibility gate, not a source of score points.
 A pier does not receive a permanent advantage over surf merely because it
 extends farther into the water.
 
+### Historical v1.0.0 applicability
+
 Version `spanish-mackerel-v1.0.0` applies only to these persisted location and
 fishing-context pairs:
 
@@ -49,6 +56,21 @@ remain part of confidence and explanation.
 
 Any new location or changed fishing context requires methodology review before
 it can produce this score.
+
+### Current v1.1.0 applicability
+
+Version `spanish-mackerel-v1.1.0` retains the complete v1.0.0 contract and
+adds only this approved persisted location and fishing-context pair:
+
+| Location ID | Location | Fishing context | Eligibility |
+| --- | --- | --- | --- |
+| `sunset_beach_pier` | Sunset Beach Pier | pier | eligible |
+
+The v1.0.0 table remains the historical applicability contract. All v1.1.0
+eligible pairs are the historical v1.0.0 pairs plus Sunset Beach Pier. This
+revision does not alter the score formula, availability requirements for an
+already eligible pair, numeric anchors, weights, coefficients, score bands,
+confidence, explanations, rounding, or prohibited interpretations.
 
 ## Required inputs and score availability
 
@@ -147,9 +169,10 @@ change historical results.
 
 ## Methodology versioning
 
-`spanish-mackerel-v1.0.0` is the immutable identifier for this complete
-methodology. Every calculated result must retain the exact methodology version
-used.
+`spanish-mackerel-v1.0.0` is the immutable identifier for the complete
+first-release methodology. `spanish-mackerel-v1.1.0` is its immutable
+applicability-only revision. Every calculated result must retain the exact
+methodology version used.
 
 A new methodology version is required for any change that can alter:
 
@@ -166,6 +189,10 @@ A new methodology version is required for any change that can alter:
 A documentation correction may retain the existing version only when it cannot
 change any calculated score, availability state, confidence state, explanation
 selection, or interpretation boundary.
+
+An approved location applicability addition requires a new version even when it
+does not change behavior for any previously eligible pair. The new version must
+state whether every scoring and interpretation rule is inherited unchanged.
 
 Historical results must remain reproducible under their recorded methodology
 version. A later implementation must not silently recalculate or relabel them
@@ -321,7 +348,7 @@ Each available score must report the shared confidence dimensions separately:
 The states mean:
 
 - species identity is stable and unambiguous for the pilot
-- the five approved locations are applicable, while Ocracoke retains stronger
+- approved locations are applicable, while Ocracoke retains stronger
   inlet-adjacent limitations
 - weather, wave, and SST inputs are available but are not validated site-level
   observations
