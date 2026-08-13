@@ -126,3 +126,4 @@ Do not invent evidence, alternatives, or retrospective rationale.
 | 0011 | [Location-first species-assessment direction](0011-location-first-species-assessment-direction.md) | Accepted | Supersedes 0010; establishes the active product direction |
 | 0012 | [Sound-side location expansion](0012-sound-side-location-expansion.md) | Accepted | None |
 | 0013 | [Sunset Beach Pier sixth-location contract](0013-sunset-beach-pier-sixth-location-contract.md) | Accepted | None |
+| 0014 | [Little Bridge seventh-location contract](0014-little-bridge-seventh-location-contract.md) | Accepted | None |
