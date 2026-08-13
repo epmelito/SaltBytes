@@ -436,6 +436,46 @@ def test_initialize_database_can_run_more_than_once(
     assert table_count == (len(EXPECTED_TABLES),)
 
 
+def test_initialize_database_adds_source_to_legacy_observation_attempts(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "legacy-observations.duckdb"
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(
+            """create table fishing_observation_ingestion_attempts (
+                attempt_id varchar primary key,
+                attempted_at timestamptz not null,
+                status varchar not null,
+                new_review_patterns integer not null,
+                previously_seen_review_patterns integer not null,
+                outstanding_review_patterns integer not null
+            )"""
+        )
+        connection.execute(
+            """insert into fishing_observation_ingestion_attempts values
+            ('legacy-attempt', timestamptz '2026-08-12 12:00:00+00',
+                'success', 1, 2, 3)"""
+        )
+
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        row = connection.execute(
+            """select attempt_id, source, status,
+            new_review_patterns, previously_seen_review_patterns,
+            outstanding_review_patterns
+            from fishing_observation_ingestion_attempts"""
+        ).fetchone()
+    assert row == (
+        "legacy-attempt",
+        "jennettes_pier",
+        "success",
+        1,
+        2,
+        3,
+    )
+
+
 def test_optional_cloud_cover_preserves_weather_rows_and_availability(
     tmp_path: Path,
 ) -> None:

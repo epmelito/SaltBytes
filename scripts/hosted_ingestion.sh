@@ -183,8 +183,8 @@ main() {
 
     saltbytes || pipeline_status=$?
 
-    if ! saltbytes observations ingest-jennettes --database "$database_path"; then
-        echo "fishing observation ingestion failed; preserved prior observation state" >&2
+    if ! saltbytes observations ingest-current --database "$database_path"; then
+        echo "fishing observation ingestion had source failures; source outcomes are shown above" >&2
     fi
 
     publish_raw_snapshots

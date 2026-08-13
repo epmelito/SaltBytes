@@ -216,6 +216,7 @@ create table if not exists fishing_observation_review_candidate_patterns (
 
 create table if not exists fishing_observation_ingestion_attempts (
     attempt_id varchar primary key,
+    source varchar not null,
     attempted_at timestamptz not null,
     status varchar not null check (status in ('success', 'failed')),
     new_review_patterns integer not null default 0,
@@ -660,6 +661,7 @@ def initialize_database(database_path: Path | str) -> None:
             connection.execute(_SCHEMA_SQL)
             _migrate_source_result_statuses(connection)
             _migrate_review_candidate_patterns(connection)
+            _migrate_observation_attempt_sources(connection)
         except Exception:
             connection.execute("rollback")
             raise
@@ -735,6 +737,47 @@ def _migrate_review_candidate_patterns(connection: duckdb.DuckDBPyConnection) ->
             on conflict do nothing""",
             [candidate_id, pattern_id],
         )
+
+
+def _migrate_observation_attempt_sources(
+    connection: duckdb.DuckDBPyConnection,
+) -> None:
+    columns = {
+        row[0]
+        for row in connection.execute(
+            """select column_name
+            from information_schema.columns
+            where table_name = 'fishing_observation_ingestion_attempts'"""
+        ).fetchall()
+    }
+    if "source" in columns:
+        return
+
+    connection.execute(
+        """alter table fishing_observation_ingestion_attempts
+        rename to fishing_observation_ingestion_attempts_legacy"""
+    )
+    connection.execute(
+        """create table fishing_observation_ingestion_attempts (
+            attempt_id varchar primary key,
+            source varchar not null,
+            attempted_at timestamptz not null,
+            status varchar not null check (status in ('success', 'failed')),
+            new_review_patterns integer not null default 0,
+            previously_seen_review_patterns integer not null default 0,
+            outstanding_review_patterns integer not null default 0
+        )"""
+    )
+    connection.execute(
+        """insert into fishing_observation_ingestion_attempts
+        select attempt_id, 'jennettes_pier', attempted_at, status,
+            new_review_patterns, previously_seen_review_patterns,
+            outstanding_review_patterns
+        from fishing_observation_ingestion_attempts_legacy"""
+    )
+    connection.execute(
+        "drop table fishing_observation_ingestion_attempts_legacy"
+    )
 
 
 # insert a new pipeline run

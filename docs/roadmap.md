@@ -25,16 +25,16 @@ ready for ordinary use and investigation.
 
 The source-independent fishing observation contract and the initial observation
 ingestion and hosted observation feedback loop are established. Sunset Beach
-Pier is approved for implementation as SaltBytes location 6 with a documented
-implementation contract; it is not yet implemented. Issue #182 is the next
-Sunset implementation package.
+Pier is implemented as SaltBytes location 6 across environmental ingestion,
+Spanish mackerel applicability, observations, hosted operation, and reporting.
 
 Sound-side expansion is approved, with Little Bridge Sound Access as the planned
 seventh SaltBytes location. Its environmental source relationships remain
 unresolved and require bounded evaluation before implementation; existing
 ocean-facing marine relationships must not be reused without supporting
-evidence. Resume species-assessment implementation after the location
-foundation is complete.
+evidence. That bounded relationship evaluation is the next location-foundation
+work. Resume species-assessment implementation after the location foundation is
+complete.
 
 The deterministic red drum score path is paused; its research remains useful
 for later location-first assessment work.

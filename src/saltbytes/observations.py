@@ -5,6 +5,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Callable
 
 import duckdb
 import httpx
@@ -12,8 +13,14 @@ import httpx
 from saltbytes.database import initialize_database
 
 JENNETTES_PIER_URL = "https://www.ncaquariums.com/jennettes-pier"
+SUNSET_BEACH_PIER_URL = "http://apps.sunsetbeachpier.com/Blog/"
+_SUNSET_USER_AGENT = "SaltBytes/1.0 (+https://github.com/epmelito/SaltBytes)"
 _NAMED_CATCH = re.compile(r"^(?P<name>[A-Z][A-Za-z .'-]+) caught (?:a |an )?(?P<subject>.+)$")
 _CAUGHT_SUMMARY = re.compile(r"(?:anglers have )?caught\s+(?P<subject>.+)$", re.I)
+_LABELED_CATCH = re.compile(
+    r"^(?:yesterday(?:'s|â€™s)|today(?:'s|â€™s))\s+catch:\s*(?P<subject>.+)$",
+    re.I,
+)
 _BEING_CAUGHT = re.compile(r"^(?P<subject>.+?)\s+(?:are|is) being caught\b", re.I)
 _BITING = re.compile(r"\b(?P<subject>[A-Z][A-Z ]*[A-Z])\s+biting\b")
 _WIND_DIRECTION = r"(?:[nesw]{1,3}|north|south|east|west|northeast|northwest|southeast|southwest)"
@@ -22,6 +29,10 @@ _REVIEW_DISPOSITIONS = {
     "useful_existing_semantics",
     "accepted_for_parser",
 }
+_SUNSET_BOILERPLATE = re.compile(
+    r"^(?:HOURS:|GRILL\b|THE GRILL\b|\d{1,2}:\d{2}\s+[AP]M\s+TO\s+MIDNIGHT\b)",
+    re.I,
+)
 
 
 class ObservationParseError(ValueError):
@@ -85,12 +96,85 @@ class _ReportCardParser(HTMLParser):
             self.in_card = False
 
 
+class _SunsetReportParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.entry_depth = 0
+        self.in_content = False
+        self.capture: str | None = None
+        self.text: list[str] = []
+        self.current: dict[str, object] | None = None
+        self.reports: list[dict[str, object]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        classes = attributes.get("class", "").split()
+        if tag == "div" and "entry" in classes and self.current is None:
+            self.entry_depth = 1
+            self.current = {
+                "report_time_text": None,
+                "report_title": None,
+                "body": [],
+            }
+            return
+        if self.current is None:
+            return
+        if "entryContent" in classes:
+            self.in_content = True
+        if tag == "div":
+            self.entry_depth += 1
+            if attributes.get("id") == "entrySubject":
+                self.capture, self.text = "title", []
+            elif "entryDate" in classes:
+                self.capture, self.text = "date", []
+        elif tag == "p" and self.in_content:
+            self.capture, self.text = "body", []
+
+    def handle_data(self, data: str) -> None:
+        if self.capture is not None:
+            self.text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if self.current is None:
+            return
+        if self.capture == "body" and tag == "p":
+            value = " ".join("".join(self.text).split())
+            if value:
+                self.current["body"].append(value)
+            self.capture = None
+        if tag != "div":
+            return
+        if self.capture in {"title", "date"}:
+            self.current[f"report_{'title' if self.capture == 'title' else 'time_text'}"] = (
+                " ".join("".join(self.text).split())
+            )
+            self.capture = None
+        self.entry_depth -= 1
+        if self.in_content and self.entry_depth == 1:
+            self.in_content = False
+        if self.entry_depth == 0:
+            self.reports.append(self.current)
+            self.current = None
+
+
 def fetch_jennettes_pier_report(timeout_seconds: float = 10.0) -> str:
     with httpx.Client(timeout=timeout_seconds, follow_redirects=True) as client:
         response = client.get(JENNETTES_PIER_URL)
     response.raise_for_status()
     if "text/html" not in response.headers.get("content-type", "").lower():
         raise ObservationParseError("Jennette's Pier response is not HTML")
+    return response.text
+
+
+def fetch_sunset_beach_pier_report(timeout_seconds: float = 10.0) -> str:
+    with httpx.Client(timeout=timeout_seconds, follow_redirects=True) as client:
+        response = client.get(
+            SUNSET_BEACH_PIER_URL,
+            headers={"User-Agent": _SUNSET_USER_AGENT},
+        )
+    response.raise_for_status()
+    if "text/html" not in response.headers.get("content-type", "").lower():
+        raise ObservationParseError("Sunset Beach Pier response is not HTML")
     return response.text
 
 
@@ -117,6 +201,48 @@ def extract_jennettes_pier_reports(html: str) -> tuple[list[dict[str, str]], dic
     if any(not report["report_time_text"] for report in reports):
         raise ObservationParseError("Jennette's Pier report card is missing report-info__date")
     return reports, {"report_envelopes": len(parser.reports), "body_envelopes": len(reports)}
+
+
+def extract_sunset_beach_pier_reports(
+    html: str,
+) -> tuple[list[dict[str, str]], dict[str, int]]:
+    if not isinstance(html, str) or not html.strip():
+        raise ObservationParseError("Sunset Beach Pier report HTML is empty")
+    parser = _SunsetReportParser()
+    parser.feed(html)
+    if any(not report["body"] for report in parser.reports):
+        raise ObservationParseError(
+            "Sunset Beach Pier report entry is missing recognized content paragraphs"
+        )
+    reports = [
+        {
+            "report_time_text": report["report_time_text"] or "",
+            "report_title": report["report_title"] or "",
+            "body": "\n".join(
+                paragraph
+                for paragraph in report["body"]
+                if not _SUNSET_BOILERPLATE.match(paragraph)
+            ),
+        }
+        for report in parser.reports
+        if report["body"]
+    ]
+    if not reports:
+        raise ObservationParseError(
+            "Sunset Beach Pier current report entries were not recognized"
+        )
+    if any(not report["body"] for report in reports):
+        raise ObservationParseError(
+            "Sunset Beach Pier report entry has no factual report content"
+        )
+    if any(not report["report_time_text"] for report in reports):
+        raise ObservationParseError(
+            "Sunset Beach Pier report entry is missing entryDate"
+        )
+    return reports, {
+        "report_envelopes": len(parser.reports),
+        "body_envelopes": len(reports),
+    }
 
 
 def _time_text(sentence: str) -> str | None:
@@ -184,7 +310,7 @@ def _assertions_for_report(
     assertions: list[dict[str, str | None]] = []
     segments = [
         sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+", report["body"])
+        for sentence in re.split(r"(?<=[.!?])\s+|\n+", report["body"])
         if sentence.strip()
     ]
     candidates: list[dict[str, str]] = []
@@ -237,11 +363,24 @@ def _assertions_for_report(
             produced += 1
         elif not negated:
             named = _NAMED_CATCH.match(sentence)
+            labeled = _LABELED_CATCH.match(sentence)
             being_caught = _BEING_CAUGHT.match(sentence)
             caught = _CAUGHT_SUMMARY.search(sentence)
             biting = _BITING.search(sentence)
             subject = None
-            if named and not named["name"].lower().startswith("anglers"):
+            if labeled:
+                assertions.append(
+                    _assertion(
+                        "catch",
+                        "site_summary",
+                        "source_staff_summary",
+                        time,
+                        _subject(labeled["subject"]),
+                        sentence,
+                    )
+                )
+                produced += 1
+            elif named and not named["name"].lower().startswith("anglers"):
                 assertions.append(
                     _assertion(
                         "catch",
@@ -348,12 +487,13 @@ def _persist_candidate(
     return is_new_candidate
 
 
-def review_jennettes_pier_candidates(
+def review_observation_candidates(
     database_path: Path | str,
     limit: int = 20,
     occurrence_limit: int = 5,
     pattern_id: str | None = None,
     disposition: str | None = None,
+    source: str | None = None,
 ) -> dict[str, object]:
     if limit < 1 or occurrence_limit < 1:
         raise ValueError("review limits must be positive")
@@ -366,31 +506,38 @@ def review_jennettes_pier_candidates(
         if pattern_id is not None and disposition is not None:
             found = connection.execute(
                 """select count(*) from fishing_observation_review_patterns
-                where pattern_id = ? and source = 'jennettes_pier'""",
-                [pattern_id],
+                where pattern_id = ? and (? is null or source = ?)""",
+                [pattern_id, source, source],
             ).fetchone()[0]
             if found != 1:
                 raise ValueError("review pattern was not found")
             connection.execute(
                 """update fishing_observation_review_patterns
                 set disposition = ?, dispositioned_at = ?
-                where pattern_id = ? and source = 'jennettes_pier'""",
-                [disposition, datetime.now(timezone.utc), pattern_id],
+                where pattern_id = ? and (? is null or source = ?)""",
+                [
+                    disposition,
+                    datetime.now(timezone.utc),
+                    pattern_id,
+                    source,
+                    source,
+                ],
             )
         outstanding_patterns = connection.execute(
             """select count(*) from fishing_observation_review_patterns
-            where source = 'jennettes_pier' and disposition is null"""
+            where disposition is null and (? is null or source = ?)""",
+            [source, source],
         ).fetchone()[0]
         patterns = connection.execute(
-            """select pattern_id, reason, raw_segment
+            """select pattern_id, source, reason, raw_segment
             from fishing_observation_review_patterns
-            where source = 'jennettes_pier' and disposition is null
+            where disposition is null and (? is null or source = ?)
             order by pattern_id
             limit ?""",
-            [limit],
+            [source, source, limit],
         ).fetchall()
         reviewed = []
-        for current_pattern_id, reason, raw_segment in patterns:
+        for current_pattern_id, current_source, reason, raw_segment in patterns:
             occurrences = connection.execute(
                 """select candidate.report_id, report.content_hash, report.report_time_text
                 from fishing_observation_review_candidates as candidate
@@ -410,6 +557,7 @@ def review_jennettes_pier_candidates(
             reviewed.append(
                 {
                     "pattern_id": current_pattern_id,
+                    "source": current_source,
                     "reason": reason,
                     "raw_segment": raw_segment,
                     "occurrence_count": occurrence_count,
@@ -426,8 +574,26 @@ def review_jennettes_pier_candidates(
     return {"outstanding_patterns": outstanding_patterns, "patterns": reviewed}
 
 
+def review_jennettes_pier_candidates(
+    database_path: Path | str,
+    limit: int = 20,
+    occurrence_limit: int = 5,
+    pattern_id: str | None = None,
+    disposition: str | None = None,
+) -> dict[str, object]:
+    return review_observation_candidates(
+        database_path,
+        limit,
+        occurrence_limit,
+        pattern_id,
+        disposition,
+        source="jennettes_pier",
+    )
+
+
 def _persist_ingestion_attempt(
     connection: duckdb.DuckDBPyConnection,
+    source: str,
     attempted_at: datetime,
     status: str,
     new_patterns: int,
@@ -436,9 +602,10 @@ def _persist_ingestion_attempt(
 ) -> None:
     connection.execute(
         """insert into fishing_observation_ingestion_attempts values
-        (?, ?, ?, ?, ?, ?)""",
+        (?, ?, ?, ?, ?, ?, ?)""",
         [
             str(uuid.uuid4()),
+            source,
             attempted_at,
             status,
             new_patterns,
@@ -448,16 +615,23 @@ def _persist_ingestion_attempt(
     )
 
 
-def ingest_jennettes_pier(
+def _ingest_observation_source(
     database_path: Path | str,
     html: str,
+    source: str,
+    source_url: str,
+    location_id: str,
+    extractor: Callable[
+        [str],
+        tuple[list[dict[str, str]], dict[str, int]],
+    ],
     retrieved_at: datetime | None = None,
     attempted_at: datetime | None = None,
 ) -> dict[str, object]:
     retrieved_at = retrieved_at or datetime.now(timezone.utc)
     if retrieved_at.tzinfo is None or retrieved_at.utcoffset() is None:
         raise ValueError("retrieved_at must include timezone information")
-    reports, diagnostics = extract_jennettes_pier_reports(html)
+    reports, diagnostics = extractor(html)
     initialize_database(database_path)
     inserted_reports = inserted_assertions = inserted_candidates = zero_assertion_reports = 0
     encountered_pattern_ids: set[str] = set()
@@ -467,7 +641,8 @@ def ingest_jennettes_pier(
             row[0]
             for row in connection.execute(
                 """select pattern_id from fishing_observation_review_patterns
-                where source = 'jennettes_pier'"""
+                where source = ?""",
+                [source],
             ).fetchall()
         }
         connection.execute("begin transaction")
@@ -483,7 +658,7 @@ def ingest_jennettes_pier(
                     ).encode()
                 ).hexdigest()
                 report_id = hashlib.sha256(
-                    f"jennettes_pier|{JENNETTES_PIER_URL}|{content_hash}".encode()
+                    f"{source}|{source_url}|{content_hash}".encode()
                 ).hexdigest()
                 assertions, candidates, segment_diagnostics = _assertions_for_report(report)
                 diagnostics["segments_considered"] = (
@@ -506,14 +681,16 @@ def ingest_jennettes_pier(
                 )
                 connection.execute(
                     """insert into fishing_observation_reports values
-                    (?, 'jennettes_pier', ?, ?, ?, ?, 'jennettes_pier', 'exact_site', ?)
+                    (?, ?, ?, ?, ?, ?, ?, 'exact_site', ?)
                     on conflict do nothing""",
                     [
                         report_id,
-                        JENNETTES_PIER_URL,
+                        source,
+                        source_url,
                         content_hash,
                         report["report_time_text"] or None,
                         report["report_title"] or None,
+                        location_id,
                         retrieved_at,
                     ],
                 )
@@ -551,7 +728,7 @@ def ingest_jennettes_pier(
                     )
                 for candidate in candidates:
                     pattern_id = hashlib.sha256(
-                        f"jennettes_pier|{candidate['reason']}|{candidate['raw_segment']}".encode()
+                        f"{source}|{candidate['reason']}|{candidate['raw_segment']}".encode()
                     ).hexdigest()
                     encountered_pattern_ids.add(pattern_id)
                     candidate_id = hashlib.sha256(
@@ -563,12 +740,13 @@ def ingest_jennettes_pier(
                         report_id,
                         candidate["raw_segment"],
                         candidate["reason"],
-                        "jennettes_pier",
+                        source,
                     )
                     inserted_candidates += int(candidate_is_new)
             outstanding_patterns = connection.execute(
                 """select count(*) from fishing_observation_review_patterns
-                where source = 'jennettes_pier' and disposition is null"""
+                where source = ? and disposition is null""",
+                [source],
             ).fetchone()[0]
             result = {
                 "reports": inserted_reports,
@@ -587,6 +765,7 @@ def ingest_jennettes_pier(
             if attempted_at is not None:
                 _persist_ingestion_attempt(
                     connection,
+                    source,
                     attempted_at,
                     "success",
                     result["new_review_patterns"],
@@ -600,27 +779,125 @@ def ingest_jennettes_pier(
     return result
 
 
+def ingest_jennettes_pier(
+    database_path: Path | str,
+    html: str,
+    retrieved_at: datetime | None = None,
+    attempted_at: datetime | None = None,
+) -> dict[str, object]:
+    return _ingest_observation_source(
+        database_path,
+        html,
+        "jennettes_pier",
+        JENNETTES_PIER_URL,
+        "jennettes_pier",
+        extract_jennettes_pier_reports,
+        retrieved_at,
+        attempted_at,
+    )
+
+
+def ingest_sunset_beach_pier(
+    database_path: Path | str,
+    html: str,
+    retrieved_at: datetime | None = None,
+    attempted_at: datetime | None = None,
+) -> dict[str, object]:
+    return _ingest_observation_source(
+        database_path,
+        html,
+        "sunset_beach_pier",
+        SUNSET_BEACH_PIER_URL,
+        "sunset_beach_pier",
+        extract_sunset_beach_pier_reports,
+        retrieved_at,
+        attempted_at,
+    )
+
+
 def retrieve_and_ingest_jennettes_pier(database_path: Path | str) -> dict[str, object]:
     return ingest_jennettes_pier(database_path, fetch_jennettes_pier_report())
 
 
-def retrieve_and_record_jennettes_pier_attempt(
+def retrieve_and_ingest_sunset_beach_pier(
     database_path: Path | str,
+) -> dict[str, object]:
+    return ingest_sunset_beach_pier(
+        database_path,
+        fetch_sunset_beach_pier_report(),
+    )
+
+
+def _retrieve_and_record_source_attempt(
+    database_path: Path | str,
+    source: str,
+    fetcher: Callable[[], str],
+    ingester: Callable[..., dict[str, object]],
 ) -> dict[str, object]:
     attempted_at = datetime.now(timezone.utc)
     try:
-        html = fetch_jennettes_pier_report()
-        result = ingest_jennettes_pier(database_path, html, attempted_at=attempted_at)
+        html = fetcher()
+        result = ingester(database_path, html, attempted_at=attempted_at)
     except Exception:
         initialize_database(database_path)
         with duckdb.connect(str(database_path)) as connection:
             outstanding = connection.execute(
                 """select count(*) from fishing_observation_review_patterns
-                where source = 'jennettes_pier' and disposition is null"""
+                where source = ? and disposition is null""",
+                [source],
             ).fetchone()[0]
             _persist_ingestion_attempt(
-                connection, attempted_at, "failed", 0, 0, outstanding
+                connection,
+                source,
+                attempted_at,
+                "failed",
+                0,
+                0,
+                outstanding,
             )
         raise
 
     return result
+
+
+def retrieve_and_record_jennettes_pier_attempt(
+    database_path: Path | str,
+) -> dict[str, object]:
+    return _retrieve_and_record_source_attempt(
+        database_path,
+        "jennettes_pier",
+        fetch_jennettes_pier_report,
+        ingest_jennettes_pier,
+    )
+
+
+def retrieve_and_record_sunset_beach_pier_attempt(
+    database_path: Path | str,
+) -> dict[str, object]:
+    return _retrieve_and_record_source_attempt(
+        database_path,
+        "sunset_beach_pier",
+        fetch_sunset_beach_pier_report,
+        ingest_sunset_beach_pier,
+    )
+
+
+def retrieve_and_record_observation_attempts(
+    database_path: Path | str,
+) -> dict[str, dict[str, object]]:
+    outcomes: dict[str, dict[str, object]] = {}
+    for source, retrieve in (
+        ("jennettes_pier", retrieve_and_record_jennettes_pier_attempt),
+        ("sunset_beach_pier", retrieve_and_record_sunset_beach_pier_attempt),
+    ):
+        try:
+            outcomes[source] = {
+                "status": "success",
+                **retrieve(database_path),
+            }
+        except Exception as exc:
+            outcomes[source] = {
+                "status": "failed",
+                "error": str(exc),
+            }
+    return outcomes

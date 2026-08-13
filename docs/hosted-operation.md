@@ -4,9 +4,10 @@ The `hosted ingestion and report publication` GitHub Actions workflow runs
 from `main` every six
 hours (`17 */6 * * *`) and can be started with **Run workflow** on the Actions
 page. It continues to ingest and publish forecast state and also ingests
-Jennette's Pier fishing observations. The hosted workflow and the manual
-fishing observation review workflow share one fixed concurrency group with
-cancellation disabled, so canonical-state writers cannot publish concurrently.
+current Jennette's Pier and Sunset Beach Pier fishing reports. The hosted
+workflow and the manual fishing observation review workflow share one fixed
+concurrency group with cancellation disabled, so canonical-state writers cannot
+publish concurrently.
 
 ## Azure setup
 
@@ -80,15 +81,23 @@ failed pipeline can therefore retain its run record and accepted raw data when
 state publication succeeds, while its nonzero status prevents report generation
 and Pages deployment.
 
-Fishing observation ingestion is isolated from forecast ingestion. A Jennette's
-Pier fetch, parse, or persistence failure preserves prior valid observation
-history, records a failed observation attempt when possible, and does not by
-itself prevent an otherwise valid forecast canonical publication. New review
-candidates are normal source evolution and do not fail the hosted workflow.
-Observation attempt state and outstanding review patterns remain in the
-canonical DuckDB. Pipeline Monitoring shows the latest observation attempt, new
-pattern count, outstanding count, and bounded pattern wording and provenance
-needed for manual review.
+Fishing observation ingestion is isolated from forecast ingestion and between
+report sources. A fetch, parse, or persistence failure preserves prior valid
+observation history, records a source-specific failed attempt when possible,
+and does not prevent the other report source from being attempted or an
+otherwise valid forecast canonical publication. New review candidates are
+normal source evolution and do not fail the hosted workflow. Observation
+attempt state and outstanding review patterns remain in the canonical DuckDB.
+Pipeline Monitoring shows the latest attempt for each source, new and
+outstanding pattern counts, and bounded pattern wording and provenance needed
+for manual review.
+
+Sunset Beach Pier's report host is the only approved HTTP observation source.
+This bounded exception applies to its public, read-only, non-authoritative
+fishing report because the host's HTTPS certificate does not match its domain.
+It does not disable HTTPS verification, create a reusable downgrade path, or
+authorize Sunset report content as environmental pipeline input. All report
+content remains untrusted external input.
 
 After a successful pipeline and canonical database publication, the runner:
 

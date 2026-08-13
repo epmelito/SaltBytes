@@ -244,6 +244,55 @@ locations:
       coastal_relationship: Explicit transfer from the nearest reviewed ocean-facing relationship
       known_limitation: The prediction relationship is materially north of the destination
 
+  - id: sunset_beach_pier
+    name: Sunset Beach Pier
+    fishing_context: pier
+    orientation:
+      shore_normal_azimuth_degrees: 165
+      pier_seaward_azimuth_degrees: 180
+      orientation_method: Manual review of local shoreline tangent and pier geometry; azimuths rounded to nearest 5 degrees
+      orientation_source: NOAA pier geometry and NC DCM shoreline geometry reviewed 2026-08-13
+      orientation_reviewed_at: "2026-08-13"
+      orientation_limitation: Moderate-confidence analytical metadata; applies to the Atlantic-facing ocean pier and not the separate estuarine boating-access pier
+    display_coordinate:
+      latitude: 33.8650000
+      longitude: -78.5067000
+    weather:
+      request_coordinate:
+        latitude: 33.8650000
+        longitude: -78.5067000
+      expected_returned_coordinate:
+        latitude: 33.875553
+        longitude: -78.49414
+      coastal_regime: Southern North Carolina Atlantic coastal grid
+    wave:
+      request_coordinate:
+        latitude: 33.8389394
+        longitude: -78.4982931
+      expected_returned_coordinate:
+        latitude: 33.791664
+        longitude: -78.45833
+    sst:
+      request_coordinate:
+        latitude: 33.8389394
+        longitude: -78.4982931
+      expected_returned_coordinate:
+        latitude: 33.875
+        longitude: -78.45833
+      coastal_regime: Atlantic-facing marine grid distinct from wave grid
+    tide:
+      prediction_location: Sunset Beach Pier, Atlantic Ocean
+      station_id: "8659897"
+      relationship_type: direct
+      reference_station: null
+      high_time_offset_minutes: null
+      low_time_offset_minutes: null
+      high_multiplier: null
+      low_multiplier: null
+      distance_km: 0
+      coastal_relationship: Direct astronomical tide prediction at the Atlantic-facing pier
+      known_limitation: Prediction is not an observed water level, local current, or site-specific condition
+
 storage:
   raw_data_path: data/local/raw
   database_path: data/local/saltbytes.duckdb

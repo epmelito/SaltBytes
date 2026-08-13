@@ -238,6 +238,7 @@ def test_ocracoke_retains_its_moderate_location_confidence() -> None:
         ("fort_macon_ocean", "surf"),
         ("bogue_inlet_pier", "pier"),
         ("fort_fisher", "surf"),
+        ("sunset_beach_pier", "pier"),
     ],
 )
 def test_all_approved_location_context_pairs_are_eligible(
@@ -252,6 +253,26 @@ def test_all_approved_location_context_pairs_are_eligible(
     )
 
     assert isinstance(result, AvailableSpanishMackerelConditionsScore)
+
+
+def test_current_methodology_changes_only_identifier_for_existing_location() -> None:
+    result = calculate_spanish_mackerel_conditions_score(score_input())
+
+    assert isinstance(result, AvailableSpanishMackerelConditionsScore)
+    assert result.methodology_version == "spanish-mackerel-v1.1.0"
+    assert result.score == 100
+
+
+def test_sunset_wrong_context_remains_unavailable() -> None:
+    result = calculate_spanish_mackerel_conditions_score(
+        score_input(
+            location_id="sunset_beach_pier",
+            fishing_context="surf",
+        )
+    )
+
+    assert isinstance(result, UnavailableSpanishMackerelConditionsScore)
+    assert result.unavailable_reasons == ("location_not_applicable",)
 
 
 def test_repeated_calculation_is_deterministic() -> None:

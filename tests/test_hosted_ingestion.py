@@ -41,6 +41,7 @@ def _run_hosted_ingestion(
     failed_blob: str = "",
     failed_attempts: int = 0,
     missing_raw_reference: bool = False,
+    observation_failure_output: str = "",
 ) -> tuple[subprocess.CompletedProcess[str], list[str], Path]:
     scripts_path = tmp_path / "scripts"
     commands_path = tmp_path / "commands"
@@ -89,6 +90,10 @@ def _run_hosted_ingestion(
         commands_path / "saltbytes",
         r"""#!/usr/bin/env bash
 set -uo pipefail
+if [[ "${1:-}" == "observations" && -n "${OBSERVATION_FAILURE_OUTPUT:-}" ]]; then
+    printf '%s\n' "$OBSERVATION_FAILURE_OUTPUT" >&2
+    exit 1
+fi
 mkdir -p data/local/raw/run
 printf '{"snapshot": "a"}\n' > data/local/raw/run/a.json
 printf '{"snapshot": "b"}\n' > data/local/raw/run/b.json
@@ -153,6 +158,7 @@ cp "$file_path" "$AZ_CAPTURE_DIR/${blob_name//\//__}"
     monkeypatch.setenv("AZ_CAPTURE_DIR", str(capture_path))
     monkeypatch.setenv("FAILED_BLOB", failed_blob)
     monkeypatch.setenv("FAILED_ATTEMPTS", str(failed_attempts))
+    monkeypatch.setenv("OBSERVATION_FAILURE_OUTPUT", observation_failure_output)
     (tmp_path / "attempts").mkdir()
 
     environment = os.environ.copy()
@@ -187,6 +193,30 @@ def test_successful_publication_replaces_canonical_database(
     assert "raw publication totals: total=2 published=2 failed=0" in result.stdout
     assert "final hosted outcome: canonical state published" in result.stdout
     assert not any(path.name.startswith("recovery__") for path in capture_path.iterdir())
+
+
+def test_observation_source_failure_keeps_publication_and_diagnostics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result, uploads, _ = _run_hosted_ingestion(
+        tmp_path,
+        monkeypatch,
+        observation_failure_output=(
+            "Sunset Beach Pier status: failed: report entries missing"
+        ),
+    )
+
+    assert result.returncode == 0
+    assert uploads[-1] == "state/saltbytes.duckdb"
+    assert (
+        "Sunset Beach Pier status: failed: report entries missing" in result.stderr
+    )
+    assert (
+        "fishing observation ingestion had source failures; "
+        "source outcomes are shown above"
+    ) in result.stderr
+    assert "preserved prior observation state" not in result.stderr
 
 
 def test_partial_raw_failure_attempts_remaining_raw_and_preserves_recovery(
