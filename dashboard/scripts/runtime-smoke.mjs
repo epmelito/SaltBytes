@@ -770,6 +770,66 @@ async function assertPipelineMonitoring(page) {
   }
 }
 
+async function assertObservationHealthStates(page, base, errors) {
+  const observationPattern = "**/observation-health.*.json";
+  const attempt = (source, status) => ({
+    source,
+    attempted_at: "2026-08-13T12:00:00Z",
+    status,
+    new_review_patterns: 0,
+    previously_seen_review_patterns: 0,
+    outstanding_review_patterns: 0
+  });
+  const cases = [
+    {
+      state: "completed",
+      message: "Latest fishing observation update completed.",
+      attempts: [attempt("jennettes_pier", "success"), attempt("sunset_beach_pier", "success")]
+    },
+    {
+      state: "attention",
+      message: "Latest fishing observation update needs attention. One or more report sources did not complete.",
+      attempts: [attempt("jennettes_pier", "failed"), attempt("sunset_beach_pier", "success")]
+    },
+    {
+      state: "attention",
+      message: "Latest fishing observation update needs attention. One or more report sources did not complete.",
+      attempts: [attempt("jennettes_pier", "success"), attempt("sunset_beach_pier", "failed")]
+    },
+    {
+      state: "not-run",
+      message: "Fishing observation update has not run yet.",
+      attempts: []
+    }
+  ];
+
+  for (const testCase of cases) {
+    const handler = async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        contentType: "application/json",
+        body: JSON.stringify({
+          latest_attempt: testCase.attempts.at(-1) ?? null,
+          latest_attempts: testCase.attempts,
+          outstanding_patterns: []
+        })
+      });
+    };
+    await page.route(observationPattern, handler);
+    await openPage(page, `${base}/pipeline-monitoring`, errors);
+    await page.waitForFunction((state) =>
+      document.querySelector(".observation-review-summary")?.dataset.observationState === state,
+      testCase.state
+    );
+    const message = await page.locator(".observation-review-summary strong").textContent();
+    if (message?.trim() !== testCase.message) {
+      throw new Error(`Fishing observation summary is incorrect for ${testCase.state}: ${message}`);
+    }
+    await page.unroute(observationPattern, handler);
+  }
+}
+
 async function assertConditionsHierarchy(page, available) {
   await page.waitForFunction((scoreAvailable) => {
     const headings = [...document.querySelectorAll("#observablehq-main h2")]
@@ -1410,6 +1470,7 @@ async function run() {
     await assertShell(page, "Operations and product health", "Pipeline monitoring");
     await page.waitForFunction(() => document.querySelectorAll("select").length === 1);
     await assertPipelineMonitoring(page);
+    await assertObservationHealthStates(page, base, errors);
     await assertScrollableTables(page, "Pipeline monitoring");
     await assertHealthy(page, errors, "Pipeline monitoring");
 

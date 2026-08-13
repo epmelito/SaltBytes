@@ -423,14 +423,24 @@ def _dashboard_payloads(
     )
     observation_attempt = _query(
         connection,
-        """select attempted_at, status, new_review_patterns,
+        """select source, attempted_at, status, new_review_patterns,
         previously_seen_review_patterns, outstanding_review_patterns
         from fishing_observation_ingestion_attempts
         order by attempted_at desc, attempt_id desc limit 1""",
     )
+    observation_attempts = _query(
+        connection,
+        """select source, attempted_at, status, new_review_patterns,
+        previously_seen_review_patterns, outstanding_review_patterns
+        from fishing_observation_ingestion_attempts
+        qualify row_number() over (
+            partition by source order by attempted_at desc, attempt_id desc
+        ) = 1
+        order by source""",
+    )
     observation_patterns = _query(
         connection,
-        """select pattern.pattern_id, pattern.raw_segment, pattern.reason,
+        """select pattern.pattern_id, pattern.source, pattern.raw_segment, pattern.reason,
         count(candidate.candidate_id)::integer as occurrence_count,
         min(candidate.report_id) as report_id,
         arg_min(report.report_time_text, candidate.report_id) as report_time_text
@@ -440,8 +450,8 @@ def _dashboard_payloads(
         inner join fishing_observation_review_candidates as candidate
             using (candidate_id)
         inner join fishing_observation_reports as report using (report_id)
-        where pattern.source = 'jennettes_pier' and pattern.disposition is null
-        group by pattern.pattern_id, pattern.raw_segment, pattern.reason
+        where pattern.disposition is null
+        group by pattern.pattern_id, pattern.source, pattern.raw_segment, pattern.reason
         order by pattern.pattern_id
         limit 20""",
     )
@@ -534,7 +544,7 @@ def _dashboard_payloads(
         0,
     )
     manifest = {
-        "schema_version": 3,
+        "schema_version": 4,
         "generated_at": _json_value(generated_at),
         "display_timezone": config["display_timezone"],
         "latest_attempt": (
@@ -570,6 +580,7 @@ def _dashboard_payloads(
         },
         "observation-health.json": {
             "latest_attempt": observation_attempt[0] if observation_attempt else None,
+            "latest_attempts": observation_attempts,
             "outstanding_patterns": observation_patterns,
         },
         "provenance.json": provenance,

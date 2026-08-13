@@ -209,14 +209,24 @@ display(latestCoverageExceptions.length
 
 ```js
 const observationAttempt = observationHealth.latest_attempt;
+const observationAttempts = observationHealth.latest_attempts ?? (observationAttempt ? [observationAttempt] : []);
+const configuredObservationSources = ["jennettes_pier", "sunset_beach_pier"];
+const observationStatuses = new Map(observationAttempts.map((attempt) => [attempt.source, attempt.status]));
+const observationSummary = observationAttempts.length === 0
+  ? {state: "not-run", message: "Fishing observation update has not run yet."}
+  : observationAttempts.every((attempt) => attempt.status === "failed")
+  ? {state: "failed", message: "Latest fishing observation update failed. Earlier observations remain available."}
+  : configuredObservationSources.every((source) => observationStatuses.get(source) === "success")
+  ? {state: "completed", message: "Latest fishing observation update completed."}
+  : {state: "attention", message: "Latest fishing observation update needs attention. One or more report sources did not complete."};
 const outstandingPatterns = observationHealth.outstanding_patterns;
 display(html`<section class="pipeline-coverage">
-  <div class="observation-review-summary">
-    <strong>${observationAttempt?.status === "success" ? "Latest fishing observation update completed." : observationAttempt?.status === "failed" ? "Latest fishing observation update failed; prior observations remain available." : "Fishing observation update has not run yet."}</strong>
+  <div class="observation-review-summary" data-observation-state=${observationSummary.state}>
+    <strong>${observationSummary.message}</strong>
     <span>${formatTimestamp(observationAttempt?.attempted_at, manifest.display_timezone)}</span>
   </div>
-  <p class="page-note">New review patterns: ${formatNumber(observationAttempt?.new_review_patterns, 0)}. Outstanding patterns: ${formatNumber(observationAttempt?.outstanding_review_patterns, 0)}.</p>
-  ${outstandingPatterns.length ? html`<div class="table-scroll"><table><thead><tr><th>Pattern ID</th><th>Candidate wording</th><th>Reason</th><th>Occurrences</th><th>Report version</th></tr></thead><tbody>${outstandingPatterns.map((pattern) => html`<tr><td><code>${pattern.pattern_id}</code></td><td>${pattern.raw_segment}</td><td>${pattern.reason}</td><td>${formatNumber(pattern.occurrence_count, 0)}</td><td><code>${pattern.report_id}</code>${pattern.report_time_text ? ` · ${pattern.report_time_text}` : ""}</td></tr>`)}</tbody></table></div>` : html`<p class="page-note">No outstanding fishing observation review patterns.</p>`}
+  ${observationAttempts.length ? html`<div class="table-scroll"><table><thead><tr><th>Report source</th><th>Latest update</th><th>Status</th><th>New patterns</th><th>Outstanding patterns</th></tr></thead><tbody>${observationAttempts.map((attempt) => html`<tr><td>${locationName(attempt.source, locations)}</td><td>${formatTimestamp(attempt.attempted_at, manifest.display_timezone)}</td><td>${titleCase(attempt.status)}</td><td>${formatNumber(attempt.new_review_patterns, 0)}</td><td>${formatNumber(attempt.outstanding_review_patterns, 0)}</td></tr>`)}</tbody></table></div>` : null}
+  ${outstandingPatterns.length ? html`<div class="table-scroll"><table><thead><tr><th>Report source</th><th>Pattern ID</th><th>Candidate wording</th><th>Reason</th><th>Occurrences</th><th>Report version</th></tr></thead><tbody>${outstandingPatterns.map((pattern) => html`<tr><td>${locationName(pattern.source, locations)}</td><td><code>${pattern.pattern_id}</code></td><td>${pattern.raw_segment}</td><td>${pattern.reason}</td><td>${formatNumber(pattern.occurrence_count, 0)}</td><td><code>${pattern.report_id}</code>${pattern.report_time_text ? ` · ${pattern.report_time_text}` : ""}</td></tr>`)}</tbody></table></div>` : html`<p class="page-note">No outstanding fishing observation review patterns.</p>`}
 </section>`);
 ```
 

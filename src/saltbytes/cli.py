@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 from saltbytes.config import load_config
@@ -6,7 +7,8 @@ from saltbytes.dashboard import DashboardSchemaError, export_dashboard_data
 from saltbytes.logging import configure_logging
 from saltbytes.observations import (
     retrieve_and_record_jennettes_pier_attempt,
-    review_jennettes_pier_candidates,
+    retrieve_and_record_observation_attempts,
+    review_observation_candidates,
 )
 from saltbytes.pipeline import run_pipeline
 from saltbytes.report import render_conditions_report, render_operations_report
@@ -46,6 +48,8 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
     )
     jennettes_parser = observations_subparsers.add_parser("ingest-jennettes")
     jennettes_parser.add_argument("--database")
+    current_parser = observations_subparsers.add_parser("ingest-current")
+    current_parser.add_argument("--database")
     review_parser = observations_subparsers.add_parser("review-candidates")
     review_parser.add_argument("--database")
     review_parser.add_argument("--limit", type=int, default=20)
@@ -57,6 +61,41 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
 
 
 # load configuration and run the pipeline
+_OBSERVATION_SOURCE_LABELS = {
+    "jennettes_pier": "Jennette's Pier",
+    "sunset_beach_pier": "Sunset Beach Pier",
+}
+
+
+def _bounded_failure_reason(value: object, limit: int = 240) -> str:
+    reason = " ".join(str(value).split()) or "No reason was provided."
+    return reason if len(reason) <= limit else f"{reason[: limit - 1]}…"
+
+
+def _run_current_observation_ingestion(database_path: Path | str) -> None:
+    outcomes = retrieve_and_record_observation_attempts(database_path)
+    failed_sources = []
+    for source, result in outcomes.items():
+        source_label = _OBSERVATION_SOURCE_LABELS.get(source, source)
+        if result["status"] == "failed":
+            failed_sources.append(source_label)
+            reason = _bounded_failure_reason(result.get("error"))
+            print(f"{source_label} status: failed: {reason}", file=sys.stderr)
+            continue
+        print(f"{source_label} status: completed")
+        print(f"{source_label} reports persisted: {result['reports']}")
+        print(f"{source_label} assertions persisted: {result['assertions']}")
+        print(
+            f"{source_label} review candidates persisted: "
+            f"{result['review_candidates']}"
+        )
+    if failed_sources:
+        raise SystemExit(
+            "error: fishing observation ingestion completed with source failures: "
+            + ", ".join(failed_sources)
+        )
+
+
 def main(argv: list[str] | None = None) -> None:
     arguments = _parse_arguments(argv)
 
@@ -68,7 +107,7 @@ def main(argv: list[str] | None = None) -> None:
         if database_path is None:
             database_path = load_config()["storage"]["database_path"]
         try:
-            result = review_jennettes_pier_candidates(
+            result = review_observation_candidates(
                 database_path,
                 arguments.limit,
                 arguments.occurrence_limit,
@@ -80,6 +119,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"outstanding review patterns: {result['outstanding_patterns']}")
         for pattern in result["patterns"]:
             print(f"pattern id: {pattern['pattern_id']}")
+            print(f"source: {pattern['source']}")
             print(f"reason: {pattern['reason']}")
             print(f"candidate wording: {pattern['raw_segment']}")
             print(f"occurrences: {pattern['occurrence_count']}")
@@ -91,7 +131,11 @@ def main(argv: list[str] | None = None) -> None:
                 )
         return
 
-    if arguments.command == "observations" and arguments.database is not None:
+    if (
+        arguments.command == "observations"
+        and arguments.observations_command == "ingest-jennettes"
+        and arguments.database is not None
+    ):
         try:
             result = retrieve_and_record_jennettes_pier_attempt(arguments.database)
         except Exception as exc:
@@ -106,11 +150,24 @@ def main(argv: list[str] | None = None) -> None:
         print(f"outstanding review patterns: {result['outstanding_review_patterns']}")
         return
 
+    if (
+        arguments.command == "observations"
+        and arguments.observations_command == "ingest-current"
+        and arguments.database is not None
+    ):
+        _run_current_observation_ingestion(arguments.database)
+        return
+
     config = load_config()
 
     configure_logging(config)
 
     if arguments.command == "observations":
+        if arguments.observations_command == "ingest-current":
+            _run_current_observation_ingestion(
+                config["storage"]["database_path"]
+            )
+            return
         try:
             result = retrieve_and_record_jennettes_pier_attempt(config["storage"]["database_path"])
         except Exception as exc:

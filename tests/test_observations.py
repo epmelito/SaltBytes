@@ -7,10 +7,21 @@ import duckdb
 import pytest
 
 from saltbytes.observations import (
+    JENNETTES_PIER_URL,
+    SUNSET_BEACH_PIER_URL,
     ObservationParseError,
+    extract_sunset_beach_pier_reports,
+    fetch_sunset_beach_pier_report,
     ingest_jennettes_pier,
+    ingest_sunset_beach_pier,
     retrieve_and_record_jennettes_pier_attempt,
+    retrieve_and_record_observation_attempts,
     review_jennettes_pier_candidates,
+    review_observation_candidates,
+)
+
+_SUNSET_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "sunset_beach_pier_current.html"
 )
 
 
@@ -20,6 +31,155 @@ def _card(date: str, title: str, body: str) -> str:
 
 def _html(*cards: str) -> str:
     return f"<html><body><ul>{''.join(cards)}</ul></body></html>"
+
+
+def test_sunset_current_report_preserves_bounded_source_semantics(
+    tmp_path: Path,
+) -> None:
+    html = _SUNSET_FIXTURE.read_text(encoding="utf-8")
+    reports, diagnostics = extract_sunset_beach_pier_reports(html)
+
+    assert diagnostics == {"report_envelopes": 2, "body_envelopes": 2}
+    assert reports[0]["report_time_text"] == "August 13, 2026 5:27 AM"
+    assert reports[0]["report_title"] == "HERE SPOT HERE"
+
+    database_path = tmp_path / "observations.duckdb"
+    result = ingest_sunset_beach_pier(
+        database_path,
+        html,
+        datetime(2026, 8, 13, 12, tzinfo=timezone.utc),
+    )
+    repeat = ingest_sunset_beach_pier(
+        database_path,
+        html,
+        datetime(2026, 8, 13, 13, tzinfo=timezone.utc),
+    )
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        reports = connection.execute(
+            """select source, source_url, location_id, spatial_scope
+            from fishing_observation_reports order by report_time_text desc"""
+        ).fetchall()
+        assertions = connection.execute(
+            """select assertion_kind, observation_time_text, raw_subject,
+            assertion_text from fishing_observation_assertions
+            order by assertion_text"""
+        ).fetchall()
+
+    assert result["reports"] == 2
+    assert result["review_candidates"] == 0
+    assert repeat["reports"] == repeat["assertions"] == 0
+    assert reports == [
+        (
+            "sunset_beach_pier",
+            SUNSET_BEACH_PIER_URL,
+            "sunset_beach_pier",
+            "exact_site",
+        ),
+        (
+            "sunset_beach_pier",
+            SUNSET_BEACH_PIER_URL,
+            "sunset_beach_pier",
+            "exact_site",
+        ),
+    ]
+    assert (
+        "catch",
+        "yesterday",
+        "A FEW CROAKER",
+        "YESTERDAY'S CATCH: A FEW CROAKER",
+    ) in assertions
+    assert (
+        "catch",
+        "yesterday",
+        "CROAKER, WHITING & POMPANO",
+        "YESTERDAY'S CATCH: CROAKER, WHITING & POMPANO",
+    ) in assertions
+    assert sum(kind == "environmental_context" for kind, *_ in assertions) == 3
+    assert all("HOURS:" not in text for *_, text in assertions)
+
+
+def test_sunset_http_exception_is_source_specific() -> None:
+    assert SUNSET_BEACH_PIER_URL == "http://apps.sunsetbeachpier.com/Blog/"
+    assert JENNETTES_PIER_URL.startswith("https://")
+
+
+def test_sunset_fetch_uses_identified_http_without_tls_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Response:
+        headers = {"content-type": "text/html"}
+        text = "<html>report</html>"
+
+        @staticmethod
+        def raise_for_status() -> None:
+            return None
+
+    class Client:
+        def __init__(self, **kwargs: object) -> None:
+            assert kwargs == {"timeout": 10.0, "follow_redirects": True}
+
+        def __enter__(self) -> "Client":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        @staticmethod
+        def get(url: str, headers: dict[str, str]) -> Response:
+            assert url == SUNSET_BEACH_PIER_URL
+            assert headers["User-Agent"].startswith("SaltBytes/")
+            return Response()
+
+    monkeypatch.setattr("saltbytes.observations.httpx.Client", Client)
+
+    assert fetch_sunset_beach_pier_report() == "<html>report</html>"
+
+
+def test_sunset_parser_rejects_unrecognized_current_page() -> None:
+    with pytest.raises(ObservationParseError, match="entries were not recognized"):
+        extract_sunset_beach_pier_reports("<html><body>archive only</body></html>")
+
+
+def test_current_source_attempts_are_isolated(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "saltbytes.observations.fetch_jennettes_pier_report",
+        lambda: (_ for _ in ()).throw(ObservationParseError("Jennette failed")),
+    )
+    monkeypatch.setattr(
+        "saltbytes.observations.fetch_sunset_beach_pier_report",
+        lambda: _SUNSET_FIXTURE.read_text(encoding="utf-8"),
+    )
+
+    outcomes = retrieve_and_record_observation_attempts(
+        tmp_path / "observations.duckdb"
+    )
+
+    assert outcomes["jennettes_pier"]["status"] == "failed"
+    assert outcomes["sunset_beach_pier"]["status"] == "success"
+    assert outcomes["sunset_beach_pier"]["reports"] == 2
+
+
+def test_candidate_review_includes_both_sources(tmp_path: Path) -> None:
+    database_path = tmp_path / "observations.duckdb"
+    ingest_jennettes_pier(
+        database_path,
+        _html(_card("DATE", "REPORT", "Anglers were nearby.")),
+    )
+    sunset_html = _SUNSET_FIXTURE.read_text(encoding="utf-8").replace(
+        "HOURS: 6:00 AM TO 11:00 PM",
+        "Fish were nearby",
+    )
+    ingest_sunset_beach_pier(database_path, sunset_html)
+
+    review = review_observation_candidates(database_path)
+
+    assert {pattern["source"] for pattern in review["patterns"]} == {
+        "jennettes_pier",
+        "sunset_beach_pier",
+    }
 
 
 def test_structural_cards_preserve_real_world_language_families(tmp_path: Path) -> None:

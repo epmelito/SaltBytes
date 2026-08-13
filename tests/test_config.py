@@ -21,6 +21,7 @@ def test_local_config_contains_approved_locations_and_variable_settings() -> Non
         "fort_macon_ocean",
         "bogue_inlet_pier",
         "fort_fisher",
+        "sunset_beach_pier",
     ]
     assert set(config) == {"locations", "storage", "logging", "display_timezone"}
     assert config["display_timezone"] == "America/New_York"
@@ -42,6 +43,7 @@ def test_local_config_retains_tide_relationships() -> None:
         "fort_macon_ocean": "8656590",
         "bogue_inlet_pier": "TEC2837",
         "fort_fisher": "8658559",
+        "sunset_beach_pier": "8659897",
     }
 
 
@@ -113,14 +115,71 @@ def test_local_config_retains_reviewed_site_orientation() -> None:
         "fort_macon_ocean": (185, None),
         "bogue_inlet_pier": (165, 175),
         "fort_fisher": (105, None),
+        "sunset_beach_pier": (165, 180),
     }
 
     for location in config["locations"]:
         orientation = location["orientation"]
         assert orientation["orientation_method"]
         assert orientation["orientation_source"]
-        assert orientation["orientation_reviewed_at"] == "2026-08-01"
+        expected_review_date = (
+            "2026-08-13"
+            if location["id"] == "sunset_beach_pier"
+            else "2026-08-01"
+        )
+        assert orientation["orientation_reviewed_at"] == expected_review_date
         assert orientation["orientation_limitation"]
+
+
+def test_local_config_contains_approved_sunset_relationships() -> None:
+    config = load_config()
+    sunset = next(
+        location
+        for location in config["locations"]
+        if location["id"] == "sunset_beach_pier"
+    )
+
+    assert sunset["name"] == "Sunset Beach Pier"
+    assert sunset["fishing_context"] == "pier"
+    assert sunset["display_coordinate"] == {
+        "latitude": 33.865,
+        "longitude": -78.5067,
+    }
+    assert sunset["weather"]["request_coordinate"] == sunset[
+        "display_coordinate"
+    ]
+    assert sunset["weather"]["expected_returned_coordinate"] == {
+        "latitude": 33.875553,
+        "longitude": -78.49414,
+    }
+    assert sunset["wave"] == {
+        "request_coordinate": {
+            "latitude": 33.8389394,
+            "longitude": -78.4982931,
+        },
+        "expected_returned_coordinate": {
+            "latitude": 33.791664,
+            "longitude": -78.45833,
+        },
+    }
+    assert sunset["sst"]["request_coordinate"] == sunset["wave"][
+        "request_coordinate"
+    ]
+    assert sunset["sst"]["expected_returned_coordinate"] == {
+        "latitude": 33.875,
+        "longitude": -78.45833,
+    }
+    assert sunset["tide"]["relationship_type"] == "direct"
+    assert sunset["tide"]["reference_station"] is None
+    assert all(
+        sunset["tide"][field] is None
+        for field in (
+            "high_time_offset_minutes",
+            "low_time_offset_minutes",
+            "high_multiplier",
+            "low_multiplier",
+        )
+    )
 
 
 def test_load_config_rejects_missing_orientation_field(

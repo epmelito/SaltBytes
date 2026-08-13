@@ -243,12 +243,13 @@ def test_observation_review_command_uses_explicit_database_without_pipeline(
         lambda: pytest.fail("explicit observation database must not load configuration"),
     )
     monkeypatch.setattr(
-        "saltbytes.cli.review_jennettes_pier_candidates",
+        "saltbytes.cli.review_observation_candidates",
         lambda *_: {
             "outstanding_patterns": 1,
             "patterns": [
                 {
                     "pattern_id": "pattern123",
+                    "source": "jennettes_pier",
                     "reason": "fishing terminology",
                     "raw_segment": "Anglers were nearby.",
                     "occurrence_count": 1,
@@ -280,3 +281,76 @@ def test_observation_command_reports_failure(
 
     with pytest.raises(SystemExit, match="Jennette's Pier observation ingestion failed"):
         main(["observations", "ingest-jennettes", "--database", str(tmp_path / "db")])
+
+
+def test_current_observation_command_reports_each_source_and_fails_after_isolation(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "saltbytes.cli.retrieve_and_record_observation_attempts",
+        lambda _: {
+            "jennettes_pier": {
+                "status": "success",
+                "reports": 1,
+                "assertions": 2,
+                "review_candidates": 0,
+            },
+            "sunset_beach_pier": {
+                "status": "failed",
+                "error": "untrusted page shape changed",
+            },
+        },
+    )
+
+    with pytest.raises(
+        SystemExit,
+        match="completed with source failures: Sunset Beach Pier",
+    ):
+        main(
+            [
+                "observations",
+                "ingest-current",
+                "--database",
+                str(tmp_path / "db"),
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert "Jennette's Pier status: completed" in captured.out
+    assert (
+        "Sunset Beach Pier status: failed: untrusted page shape changed"
+        in captured.err
+    )
+
+
+def test_current_observation_command_bounds_failure_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "saltbytes.cli.retrieve_and_record_observation_attempts",
+        lambda _: {
+            "jennettes_pier": {"status": "failed", "error": "bad\n" + "x" * 400},
+            "sunset_beach_pier": {"status": "failed", "error": "timed out"},
+        },
+    )
+
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "observations",
+                "ingest-current",
+                "--database",
+                str(tmp_path / "db"),
+            ]
+        )
+
+    error_lines = capsys.readouterr().err.splitlines()
+    assert len(error_lines) == 2
+    assert error_lines[0].startswith("Jennette's Pier status: failed: bad x")
+    assert error_lines[0].endswith("…")
+    assert len(error_lines[0]) < 300
+    assert error_lines[1] == "Sunset Beach Pier status: failed: timed out"

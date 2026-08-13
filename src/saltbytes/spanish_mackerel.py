@@ -5,7 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import TypeAlias
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-METHODOLOGY_VERSION = "spanish-mackerel-v1.0.0"
+METHODOLOGY_VERSION = "spanish-mackerel-v1.1.0"
 
 _APPROVED_LOCATION_CONTEXTS = {
     "jennettes_pier": "pier",
@@ -13,6 +13,7 @@ _APPROVED_LOCATION_CONTEXTS = {
     "fort_macon_ocean": "surf",
     "bogue_inlet_pier": "pier",
     "fort_fisher": "surf",
+    "sunset_beach_pier": "pier",
 }
 _UNKNOWN_FACTORS = (
     "local_baitfish_presence",

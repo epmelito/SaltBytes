@@ -203,7 +203,7 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert manifest["latest_attempt"]["run_id"] == "run-failed"
     assert manifest["latest_success"]["run_id"] == "run-success"
     assert manifest["latest_success_freshness_minutes"] == 365
-    assert manifest["schema_version"] == 3
+    assert manifest["schema_version"] == 4
     assert manifest["forecast_window"] == {
         "start": "2026-07-30T00:00:00Z",
         "end": "2026-07-30T00:00:00Z",
@@ -219,7 +219,7 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     score = conditions[0]["spanish_mackerel_conditions"]
     assert score == {
         "state": "available",
-        "methodology_version": "spanish-mackerel-v1.0.0",
+        "methodology_version": "spanish-mackerel-v1.1.0",
         "score": 76,
         "score_band": "favorable_alignment",
         "confidence": [
@@ -268,7 +268,11 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert "detail" not in source_health["failures"][0]
 
     observation_health = _read_json(output_path, "observation-health.json")
-    assert observation_health == {"latest_attempt": None, "outstanding_patterns": []}
+    assert observation_health == {
+        "latest_attempt": None,
+        "latest_attempts": [],
+        "outstanding_patterns": [],
+    }
 
     provenance = _read_json(output_path, "provenance.json")
     assert {row["source"] for row in provenance} == {
@@ -360,23 +364,49 @@ def test_export_dashboard_data_groups_outstanding_review_patterns(tmp_path: Path
     assert "pattern-20" not in {pattern["pattern_id"] for pattern in patterns}
 
 
-def test_export_dashboard_data_selects_latest_observation_attempt_deterministically(
+@pytest.mark.parametrize(
+    ("attempts", "expected_statuses"),
+    [
+        (
+            [("jennettes_pier", "success"), ("sunset_beach_pier", "success")],
+            {"jennettes_pier": "success", "sunset_beach_pier": "success"},
+        ),
+        (
+            [("jennettes_pier", "failed"), ("sunset_beach_pier", "success")],
+            {"jennettes_pier": "failed", "sunset_beach_pier": "success"},
+        ),
+        (
+            [("jennettes_pier", "success"), ("sunset_beach_pier", "failed")],
+            {"jennettes_pier": "success", "sunset_beach_pier": "failed"},
+        ),
+        ([], {}),
+    ],
+)
+def test_export_dashboard_data_includes_latest_attempt_for_each_observation_source(
     tmp_path: Path,
+    attempts: list[tuple[str, str]],
+    expected_statuses: dict[str, str],
 ) -> None:
     database_path = tmp_path / "saltbytes.duckdb"
     output_path = tmp_path / "dashboard-data"
     _seed_dashboard_database(database_path)
     with duckdb.connect(str(database_path)) as connection:
-        connection.execute(
-            """insert into fishing_observation_ingestion_attempts values
-            ('attempt-a', timestamptz '2026-08-13 12:00:00+00', 'success', 1, 0, 1),
-            ('attempt-b', timestamptz '2026-08-13 12:00:00+00', 'failed', 0, 0, 1)"""
-        )
+        for index, (source, status) in enumerate(attempts):
+            connection.execute(
+                """insert into fishing_observation_ingestion_attempts values
+                (?, ?, timestamptz '2026-08-13 12:00:00+00', ?, 0, 0, 0)""",
+                [f"attempt-{index}", source, status],
+            )
 
     export_dashboard_data(_config(database_path), output_path)
 
-    latest_attempt = _read_json(output_path, "observation-health.json")["latest_attempt"]
-    assert latest_attempt["status"] == "failed"
+    observation_health = _read_json(output_path, "observation-health.json")
+    latest_attempts = observation_health["latest_attempts"]
+    assert {
+        attempt["source"]: attempt["status"] for attempt in latest_attempts
+    } == expected_statuses
+    if not attempts:
+        assert observation_health["latest_attempt"] is None
 
 
 @pytest.mark.parametrize(
@@ -414,7 +444,7 @@ def test_export_dashboard_data_preserves_rows_with_unavailable_score_provenance(
     score = conditions[0]["spanish_mackerel_conditions"]
     assert score == {
         "state": "unavailable",
-        "methodology_version": "spanish-mackerel-v1.0.0",
+        "methodology_version": "spanish-mackerel-v1.1.0",
         "unavailable_reasons": [reason],
     }
 
