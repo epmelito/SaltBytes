@@ -28,12 +28,11 @@ ingestion and hosted observation feedback loop are established. Sunset Beach
 Pier is implemented as SaltBytes location 6 across environmental ingestion,
 Spanish mackerel applicability, observations, hosted operation, and reporting.
 
-Sound-side expansion is approved, with Little Bridge Sound Access as the planned
-seventh SaltBytes location. Its environmental source relationships remain
-unresolved and require bounded evaluation before implementation; existing
-ocean-facing marine relationships must not be reused without supporting
-evidence. That bounded relationship evaluation is the next location-foundation
-work. Resume species-assessment implementation after the location foundation is
+Little Bridge Sound Access is the approved seventh SaltBytes location and first
+`sound-side` location. Its bounded environmental and source evaluation is
+complete in [Decision 0014](decisions/0014-little-bridge-seventh-location-contract.md).
+Implementation of location 7 is the next location-foundation work.
+Resume species-assessment implementation after the location foundation is
 complete.
 
 The deterministic red drum score path is paused; its research remains useful
