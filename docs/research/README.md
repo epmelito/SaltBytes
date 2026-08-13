@@ -25,6 +25,7 @@ defines the first score formula.
 - [Research outcome and approved pilot](nc-shore-species-research.md#2-research-outcome)
 - [Cross-species selection rationale](nc-shore-species-research.md#6-cross-species-selection-rationale)
 - [Environment coverage](nc-shore-species-research.md#7-environment-coverage)
+- [Sunset Beach Pier sixth-location evidence](sunset-beach-pier-location-evidence.md)
 
 The approved set is Spanish mackerel, red drum, bluefish, spotted seatrout,
 kingfishes complex, sheepshead, and Florida pompano. Spanish mackerel is the
