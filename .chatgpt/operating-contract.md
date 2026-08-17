@@ -1,7 +1,7 @@
 # SaltBytes ChatGPT Operating Contract
 
-Version: 1.10
-Updated: 2026-08-12
+Version: 1.11
+Updated: 2026-08-17
 
 ## 1. Purpose, authority, and conflict resolution
 
@@ -337,9 +337,11 @@ distinct filename or version.
 
 Implementation evidence proves what was changed and which checks ran.
 Independent review evidence gives ChatGPT or a review skill a complete read only
-view of stable changes. Interactive preview evidence supports visual and
-behavioral reporting review. Production release evidence proves build, runtime,
-CI, deployment, and repository state.
+view of stable changes. A reviewer narrative, completion report, or statement
+that the diff was inspected is analysis, not a substitute for required review
+evidence. Interactive preview evidence supports visual and behavioral reporting
+review. Production release evidence proves build, runtime, CI, deployment, and
+repository state.
 
 Do not treat one evidence type as a substitute for another when the package
 requires both.
@@ -355,12 +357,14 @@ workflow permissions, concurrent writers, another explicitly high risk
 contract, or when the user requests it.
 
 The review artifact is read only evidence. It is not a patch and must not be
-applied.
+applied. ChatGPT must independently assess the required artifact before treating
+the review gate as satisfied.
 
-Collect it after implementation stabilizes. It must include:
+Collect it after implementation stabilizes. It must identify the exact proposed
+revision being reviewed and include:
 
 - repository and active issue identity
-- branch and base commit
+- branch, base commit, and current `HEAD`
 - `git status --short`
 - the complete tracked working tree diff
 - complete contents or an equivalent diff for every authorized untracked file
@@ -376,12 +380,17 @@ collect it.
 Use a descriptive filename such as `issue-<number>-review.diff`. Keep review
 artifacts outside the repository. Do not stage, commit, or apply them. Do not
 substitute a large IDE console dump when truncation or formatting loss could
-hide part of the target. Regenerate only when later changes invalidate the
-artifact, retain it during review, and remove it after finalization or when no
-longer needed.
+hide part of the target. The reviewed revision is the recorded `HEAD` plus the
+complete tracked and authorized untracked changes captured by the artifact, or
+an immutable head commit when revision-mode review is explicitly used.
+
+Any repository change after the artifact is collected invalidates that review.
+Regenerate and independently assess a new artifact covering the current `HEAD`
+and complete proposed changes before finalization. Retain the artifact during
+review and remove it after finalization or when no longer needed.
 
 Do not commit, push, create a pull request, or merge high risk work while its
-required independent review is outstanding.
+required independent review artifact or ChatGPT assessment is outstanding.
 
 ### Reporting preview evidence
 
