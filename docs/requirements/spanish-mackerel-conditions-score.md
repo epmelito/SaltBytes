@@ -2,12 +2,16 @@
 
 ## Status
 
-Current approved methodology version `spanish-mackerel-v1.1.0`.
+Current approved methodology version `spanish-mackerel-v1.2.0`.
 
 `spanish-mackerel-v1.0.0` remains the complete immutable first-release
 contract. Version `spanish-mackerel-v1.1.0` is an applicability-only revision:
 it adds Sunset Beach Pier and retains v1.0.0 scoring behavior, confidence,
 explanations, rounding, and interpretation boundaries unchanged.
+
+Version `spanish-mackerel-v1.2.0` is a sound-side methodology revision for
+Little Bridge Sound Access. Versions v1.0.0 and v1.1.0 remain immutable
+historical contracts.
 
 This document defines the deterministic scoring contract. It does not implement,
 persist, publish, or display the score.
@@ -71,6 +75,33 @@ eligible pairs are the historical v1.0.0 pairs plus Sunset Beach Pier. This
 revision does not alter the score formula, availability requirements for an
 already eligible pair, numeric anchors, weights, coefficients, score bands,
 confidence, explanations, rounding, or prohibited interpretations.
+
+### Current v1.2.0 applicability and sound-side treatment
+
+Version `spanish-mackerel-v1.2.0` retains all v1.1.0 eligible pairs and adds
+only `little_bridge_sound_access` / `sound-side` for Little Bridge Sound Access.
+It inherits every v1.1.0 availability rule, seasonal and thermal calculation,
+wind curve, raw wave-height curve, practical floor, rounding, score bands, and
+unknown biology unchanged for previously eligible locations.
+
+For Little Bridge only:
+
+```text
+location_adjusted_biology = biological_alignment * 0.75
+sound_wave_fishability = 100 - 0.50 * (100 - raw_wave_fishability)
+practical_fishability = min(wind_fishability, sound_wave_fishability)
+conditions_score = location_adjusted_biology
+    * (0.25 + 0.75 * practical_fishability / 100)
+```
+
+`raw_wave_fishability` is the existing raw `wave_fishability` curve result.
+
+The `0.75` location-context modifier and `0.50` wave-penalty
+representativeness weight are conservative methodology choices. They are not
+catch probabilities, occurrence ratios, empirical likelihood estimates, or
+changes to physical forecast values. `wave_height` remains the approved modeled
+Roanoke Sound wave/chop field; only its effect on practical fishability is
+attenuated.
 
 ## Required inputs and score availability
 
@@ -171,7 +202,8 @@ change historical results.
 
 `spanish-mackerel-v1.0.0` is the immutable identifier for the complete
 first-release methodology. `spanish-mackerel-v1.1.0` is its immutable
-applicability-only revision. Every calculated result must retain the exact
+applicability-only revision. `spanish-mackerel-v1.2.0` is the current
+Little Bridge sound-side revision. Every calculated result must retain the exact
 methodology version used.
 
 A new methodology version is required for any change that can alter:
@@ -345,6 +377,12 @@ Each available score must report the shared confidence dimensions separately:
 | `fishability_data_confidence` | moderate |
 | `overall_interpretation_confidence` | moderate |
 
+For Little Bridge only, location applicability and seasonal evidence are
+moderate; all other confidence states remain as shown above. Its factor
+`sound_side_location_context` is always limiting and appears after thermal
+context and before wind and waves. The factor describes bounded location
+applicability, not likelihood, probability, or a catch penalty.
+
 The states mean:
 
 - species identity is stable and unambiguous for the pilot
@@ -373,7 +411,8 @@ are within casting range, or validated shore catch outcomes.
 ## Explanations and unknowns
 
 Each available result must report every triggered material factor in this
-stable order: season, thermal context, wind, waves, then unknown biology.
+stable order: season, thermal context, Little Bridge sound-side location context
+when applicable, wind, waves, then unknown biology.
 
 Positive factors are triggered when:
 
@@ -388,7 +427,8 @@ Limiting factors are triggered when:
 - seasonal alignment is below 80
 - thermal alignment is below seasonal alignment
 - wind fishability is below 80
-- wave fishability is below 80
+- wave fishability is below 80; at Little Bridge this is the adjusted
+  sound-wave fishability, while other locations use raw wave fishability
 
 The explanation must distinguish biological alignment from practical
 fishability. It must not relabel wind or waves as fish activity.

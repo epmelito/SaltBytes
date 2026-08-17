@@ -231,6 +231,68 @@ def test_ocracoke_retains_its_moderate_location_confidence() -> None:
 
 
 @pytest.mark.parametrize(
+    ("local_date", "waves", "wind", "gust", "raw_wave", "sound_wave", "practical", "score", "band"),
+    [
+        ("2026-07-15", 0.5, 10, 15, "100", "100", "100", 75, "favorable_alignment"),
+        ("2026-07-15", 1.2, 10, 15, "68", "84", "84", 66, "favorable_alignment"),
+        ("2026-07-15", 1.5, 10, 15, "50", "75", "75", 61, "favorable_alignment"),
+        ("2026-07-15", 2.5, 10, 15, "0", "50", "50", 47, "mixed_conditions"),
+        ("2026-07-15", 0.5, 55, 60, "100", "100", "0", 19, "very_limited_alignment"),
+        ("2026-04-01", 0.5, 10, 15, "100", "100", "100", 30, "limited_alignment"),
+    ],
+)
+def test_little_bridge_matches_approved_sound_side_scenarios(
+    local_date: str,
+    waves: float,
+    wind: float,
+    gust: float,
+    raw_wave: str,
+    sound_wave: str,
+    practical: str,
+    score: int,
+    band: str,
+) -> None:
+    result = calculate_spanish_mackerel_conditions_score(
+        score_input(
+            location_id="little_bridge_sound_access",
+            fishing_context="sound-side",
+            forecast_time=datetime.fromisoformat(f"{local_date}T16:00:00+00"),
+            wave_height=waves,
+            wind_speed_10m=wind,
+            wind_gusts_10m=gust,
+        )
+    )
+
+    assert isinstance(result, AvailableSpanishMackerelConditionsScore)
+    assert result.biological_alignment == (
+        Decimal("40") if local_date == "2026-04-01" else Decimal("100")
+    )
+    assert result.location_adjusted_biology == (
+        Decimal("30") if local_date == "2026-04-01" else Decimal("75")
+    )
+    assert result.wave_fishability == Decimal(raw_wave)
+    assert result.sound_wave_fishability == Decimal(sound_wave)
+    assert result.practical_fishability == Decimal(practical)
+    assert result.score == score
+    assert result.score_band == band
+    assert "sound_side_location_context" in result.limiting_factors
+    assert [(item.identifier, item.kind) for item in result.factors] == [
+        ("seasonal_alignment", "positive" if local_date != "2026-04-01" else "limiting"),
+        ("thermal_context", "positive"),
+        ("sound_side_location_context", "limiting"),
+        ("wind_fishability", "positive" if wind < 55 else "limiting"),
+        ("wave_fishability", "positive" if waves <= 1.2 else "limiting"),
+        ("local_baitfish_presence", "unknown"),
+        ("current_spanish_mackerel_presence", "unknown"),
+        ("schools_within_casting_range", "unknown"),
+        ("nearshore_sst_accuracy_and_site_representativeness", "unknown"),
+    ]
+    assert tuple(item.state for item in result.confidence) == (
+        "high", "moderate", "moderate", "moderate", "moderate", "low", "moderate", "moderate"
+    )
+
+
+@pytest.mark.parametrize(
     ("location_id", "fishing_context"),
     [
         ("jennettes_pier", "pier"),
@@ -239,6 +301,7 @@ def test_ocracoke_retains_its_moderate_location_confidence() -> None:
         ("bogue_inlet_pier", "pier"),
         ("fort_fisher", "surf"),
         ("sunset_beach_pier", "pier"),
+        ("little_bridge_sound_access", "sound-side"),
     ],
 )
 def test_all_approved_location_context_pairs_are_eligible(
@@ -255,11 +318,45 @@ def test_all_approved_location_context_pairs_are_eligible(
     assert isinstance(result, AvailableSpanishMackerelConditionsScore)
 
 
+@pytest.mark.parametrize(
+    ("location_id", "fishing_context", "location_confidence"),
+    [
+        ("jennettes_pier", "pier", "high"),
+        ("ocracoke_ramp_72", "surf", "moderate"),
+        ("fort_macon_ocean", "surf", "high"),
+        ("bogue_inlet_pier", "pier", "high"),
+        ("fort_fisher", "surf", "high"),
+        ("sunset_beach_pier", "pier", "high"),
+    ],
+)
+def test_existing_locations_retain_v11_components_and_interpretation(
+    location_id: str,
+    fishing_context: str,
+    location_confidence: str,
+) -> None:
+    result = calculate_spanish_mackerel_conditions_score(
+        score_input(location_id=location_id, fishing_context=fishing_context)
+    )
+
+    assert isinstance(result, AvailableSpanishMackerelConditionsScore)
+    assert result.biological_alignment == Decimal("100")
+    assert result.wave_fishability == Decimal("100")
+    assert result.sound_wave_fishability is None
+    assert result.practical_fishability == Decimal("100")
+    assert result.score == 100
+    assert result.score_band == "strong_alignment"
+    assert result.positive_factors == (
+        "seasonal_alignment", "thermal_context", "wind_fishability", "wave_fishability"
+    )
+    assert result.limiting_factors == ()
+    assert result.confidence[1].state == location_confidence
+
+
 def test_current_methodology_changes_only_identifier_for_existing_location() -> None:
     result = calculate_spanish_mackerel_conditions_score(score_input())
 
     assert isinstance(result, AvailableSpanishMackerelConditionsScore)
-    assert result.methodology_version == "spanish-mackerel-v1.1.0"
+    assert result.methodology_version == "spanish-mackerel-v1.2.0"
     assert result.score == 100
 
 
@@ -268,6 +365,18 @@ def test_sunset_wrong_context_remains_unavailable() -> None:
         score_input(
             location_id="sunset_beach_pier",
             fishing_context="surf",
+        )
+    )
+
+    assert isinstance(result, UnavailableSpanishMackerelConditionsScore)
+    assert result.unavailable_reasons == ("location_not_applicable",)
+
+
+def test_little_bridge_wrong_context_remains_unavailable() -> None:
+    result = calculate_spanish_mackerel_conditions_score(
+        score_input(
+            location_id="little_bridge_sound_access",
+            fishing_context="pier",
         )
     )
 

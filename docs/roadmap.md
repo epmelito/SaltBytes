@@ -21,16 +21,16 @@ ready for ordinary use and investigation.
 
 ## Next work
 
-### 1. Evaluate Spanish mackerel applicability at Little Bridge
+### Completed current work
 
 The planned observation and location foundation is complete. Little Bridge Sound
-Access is SaltBytes location 7 and the first `sound-side` location, with its
-bounded environmental and location relationships implemented.
+Access is SaltBytes location 7 and the first `sound-side` location. Spanish
+mackerel methodology v1.2.0 now provides its bounded sound-side assessment
+without treating its location context or modeled wave/chop field as equivalent
+to ocean-facing locations.
 
-GitHub issue [#189](https://github.com/epmelito/SaltBytes/issues/189),
-`Evaluate Spanish mackerel applicability at Little Bridge`, is the immediate
-next approved work. It is an evidence and methodology decision package; it does
-not authorize adding Little Bridge to Spanish mackerel scoring.
+The Little Bridge applicability research and its approved Spanish mackerel v1.2.0
+implementation are complete. The next work package has not yet been selected.
 
 The deterministic red drum score path is paused; its research remains useful
 for later location-first assessment work.

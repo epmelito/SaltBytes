@@ -5,7 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import TypeAlias
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-METHODOLOGY_VERSION = "spanish-mackerel-v1.1.0"
+METHODOLOGY_VERSION = "spanish-mackerel-v1.2.0"
 
 _APPROVED_LOCATION_CONTEXTS = {
     "jennettes_pier": "pier",
@@ -14,7 +14,9 @@ _APPROVED_LOCATION_CONTEXTS = {
     "bogue_inlet_pier": "pier",
     "fort_fisher": "surf",
     "sunset_beach_pier": "pier",
+    "little_bridge_sound_access": "sound-side",
 }
+_LITTLE_BRIDGE_LOCATION_ID = "little_bridge_sound_access"
 _UNKNOWN_FACTORS = (
     "local_baitfish_presence",
     "current_spanish_mackerel_presence",
@@ -64,9 +66,11 @@ class AvailableSpanishMackerelConditionsScore:
     seasonal_alignment: Decimal
     thermal_alignment: Decimal
     biological_alignment: Decimal
+    location_adjusted_biology: Decimal
     effective_wind_kmh: Decimal
     wind_fishability: Decimal
     wave_fishability: Decimal
+    sound_wave_fishability: Decimal | None
     practical_fishability: Decimal
     confidence: tuple[ConfidenceDimension, ...]
     positive_factors: tuple[str, ...]
@@ -165,8 +169,22 @@ def calculate_spanish_mackerel_conditions_score(
             (Decimal("2.5"), Decimal("0")),
         ),
     )
-    practical_fishability = min(wind_fishability, wave_fishability)
-    score_unrounded = biological_alignment * (
+    is_little_bridge = value.location_id == _LITTLE_BRIDGE_LOCATION_ID
+    if is_little_bridge:
+        location_adjusted_biology = biological_alignment * Decimal("0.75")
+        sound_wave_fishability = Decimal("100") - Decimal("0.50") * (
+            Decimal("100") - wave_fishability
+        )
+    else:
+        location_adjusted_biology = biological_alignment
+        sound_wave_fishability = None
+    effective_wave_fishability = (
+        sound_wave_fishability
+        if sound_wave_fishability is not None
+        else wave_fishability
+    )
+    practical_fishability = min(wind_fishability, effective_wave_fishability)
+    score_unrounded = location_adjusted_biology * (
         Decimal("0.25")
         + Decimal("0.75") * practical_fishability / Decimal("100")
     )
@@ -178,13 +196,15 @@ def calculate_spanish_mackerel_conditions_score(
         seasonal_alignment,
         thermal_alignment,
         wind_fishability,
-        wave_fishability,
+        effective_wave_fishability,
+        is_little_bridge,
     )
     factors = _factor_selections(
         seasonal_alignment,
         thermal_alignment,
         wind_fishability,
-        wave_fishability,
+        effective_wave_fishability,
+        is_little_bridge,
     )
     return AvailableSpanishMackerelConditionsScore(
         state="available",
@@ -198,9 +218,11 @@ def calculate_spanish_mackerel_conditions_score(
         seasonal_alignment=seasonal_alignment,
         thermal_alignment=thermal_alignment,
         biological_alignment=biological_alignment,
+        location_adjusted_biology=location_adjusted_biology,
         effective_wind_kmh=effective_wind_kmh,
         wind_fishability=wind_fishability,
         wave_fishability=wave_fishability,
+        sound_wave_fishability=sound_wave_fishability,
         practical_fishability=practical_fishability,
         confidence=_confidence(value.location_id),
         positive_factors=positive_factors,
@@ -361,7 +383,12 @@ def _score_band(score: int) -> str:
 
 def _confidence(location_id: str) -> tuple[ConfidenceDimension, ...]:
     location_state = (
-        "moderate" if location_id == "ocracoke_ramp_72" else "high"
+        "moderate"
+        if location_id in {"ocracoke_ramp_72", _LITTLE_BRIDGE_LOCATION_ID}
+        else "high"
+    )
+    seasonal_state = (
+        "moderate" if location_id == _LITTLE_BRIDGE_LOCATION_ID else "high"
     )
     return (
         ConfidenceDimension("species_identity_confidence", "high"),
@@ -370,7 +397,7 @@ def _confidence(location_id: str) -> tuple[ConfidenceDimension, ...]:
             location_state,
         ),
         ConfidenceDimension("environmental_source_confidence", "moderate"),
-        ConfidenceDimension("seasonal_evidence_confidence", "high"),
+        ConfidenceDimension("seasonal_evidence_confidence", seasonal_state),
         ConfidenceDimension("habitat_data_confidence", "moderate"),
         ConfidenceDimension("biological_observation_confidence", "low"),
         ConfidenceDimension("fishability_data_confidence", "moderate"),
@@ -383,6 +410,7 @@ def _factor_identifiers(
     thermal_alignment: Decimal,
     wind_fishability: Decimal,
     wave_fishability: Decimal,
+    is_little_bridge: bool,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     positive = []
     limiting = []
@@ -397,6 +425,8 @@ def _factor_identifiers(
         positive.append("thermal_context")
     elif thermal_alignment < seasonal_alignment:
         limiting.append("thermal_context")
+    if is_little_bridge:
+        limiting.append("sound_side_location_context")
     if wind_fishability >= Decimal("80"):
         positive.append("wind_fishability")
     else:
@@ -413,6 +443,7 @@ def _factor_selections(
     thermal_alignment: Decimal,
     wind_fishability: Decimal,
     wave_fishability: Decimal,
+    is_little_bridge: bool,
 ) -> tuple[FactorSelection, ...]:
     factors = []
     factors.append(
@@ -428,6 +459,8 @@ def _factor_selections(
         factors.append(FactorSelection("thermal_context", "positive"))
     elif thermal_alignment < seasonal_alignment:
         factors.append(FactorSelection("thermal_context", "limiting"))
+    if is_little_bridge:
+        factors.append(FactorSelection("sound_side_location_context", "limiting"))
     factors.append(
         FactorSelection(
             "wind_fishability",

@@ -54,6 +54,7 @@ const scoreBandPresentation = {
 };
 const factorLabels = {
   seasonal_alignment: "Seasonal timing", thermal_context: "Water temperature",
+  sound_side_location_context: "Sound-side location context",
   wind_fishability: "Wind", wave_fishability: "Waves",
   local_baitfish_presence: "Local baitfish presence",
   current_spanish_mackerel_presence: "Current Spanish mackerel presence",
@@ -63,6 +64,7 @@ const factorLabels = {
 const factorSentenceLabels = {
   seasonal_alignment: "seasonal timing",
   thermal_context: "water temperature",
+  sound_side_location_context: "sound-side location context",
   wind_fishability: "wind",
   wave_fishability: "waves"
 };
