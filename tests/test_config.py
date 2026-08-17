@@ -22,6 +22,7 @@ def test_local_config_contains_approved_locations_and_variable_settings() -> Non
         "bogue_inlet_pier",
         "fort_fisher",
         "sunset_beach_pier",
+        "little_bridge_sound_access",
     ]
     assert set(config) == {"locations", "storage", "logging", "display_timezone"}
     assert config["display_timezone"] == "America/New_York"
@@ -44,6 +45,7 @@ def test_local_config_retains_tide_relationships() -> None:
         "bogue_inlet_pier": "TEC2837",
         "fort_fisher": "8658559",
         "sunset_beach_pier": "8659897",
+        "little_bridge_sound_access": "8652591",
     }
 
 
@@ -116,6 +118,7 @@ def test_local_config_retains_reviewed_site_orientation() -> None:
         "bogue_inlet_pier": (165, 175),
         "fort_fisher": (105, None),
         "sunset_beach_pier": (165, 180),
+        "little_bridge_sound_access": (60, None),
     }
 
     for location in config["locations"]:
@@ -124,7 +127,7 @@ def test_local_config_retains_reviewed_site_orientation() -> None:
         assert orientation["orientation_source"]
         expected_review_date = (
             "2026-08-13"
-            if location["id"] == "sunset_beach_pier"
+            if location["id"] in {"sunset_beach_pier", "little_bridge_sound_access"}
             else "2026-08-01"
         )
         assert orientation["orientation_reviewed_at"] == expected_review_date
@@ -230,7 +233,7 @@ def test_load_config_rejects_invalid_shore_normal_azimuth(
         (
             1,
             90,
-            "pier_seaward_azimuth_degrees must be null for surf locations",
+            "pier_seaward_azimuth_degrees must be null for non-pier locations",
         ),
     ],
 )
@@ -249,6 +252,98 @@ def test_load_config_enforces_pier_orientation_by_fishing_context(
 
     with pytest.raises(ValueError, match=message):
         load_config(config_path)
+
+
+def test_load_config_rejects_sound_side_pier_alignment(tmp_path: Path) -> None:
+    config = deepcopy(load_config())
+    sound_side = next(
+        location
+        for location in config["locations"]
+        if location["fishing_context"] == "sound-side"
+    )
+    sound_side["orientation"]["pier_seaward_azimuth_degrees"] = 90
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(
+        ValueError,
+        match="pier_seaward_azimuth_degrees must be null for non-pier locations",
+    ):
+        load_config(config_path)
+
+
+def test_load_config_rejects_unsupported_fishing_context(tmp_path: Path) -> None:
+    config = deepcopy(load_config())
+    config["locations"][0]["fishing_context"] = "estuary"
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(ValueError, match="unsupported fishing context: estuary"):
+        load_config(config_path)
+
+
+def test_local_config_contains_approved_little_bridge_relationships() -> None:
+    config = load_config()
+    little_bridge = next(
+        location
+        for location in config["locations"]
+        if location["id"] == "little_bridge_sound_access"
+    )
+
+    assert little_bridge["name"] == "Little Bridge Sound Access"
+    assert little_bridge["fishing_context"] == "sound-side"
+    assert little_bridge["display_coordinate"] == {
+        "latitude": 35.898075,
+        "longitude": -75.61635,
+    }
+    assert little_bridge["orientation"]["shore_normal_azimuth_degrees"] == 60
+    assert little_bridge["orientation"]["pier_seaward_azimuth_degrees"] is None
+    assert little_bridge["weather"] == {
+        "request_coordinate": little_bridge["display_coordinate"],
+        "expected_returned_coordinate": {
+            "latitude": 35.898766,
+            "longitude": -75.62099,
+        },
+        "coastal_regime": "Roanoke Sound atmospheric grid",
+    }
+    assert little_bridge["wave"] == {
+        "request_coordinate": little_bridge["display_coordinate"],
+        "expected_returned_coordinate": {
+            "latitude": 35.875,
+            "longitude": -75.62499,
+        },
+    }
+    assert little_bridge["sst"] == {
+        "request_coordinate": little_bridge["display_coordinate"],
+        "expected_returned_coordinate": {
+            "latitude": 35.875,
+            "longitude": -75.62499,
+        },
+        "coastal_regime": "Roanoke Sound marine grid",
+    }
+    assert little_bridge["tide"] == {
+        "prediction_location": "Roanoke Sound Channel",
+        "station_id": "8652591",
+        "relationship_type": "transfer",
+        "reference_station": "8652587",
+        "subordinate_station_type": "S",
+        "high_time_offset_minutes": 97,
+        "low_time_offset_minutes": 77,
+        "high_multiplier": None,
+        "low_multiplier": None,
+        "height_offset_high_tide": 0.47,
+        "height_offset_low_tide": 0.14,
+        "height_adjusted_type": "R",
+        "distance_km": 11.487,
+        "coastal_relationship": (
+            "Approved transferred astronomical high and low tide relationship "
+            "through the NOAA subordinate station"
+        ),
+        "known_limitation": (
+            "Prediction is not an observed water level, local current, or "
+            "site-specific condition"
+        ),
+    }
 
 
 def test_load_config_rejects_invalid_orientation_review_date(

@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import yaml
 
 VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
-VALID_FISHING_CONTEXTS = {"surf", "pier"}
+VALID_FISHING_CONTEXTS = {"surf", "pier", "sound-side"}
 
 
 # require a mapping and return it with a useful type
@@ -140,7 +140,7 @@ def _validate_location(
     elif pier_azimuth is not None:
         raise ValueError(
             f"locations[{index}].orientation.pier_seaward_azimuth_degrees "
-            "must be null for surf locations"
+            "must be null for non-pier locations"
         )
 
     for field_name in (
@@ -282,13 +282,19 @@ def _validate_location(
             f"locations[{index}].tide.distance_km must be finite"
         )
 
-    subordinate_fields = (
+    time_offset_fields = (
         "high_time_offset_minutes",
         "low_time_offset_minutes",
+    )
+    multiplier_fields = (
         "high_multiplier",
         "low_multiplier",
     )
-    required_nullable_fields = ("reference_station", *subordinate_fields)
+    required_nullable_fields = (
+        "reference_station",
+        *time_offset_fields,
+        *multiplier_fields,
+    )
     missing_nullable_fields = [
         field_name
         for field_name in required_nullable_fields
@@ -301,12 +307,23 @@ def _validate_location(
         )
 
     reference_station = tide_config["reference_station"]
-    subordinate_values = [
-        tide_config[field_name]
-        for field_name in subordinate_fields
-    ]
+    height_offset_fields = (
+        "height_offset_high_tide",
+        "height_offset_low_tide",
+    )
+    subordinate_type_fields = (
+        "subordinate_station_type",
+        "height_adjusted_type",
+    )
+    time_offsets = [tide_config[field_name] for field_name in time_offset_fields]
+    multipliers = [tide_config[field_name] for field_name in multiplier_fields]
+    height_offsets = [tide_config.get(field_name) for field_name in height_offset_fields]
+    subordinate_types = [tide_config.get(field_name) for field_name in subordinate_type_fields]
     if reference_station is None:
-        if any(value is not None for value in subordinate_values):
+        if any(
+            value is not None
+            for value in (*time_offsets, *multipliers, *height_offsets, *subordinate_types)
+        ):
             raise ValueError(
                 f"locations[{index}].tide subordinate metadata must all be null"
             )
@@ -315,11 +332,7 @@ def _validate_location(
             reference_station,
             f"locations[{index}].tide.reference_station",
         )
-        for field_name, value in zip(
-            subordinate_fields,
-            subordinate_values,
-            strict=True,
-        ):
+        for field_name, value in zip(time_offset_fields, time_offsets, strict=True):
             if (
                 isinstance(value, bool)
                 or not isinstance(value, int | float)
@@ -328,6 +341,33 @@ def _validate_location(
                 raise ValueError(
                     f"locations[{index}].tide.{field_name} must be a finite number"
                 )
+        for field_name, value in zip(multiplier_fields, multipliers, strict=True):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int | float)
+                or not math.isfinite(float(value))
+            ):
+                raise ValueError(
+                    f"locations[{index}].tide.{field_name} must be a finite number or null"
+                )
+        for field_name, value in zip(height_offset_fields, height_offsets, strict=True):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int | float)
+                or not math.isfinite(float(value))
+            ):
+                raise ValueError(
+                    f"locations[{index}].tide.{field_name} must be a finite number or null"
+                )
+        if any(value is not None for value in height_offsets) and any(
+            value is not None for value in multipliers
+        ):
+            raise ValueError(
+                f"locations[{index}].tide cannot mix multipliers and height offsets"
+            )
+        for field_name, value in zip(subordinate_type_fields, subordinate_types, strict=True):
+            if value is not None:
+                _require_string(value, f"locations[{index}].tide.{field_name}")
 
 
 # validate all required pipeline configuration

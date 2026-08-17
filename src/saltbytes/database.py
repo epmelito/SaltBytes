@@ -109,10 +109,14 @@ create table if not exists tide_snapshots (
     response_format varchar not null,
     request_begin_date date not null,
     request_end_date date not null,
+    subordinate_station_type varchar,
     high_time_offset_minutes integer,
     low_time_offset_minutes integer,
     high_multiplier double,
     low_multiplier double,
+    height_offset_high_tide double,
+    height_offset_low_tide double,
+    height_adjusted_type varchar,
     distance_km double not null,
     coastal_relationship varchar not null,
     known_limitation varchar not null,
@@ -659,6 +663,7 @@ def initialize_database(database_path: Path | str) -> None:
 
         try:
             connection.execute(_SCHEMA_SQL)
+            _migrate_tide_snapshot_relationship_metadata(connection)
             _migrate_source_result_statuses(connection)
             _migrate_review_candidate_patterns(connection)
             _migrate_observation_attempt_sources(connection)
@@ -711,6 +716,29 @@ def _migrate_source_result_statuses(connection: duckdb.DuckDBPyConnection) -> No
         """
     )
     connection.execute("drop table source_results_legacy")
+
+
+def _migrate_tide_snapshot_relationship_metadata(
+    connection: duckdb.DuckDBPyConnection,
+) -> None:
+    columns = {
+        row[0]
+        for row in connection.execute(
+            """select column_name
+            from information_schema.columns
+            where table_name = 'tide_snapshots'"""
+        ).fetchall()
+    }
+    for column_name, column_type in (
+        ("subordinate_station_type", "varchar"),
+        ("height_offset_high_tide", "double"),
+        ("height_offset_low_tide", "double"),
+        ("height_adjusted_type", "varchar"),
+    ):
+        if column_name not in columns:
+            connection.execute(
+                f"alter table tide_snapshots add column {column_name} {column_type}"
+            )
 
 
 def _migrate_review_candidate_patterns(connection: duckdb.DuckDBPyConnection) -> None:
@@ -1348,16 +1376,20 @@ def _insert_tide_snapshot(
                     response_format,
                     request_begin_date,
                     request_end_date,
+                    subordinate_station_type,
                     high_time_offset_minutes,
                     low_time_offset_minutes,
                     high_multiplier,
                     low_multiplier,
+                    height_offset_high_tide,
+                    height_offset_low_tide,
+                    height_adjusted_type,
                     distance_km,
                     coastal_relationship,
                     known_limitation
                 )
                 values (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 """,
                 [
@@ -1374,10 +1406,14 @@ def _insert_tide_snapshot(
                     request_provenance["format"],
                     request_begin_date,
                     request_end_date,
+                    relationship.get("subordinate_station_type"),
                     relationship["high_time_offset_minutes"],
                     relationship["low_time_offset_minutes"],
                     relationship["high_multiplier"],
                     relationship["low_multiplier"],
+                    relationship.get("height_offset_high_tide"),
+                    relationship.get("height_offset_low_tide"),
+                    relationship.get("height_adjusted_type"),
                     relationship["distance_km"],
                     relationship["coastal_relationship"],
                     relationship["known_limitation"],

@@ -95,10 +95,14 @@ EXPECTED_TIDE_SNAPSHOT_COLUMNS = {
     "response_format",
     "request_begin_date",
     "request_end_date",
+    "subordinate_station_type",
     "high_time_offset_minutes",
     "low_time_offset_minutes",
     "high_multiplier",
     "low_multiplier",
+    "height_offset_high_tide",
+    "height_offset_low_tide",
+    "height_adjusted_type",
     "distance_km",
     "coastal_relationship",
     "known_limitation",
@@ -434,6 +438,57 @@ def test_initialize_database_can_run_more_than_once(
         ).fetchone()
 
     assert table_count == (len(EXPECTED_TABLES),)
+
+
+def test_initialize_database_adds_tide_height_offset_metadata_to_existing_data(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "legacy-tides.duckdb"
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(
+            """create table tide_snapshots (
+                snapshot_id varchar primary key,
+                station_id varchar not null,
+                prediction_location varchar not null,
+                relationship_type varchar not null,
+                reference_station varchar,
+                product varchar not null,
+                interval varchar not null,
+                datum varchar not null,
+                time_zone varchar not null,
+                units varchar not null,
+                response_format varchar not null,
+                request_begin_date date not null,
+                request_end_date date not null,
+                high_time_offset_minutes integer,
+                low_time_offset_minutes integer,
+                high_multiplier double,
+                low_multiplier double,
+                distance_km double not null,
+                coastal_relationship varchar not null,
+                known_limitation varchar not null
+            )"""
+        )
+        connection.execute(
+            """insert into tide_snapshots values (
+                'legacy-tide', '8652226', 'Jennettes Pier', 'direct', '8651370',
+                'predictions', 'hilo', 'MLLW', 'gmt', 'metric', 'json',
+                date '2026-07-29', date '2026-07-31', -5, 1, 1.04, 1.43,
+                0.448, 'Atlantic facing pier', 'Forecast, not observation'
+            )"""
+        )
+
+    initialize_database(database_path)
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        row = connection.execute(
+            """select reference_station, high_multiplier, low_multiplier,
+            height_offset_high_tide, height_offset_low_tide,
+            subordinate_station_type, height_adjusted_type
+            from tide_snapshots"""
+        ).fetchone()
+
+    assert row == ("8651370", 1.04, 1.43, None, None, None, None)
 
 
 def test_initialize_database_adds_source_to_legacy_observation_attempts(
@@ -1115,6 +1170,64 @@ def test_initialize_database_preserves_source_results(
         ).fetchone()
 
     assert result == ("run123", "jennettes_pier", "weather", "success", None)
+
+
+def test_tide_snapshot_persists_noaa_height_offsets_separately_from_multipliers(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    metadata = tide_snapshot_metadata()
+    metadata["location_id"] = "little_bridge_sound_access"
+    request_provenance = tide_request_provenance()
+    request_provenance["station"] = "8652591"
+    relationship = {
+        "prediction_location": "Roanoke Sound Channel",
+        "station_id": "8652591",
+        "relationship_type": "transfer",
+        "reference_station": "8652587",
+        "subordinate_station_type": "S",
+        "high_time_offset_minutes": 97,
+        "low_time_offset_minutes": 77,
+        "high_multiplier": None,
+        "low_multiplier": None,
+        "height_offset_high_tide": 0.47,
+        "height_offset_low_tide": 0.14,
+        "height_adjusted_type": "R",
+        "distance_km": 11.487,
+        "coastal_relationship": "Approved transferred tide relationship",
+        "known_limitation": "Prediction is not an observed water level",
+    }
+
+    insert_tide_snapshot(
+        database_path,
+        metadata,
+        request_provenance,
+        relationship,
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        row = connection.execute(
+            """select station_id, reference_station, subordinate_station_type,
+            high_time_offset_minutes, low_time_offset_minutes,
+            high_multiplier, low_multiplier, height_offset_high_tide,
+            height_offset_low_tide, height_adjusted_type
+            from tide_snapshots"""
+        ).fetchone()
+
+    assert row == (
+        "8652591",
+        "8652587",
+        "S",
+        97,
+        77,
+        None,
+        None,
+        0.47,
+        0.14,
+        "R",
+    )
 
 
 def test_tide_snapshot_events_and_phase_preserve_distinct_provenance(

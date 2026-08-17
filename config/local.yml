@@ -293,6 +293,59 @@ locations:
       coastal_relationship: Direct astronomical tide prediction at the Atlantic-facing pier
       known_limitation: Prediction is not an observed water level, local current, or site-specific condition
 
+  - id: little_bridge_sound_access
+    name: Little Bridge Sound Access
+    fishing_context: sound-side
+    orientation:
+      shore_normal_azimuth_degrees: 60
+      pier_seaward_azimuth_degrees: null
+      orientation_method: Manual review of the shoreline and open-water geometry in north up map imagery; normal rounded to nearest 5 degrees
+      orientation_source: Approved Little Bridge location contract reviewed 2026-08-13
+      orientation_reviewed_at: "2026-08-13"
+      orientation_limitation: Analytical directional context for the Roanoke Sound access; not survey-grade geometry
+    display_coordinate:
+      latitude: 35.8980750
+      longitude: -75.6163500
+    weather:
+      request_coordinate:
+        latitude: 35.8980750
+        longitude: -75.6163500
+      expected_returned_coordinate:
+        latitude: 35.898766
+        longitude: -75.62099
+      coastal_regime: Roanoke Sound atmospheric grid
+    wave:
+      request_coordinate:
+        latitude: 35.8980750
+        longitude: -75.6163500
+      expected_returned_coordinate:
+        latitude: 35.875
+        longitude: -75.62499
+    sst:
+      request_coordinate:
+        latitude: 35.8980750
+        longitude: -75.6163500
+      expected_returned_coordinate:
+        latitude: 35.875
+        longitude: -75.62499
+      coastal_regime: Roanoke Sound marine grid
+    tide:
+      prediction_location: Roanoke Sound Channel
+      station_id: "8652591"
+      relationship_type: transfer
+      reference_station: "8652587"
+      subordinate_station_type: S
+      high_time_offset_minutes: 97
+      low_time_offset_minutes: 77
+      high_multiplier: null
+      low_multiplier: null
+      height_offset_high_tide: 0.47
+      height_offset_low_tide: 0.14
+      height_adjusted_type: R
+      distance_km: 11.487
+      coastal_relationship: Approved transferred astronomical high and low tide relationship through the NOAA subordinate station
+      known_limitation: Prediction is not an observed water level, local current, or site-specific condition
+
 storage:
   raw_data_path: data/local/raw
   database_path: data/local/saltbytes.duckdb
