@@ -41,26 +41,43 @@ raw-file provenance.
 
 ### `source_results`
 
-One outcome per attempted location and source: `success`, `fetch_failed`, or
-`validation_failed`. Failed outcomes retain concise details.
+One outcome per attempted location and source: `success`, `fetch_failed`,
+`validation_failed`, or `persistence_failed`. Failed outcomes retain concise
+details.
 
 Fetch and validation failures do not create accepted snapshots or normalized
-rows, but do not prevent independent source attempts from continuing.
+rows, but do not prevent independent source attempts from continuing. A
+`persistence_failed` outcome records that accepted environmental data could not
+be persisted and the pipeline run fails.
 
 ### Fishing observations
 
 `fishing_observation_reports` stores one bounded source-entry content version:
-its content hash, raw source date and title text, first-retrieval provenance,
-and supported location scope. `fishing_observation_retrievals` records every
-retrieval of that unchanged content version. `fishing_observation_assertions`
-links each classified statement to the specific bounded content version that
-supported it, including raw subject wording and source-supported temporal text,
-granularity, and evidence basis.
+its source, URL, content hash, raw source date and title text, first-retrieval
+time, and supported location scope. `fishing_observation_retrievals` records
+every retrieval of that unchanged version.
+
+`fishing_observation_assertions` links each deterministic classified statement
+to its specific report version, including assertion kind, raw subject wording,
+source-supported temporal text, granularity, evidence basis, and assertion
+text. Assertions are distinct from review work and preserve only what the
+source supports.
 
 `fishing_observation_review_candidates` is separate from factual assertions. It
 stores only a version-linked raw segment and deterministic reason when an
 otherwise-unclassified segment may be useful for later review. Candidates are
 not observations and do not supply assessment input.
+
+`fishing_observation_review_patterns` groups equivalent candidate wording by
+source, reason, and raw segment. It holds the optional human disposition and
+disposition time. `fishing_observation_review_candidate_patterns` links each
+candidate to its pattern, preserving the relationship between a specific report
+version and the review decision context.
+
+`fishing_observation_ingestion_attempts` records each source attempt, its
+timestamp and `success` or `failed` status, and counts for new,
+previously-seen, and outstanding review patterns. These attempts are separate
+from environmental `pipeline_runs` and `source_results`.
 
 These entities are independent of pipeline runs and forecast-hour tables. They
 do not turn report text into forecast data, normalized species, quantities,

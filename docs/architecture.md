@@ -10,6 +10,8 @@ saltbytes
 saltbytes report conditions
 saltbytes report operations
 saltbytes dashboard export --output dashboard/src/data
+saltbytes observations ingest-current
+saltbytes observations review-candidates
 ```
 
 The pipeline:
@@ -21,6 +23,13 @@ The pipeline:
 5. normalizes accepted data into DuckDB
 6. records run, source-result, request, and provenance metadata
 7. exposes the downstream `coastal_conditions_hourly` view
+
+Fishing observation ingestion is a separate data domain. It retrieves approved
+fishing reports, preserves versioned report and retrieval provenance, and
+derives only deterministic factual assertions supported by a report. Segments
+selected as potentially useful by deterministic candidate logic become review
+candidates rather than assertions; their persistent patterns and human review
+dispositions support later parser review.
 
 ## Data flow
 
@@ -34,6 +43,19 @@ source-specific validation
 immutable raw JSON
     ↓
 normalized DuckDB tables
+```
+
+Fishing observations follow a separate path:
+
+```text
+approved fishing report sources
+    ↓
+source-specific retrieval and parsing
+    ↓
+versioned reports, retrievals, and factual assertions
+    └─→ review candidates and persistent review patterns
+            ↓
+        separate manual review workflow
 ```
 
 The reporting layer adds:
@@ -56,13 +78,21 @@ Storage, authenticated APIs, or a running application server.
 
 ## Source and failure boundaries
 
-Each source is processed independently for each configured location.
+Each forecast source is processed independently for each configured location.
 
 A rejected source result records an outcome but does not write an
 accepted snapshot or normalized rows for that result. Unrelated sources and
 locations continue processing.
 
-Operational failures such as storage or database errors abort the run.
+Forecast-source fetch and validation failures are isolated. A source persistence
+failure is recorded as `persistence_failed` and aborts the pipeline run because
+canonical environmental state cannot be completed safely.
+
+Fishing observation sources are isolated from forecast ingestion and from each
+other. A fetch, parse, or observation-persistence failure preserves existing
+observation history and records a failed source attempt when possible; it does
+not prevent another observation source or an otherwise valid forecast canonical
+publication. New review candidates are normal source evolution, not failures.
 
 ## Configuration
 
@@ -78,7 +108,9 @@ should be loaded only when a task changes those contracts.
 Accepted raw responses are written unchanged as immutable JSON snapshots.
 
 DuckDB stores pipeline runs, accepted source snapshots, source results,
-normalized source rows, tide events, and hourly tide phase.
+normalized source rows, tide events, hourly tide phase, and the separate fishing
+observation domain: reports, retrievals, assertions, review candidates and
+patterns, candidate-pattern links, dispositions, and ingestion attempts.
 
 See [data-model.md](data-model.md) for the persisted model.
 
@@ -113,8 +145,18 @@ dashboard data with a fresh curated export before building the static dashboard.
 
 ## Hosted ingestion
 
-Hosted ingestion preserves canonical state before publication and keeps the
-previous site available when publication fails. It builds reports and the
-dashboard only after successful canonical publication. See
-[hosted operation](hosted-operation.md) for setup, recovery, run, and
+Hosted ingestion restores, updates, validates, and publishes canonical state;
+it runs environmental ingestion and independent fishing observation ingestion
+before publication. It preserves canonical state before publication and keeps
+the previous site available when publication fails. It builds reports and the
+dashboard only after successful canonical publication.
+
+The only authorized canonical-state writers are the hosted ingestion workflow
+and the manual fishing observation review workflow. They share the
+`saltbytes-hosted-ingestion` GitHub Actions concurrency group with cancellation
+disabled, which serializes canonical writes. Manual review takes a pattern ID
+and an approved disposition, restores the latest canonical database, applies
+and validates the decision, and publishes only on success.
+
+See [hosted operation](hosted-operation.md) for setup, recovery, run, and
 publication procedures.
