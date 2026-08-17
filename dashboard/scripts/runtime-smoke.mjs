@@ -369,7 +369,7 @@ async function assertForecastRevisions(page) {
     || !initial.linePath
     || initial.largestSegments !== 1
     || initial.latestDots !== 1
-    || !initial.chartText.includes("Forecast saved (ET)")
+    || !initial.chartText.includes("Saved at (ET)")
     || !initial.chartText.includes("Aug 1, 8 PM")
     || initial.chartText.includes("Aug 2, 12 AM")
     || initial.oldLanguage
@@ -407,6 +407,14 @@ async function assertForecastRevisions(page) {
     (before) => document.querySelector(".revision-summary-context")?.textContent.trim() !== before,
     contextBeforeTime
   );
+  const timeState = await readState();
+  if (
+    timeState.selectedMeasurement !== "wave_height"
+    || timeState.recentRows !== 3
+    || timeState.chartCount !== 1
+  ) {
+    throw new Error(`Forecast revisions time selection is out of sync: ${JSON.stringify(timeState)}`);
+  }
 
   const contextBeforeLocation = await page.locator(".revision-summary-context").innerText();
   await selectOption(page, 0, 1, "Forecast revisions location control");
@@ -414,6 +422,15 @@ async function assertForecastRevisions(page) {
     (before) => document.querySelector(".revision-summary-context")?.textContent.trim() !== before,
     contextBeforeLocation
   );
+  const locationState = await readState();
+  if (
+    locationState.selectedMeasurement !== "wave_height"
+    || locationState.recentRows !== 3
+    || locationState.chartCount !== 1
+    || !locationState.contextText.includes("Ocracoke Island")
+  ) {
+    throw new Error(`Forecast revisions location selection is out of sync: ${JSON.stringify(locationState)}`);
+  }
 }
 
 async function assertForecastRevisionLongHistory(page, base, errors) {
@@ -423,7 +440,7 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
     const payload = await response.json();
     const template = payload[0];
     const firstRun = Date.parse(template.run_started_at) - 36 * 60 * 60 * 1000;
-    const windValues = [20.5, 20.3, 20.4, 19.9, 20.1, 20.3, 20.5];
+    const windValues = [20.5, 20.3, null, 19.9, 20.1, 20.3, 20.5];
     const waveValues = [0.62, 0.64, 0.64, 0.60, 0.58, 0.60, 0.62];
     const expanded = windValues.map((value, index) => {
       const runDate = new Date(firstRun + index * 6 * 60 * 60 * 1000);
@@ -467,6 +484,7 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
       })),
       detailsClosed: !document.querySelector(".revision-details")?.open,
       chartCount: document.querySelectorAll(".revision-chart svg").length,
+      chartDots: document.querySelectorAll(".revision-chart svg circle").length,
       largestSegments: document.querySelectorAll(".revision-largest-segment").length,
       notice: document.querySelector(".revision-notice")?.textContent.trim() ?? "",
       chartFooter: document.querySelector(".revision-chart-footer")?.textContent.trim() ?? ""
@@ -477,13 +495,16 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
   if (
     state.headline !== "Wind speed finished where it started"
     || state.metrics.range !== "19.9–20.5 km/h"
-    || state.metrics["largest-update"] !== "−0.5 km/h"
-    || state.metrics["changed-updates"] !== "6 of 6"
+    || state.metrics["largest-update"] !== "−0.4 km/h"
+    || state.metrics["changed-updates"] !== "5 of 5"
     || state.summaryText.includes("It varied from")
     || state.recentRows !== 5
     || state.runIds.some((item) => !item.text.includes("…") || item.full.length <= item.text.length)
+    || state.runIds.some((item) => item.full === "run-20260801T000000Z")
+    || !state.runIds.some((item) => item.full === "run-20260731T180000Z")
     || !state.detailsClosed
     || state.chartCount !== 1
+    || state.chartDots !== 7
     || state.largestSegments !== 1
   ) {
     throw new Error(`Forecast revision long history is incomplete: ${JSON.stringify(state)}`);
@@ -501,12 +522,23 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
     || waveState.metrics["largest-update"] !== "−0.04 m"
     || waveState.metrics["changed-updates"] !== "5 of 6"
     || waveState.chartCount !== 1
+    || waveState.chartDots !== 8
     || waveState.largestSegments !== 1
     || !waveState.chartFooter.includes("−0.04 m")
     || waveState.chartFooter.includes("0.00 m")
   ) {
     throw new Error(`Forecast revision precision is incorrect: ${JSON.stringify(waveState)}`);
   }
+
+  const waveDetails = page.locator(".revision-details");
+  await waveDetails.locator("summary").click();
+  await page.waitForFunction(() => document.querySelector(".revision-details")?.open);
+  const waveCompleteRows = await page.locator(".revision-complete-table tbody tr").count();
+  if (waveCompleteRows !== 7) {
+    throw new Error(`Forecast revision wave complete history is incomplete: ${waveCompleteRows}`);
+  }
+  await waveDetails.locator("summary").click();
+  await page.waitForFunction(() => !document.querySelector(".revision-details")?.open);
 
   await page.locator(".revision-chart svg circle").first().hover();
   try {
@@ -552,9 +584,9 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
   const completeRows = await page.locator(".revision-complete-table tbody tr").count();
   const detailText = await details.innerText();
   if (
-    completeRows !== 7
+    completeRows !== 6
     || !detailText.includes("run-20260731T120000Z")
-    || !detailText.includes("Complete saved history and exact run identifiers")
+    || !detailText.includes("Complete available history and exact run identifiers")
   ) {
     throw new Error("Forecast revision complete history is incomplete");
   }
