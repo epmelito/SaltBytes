@@ -221,7 +221,7 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     score = conditions[0]["spanish_mackerel_conditions"]
     assert score == {
         "state": "available",
-        "methodology_version": "spanish-mackerel-v1.1.0",
+        "methodology_version": "spanish-mackerel-v1.2.0",
         "score": 76,
         "score_band": "favorable_alignment",
         "confidence": [
@@ -530,7 +530,7 @@ def test_export_dashboard_data_preserves_rows_with_unavailable_score_provenance(
     score = conditions[0]["spanish_mackerel_conditions"]
     assert score == {
         "state": "unavailable",
-        "methodology_version": "spanish-mackerel-v1.1.0",
+        "methodology_version": "spanish-mackerel-v1.2.0",
         "unavailable_reasons": [reason],
     }
 
