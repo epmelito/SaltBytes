@@ -30,7 +30,9 @@ without treating its location context or modeled wave/chop field as equivalent
 to ocean-facing locations.
 
 The Little Bridge applicability research and its approved Spanish mackerel v1.2.0
-implementation are complete. The next work package has not yet been selected.
+implementation are complete. GitHub issue #190, Forecast Revisions alignment,
+is complete. GitHub issue #192 is the next targeted reporting refinement,
+followed by #176, #175, then #191; #149 remains deferred.
 
 The deterministic red drum score path is paused; its research remains useful
 for later location-first assessment work.

@@ -127,7 +127,7 @@ const locationRows = rows.filter((row) => row.location_id === locationId);
 const validTimes = [...new Set(locationRows.map((row) => row.forecast_time))].sort();
 const validTimeOptions = validTimes.length ? validTimes : [""];
 const validTime = view(Inputs.select(validTimeOptions, {
-  label: "Forecast time",
+  label: "Forecast for",
   format: (value) => value
     ? formatTimestamp(value, manifest.display_timezone)
     : "No forecast times",
@@ -214,8 +214,8 @@ const summaryDetail = revisionState === "empty"
 const summaryContext = validTime
   ? `${locationName(locationId, locations)} · forecast for ${formatTimestamp(validTime, manifest.display_timezone)}`
   : `${locationName(locationId, locations)} · no forecast time available`;
-const recentRows = selectedRows.slice().reverse().slice(0, 5);
-const historyIsTruncated = selectedRows.length > recentRows.length;
+const recentRows = revisionRows.slice().reverse().slice(0, 5);
+const historyIsTruncated = revisionRows.length > recentRows.length;
 const revisionByRun = new Map(revisionRows.map((row) => [row.run_id, row]));
 const axisTimeZone = chartTimeZoneName(latestRow?.run_started_at ?? validTime);
 ```
@@ -297,7 +297,7 @@ if (chartRows.length === 0) {
       marginBottom: 48,
       x: {
         type: "utc",
-        label: `Forecast saved (${axisTimeZone})`,
+        label: `Saved at (${axisTimeZone})`,
         ticks: 6,
         tickFormat: (value) => chartTickFormatter.format(value)
       },
@@ -357,13 +357,13 @@ if (chartRows.length === 0) {
 
 ```js
 if (recentRows.length === 0) {
-  display(html`<p class="page-note revision-empty-history">No saved forecasts are available for this selection.</p>`);
+  display(html`<p class="page-note revision-empty-history">No saved forecasts with ${metric.label.toLowerCase()} values are available for this selection.</p>`);
 } else {
   display(html`<div class="table-scroll revision-recent-table">
     <table>
       <thead>
         <tr>
-          <th>Saved</th>
+          <th>Saved at</th>
           <th>${metric.label}</th>
           <th>Change from prior available value</th>
           <th>Run ID</th>
@@ -372,15 +372,12 @@ if (recentRows.length === 0) {
       <tbody>
         ${recentRows.map((row) => {
           const revision = revisionByRun.get(row.run_id);
-          const valueAvailable = metricValueAvailable(row[metricField]);
           return html`<tr>
             <td>${formatTimestamp(row.run_started_at, manifest.display_timezone)}</td>
             <td>${formatNumber(row[metricField], metric.digits, metric.unit)}</td>
-            <td>${!valueAvailable
-              ? "Unavailable"
-              : revision?.change === null || revision?.change === undefined
-                ? "First available value"
-                : formatSignedNumber(revision.change, metric.digits, metric.unit)}</td>
+            <td>${revision?.change === null || revision?.change === undefined
+              ? "First available value"
+              : formatSignedNumber(revision.change, metric.digits, metric.unit)}</td>
             <td><code title=${row.run_id}>${historyIsTruncated ? shortRunId(row.run_id) : row.run_id}</code></td>
           </tr>`;
         })}
@@ -393,36 +390,34 @@ if (recentRows.length === 0) {
 ```js
 if (historyIsTruncated) {
   display(html`<details class="revision-details">
-    <summary>Complete saved history and exact run identifiers</summary>
+    <summary>Complete available history and exact run identifiers</summary>
     <p>
-      The table above shows the five most recent saved forecasts. This table
-      includes every saved record and full run identifier for the selected context.
+      The table above shows the five most recent saved forecasts with an
+      available value for the selected measurement. This table includes every
+      saved forecast with an available value for that measurement in the selected context.
     </p>
     <div class="table-scroll revision-complete-table">
       <table>
         <thead>
           <tr>
             <th>Full run ID</th>
-            <th>Saved</th>
-            <th>Forecast time</th>
+            <th>Saved at</th>
+            <th>Forecast for</th>
             <th>${metric.label}</th>
             <th>Change from prior available value</th>
           </tr>
         </thead>
         <tbody>
-          ${selectedRows.map((row) => {
+          ${revisionRows.map((row) => {
             const revision = revisionByRun.get(row.run_id);
-            const valueAvailable = metricValueAvailable(row[metricField]);
             return html`<tr>
               <td><code>${row.run_id}</code></td>
               <td>${formatTimestamp(row.run_started_at, manifest.display_timezone)}</td>
               <td>${formatTimestamp(row.forecast_time, manifest.display_timezone)}</td>
               <td>${formatNumber(row[metricField], metric.digits, metric.unit)}</td>
-              <td>${!valueAvailable
-                ? "Unavailable"
-                : revision?.change === null || revision?.change === undefined
-                  ? "First available value"
-                  : formatSignedNumber(revision.change, metric.digits, metric.unit)}</td>
+              <td>${revision?.change === null || revision?.change === undefined
+                ? "First available value"
+                : formatSignedNumber(revision.change, metric.digits, metric.unit)}</td>
             </tr>`;
           })}
         </tbody>
