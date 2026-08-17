@@ -110,7 +110,7 @@ def tide_payload(
     }
 
 
-def test_run_pipeline_ingests_all_six_coastal_locations(
+def test_run_pipeline_ingests_all_seven_coastal_locations(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -217,8 +217,8 @@ def test_run_pipeline_ingests_all_six_coastal_locations(
     result = run_pipeline(config)
 
     assert result["status"] == "success"
-    assert result["snapshots_written"] == 24
-    assert result["rows_loaded"] == 4266
+    assert result["snapshots_written"] == 28
+    assert result["rows_loaded"] == 4977
 
     database_path = Path(config["storage"]["database_path"])
 
@@ -290,7 +290,13 @@ def test_run_pipeline_ingests_all_six_coastal_locations(
             select
                 snapshots.location_id,
                 tide.station_id,
-                tide.relationship_type
+                tide.relationship_type,
+                tide.high_multiplier,
+                tide.low_multiplier,
+                tide.height_offset_high_tide,
+                tide.height_offset_low_tide,
+                tide.subordinate_station_type,
+                tide.height_adjusted_type
             from tide_snapshots as tide
             inner join forecast_snapshots as snapshots
                 on tide.snapshot_id = snapshots.snapshot_id
@@ -397,12 +403,13 @@ def test_run_pipeline_ingests_all_six_coastal_locations(
         for location in config["locations"]
     }
 
-    assert run == ("success", 4266, None)
+    assert run == ("success", 4977, None)
     assert weather_hourly_counts == [
         ("bogue_inlet_pier", 168),
         ("fort_fisher", 168),
         ("fort_macon_ocean", 168),
         ("jennettes_pier", 168),
+        ("little_bridge_sound_access", 168),
         ("ocracoke_ramp_72", 168),
         ("sunset_beach_pier", 168),
     ]
@@ -413,39 +420,42 @@ def test_run_pipeline_ingests_all_six_coastal_locations(
         ("fort_fisher", 39),
         ("fort_macon_ocean", 39),
         ("jennettes_pier", 39),
+        ("little_bridge_sound_access", 39),
         ("ocracoke_ramp_72", 39),
         ("sunset_beach_pier", 39),
     ]
     assert tide_phase_counts == weather_hourly_counts
     assert tide_relationships == [
-        ("bogue_inlet_pier", "TEC2837", "transfer"),
-        ("fort_fisher", "8658559", "transfer"),
-        ("fort_macon_ocean", "8656590", "transfer"),
-        ("jennettes_pier", "8652226", "direct"),
-        ("ocracoke_ramp_72", "TEC2793", "transfer"),
-        ("sunset_beach_pier", "8659897", "direct"),
+        ("bogue_inlet_pier", "TEC2837", "transfer", 0.73, 0.83, None, None, None, None),
+        ("fort_fisher", "8658559", "transfer", 1.4, 1.25, None, None, None, None),
+        ("fort_macon_ocean", "8656590", "transfer", None, None, None, None, None, None),
+        ("jennettes_pier", "8652226", "direct", 1.04, 1.43, None, None, None, None),
+        ("little_bridge_sound_access", "8652591", "transfer", None, None, 0.47, 0.14, "S", "R"),
+        ("ocracoke_ramp_72", "TEC2793", "transfer", 0.63, 0.83, None, None, None, None),
+        ("sunset_beach_pier", "8659897", "direct", None, None, None, None, None, None),
     ]
-    assert len(first_weather_rows) == 6
+    assert len(first_weather_rows) == 7
     assert all(
         all(value is not None for value in row[1:])
         for row in first_weather_rows
     )
-    assert len(first_wave_rows) == 6
+    assert len(first_wave_rows) == 7
     assert all(
         all(value is not None for value in row[1:])
         for row in first_wave_rows
     )
-    assert len(first_sst_rows) == 6
+    assert len(first_sst_rows) == 7
     assert all(row[1] is not None for row in first_sst_rows)
     assert run_locations == [
         ("bogue_inlet_pier", 165.0, 175.0),
         ("fort_fisher", 105.0, None),
         ("fort_macon_ocean", 185.0, None),
         ("jennettes_pier", 75.0, 70.0),
+        ("little_bridge_sound_access", 60.0, None),
         ("ocracoke_ramp_72", 135.0, None),
         ("sunset_beach_pier", 165.0, 180.0),
     ]
-    assert len(source_results) == 24
+    assert len(source_results) == 28
     assert all(status == "success" for _, _, status, _ in source_results)
     assert {source for _, source, _, _ in source_results} == {
         "weather",
@@ -454,9 +464,9 @@ def test_run_pipeline_ingests_all_six_coastal_locations(
         "tide",
     }
     assert all(detail is None for _, _, _, detail in source_results)
-    assert integrated_row_count == (1008,)
+    assert integrated_row_count == (1176,)
     assert integrated_location_counts == weather_hourly_counts
-    assert integrated_complete_rows == (1008,)
+    assert integrated_complete_rows == (1176,)
 
     for snapshot in snapshots:
         location_id = snapshot[0]
@@ -496,7 +506,7 @@ def test_run_pipeline_ingests_all_six_coastal_locations(
             raw_file_path.read_text(encoding="utf-8")
         ) == expected_payload
 
-    assert len(snapshots) == 24
+    assert len(snapshots) == 28
     assert {
         snapshot[2]
         for snapshot in snapshots
@@ -506,7 +516,7 @@ def test_run_pipeline_ingests_all_six_coastal_locations(
         "meteofrance_currents",
         None,
     }
-    assert len({snapshot[1] for snapshot in snapshots}) == 24
+    assert len({snapshot[1] for snapshot in snapshots}) == 28
 
     expected_raw_directory = (
         tmp_path

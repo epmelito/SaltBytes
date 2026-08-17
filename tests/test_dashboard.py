@@ -118,11 +118,13 @@ def _seed_dashboard_database(database_path: Path) -> None:
             insert into tide_snapshots values
                 ('old-tide', '8652226', 'Jennettes Pier', 'direct', '8651370',
                     'predictions', 'hilo', 'MLLW', 'gmt', 'metric', 'json',
-                    date '2026-07-29', date '2026-07-31', -5, 1, 1.04, 1.43,
+                    date '2026-07-29', date '2026-07-31', null, -5, 1, 1.04, 1.43,
+                    null, null, null,
                     0.448, 'Atlantic facing pier', 'Forecast, not observation'),
                 ('current-tide', '8652226', 'Jennettes Pier', 'direct', '8651370',
                     'predictions', 'hilo', 'MLLW', 'gmt', 'metric', 'json',
-                    date '2026-07-29', date '2026-07-31', -5, 1, 1.04, 1.43,
+                    date '2026-07-29', date '2026-07-31', null, -5, 1, 1.04, 1.43,
+                    null, null, null,
                     0.448, 'Atlantic facing pier', 'Forecast, not observation');
 
             insert into forecast_hourly values
@@ -317,6 +319,90 @@ def test_export_dashboard_data_preserves_expected_source_without_snapshot_refere
     assert wave["snapshot_id"] is None
     assert wave["captured_at"] is None
     assert wave["model_selector"] is None
+
+
+def test_export_dashboard_data_includes_tide_relationship_metadata(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    output_path = tmp_path / "dashboard-data"
+    _seed_dashboard_database(database_path)
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute(
+            """insert into run_locations values (
+                'run-success', 'little_bridge_sound_access', 'sound-side',
+                60.0, null, 'reviewed_map', 'project review', date '2026-08-13',
+                'Analytical directional context for the Roanoke Sound access'
+            )"""
+        )
+        connection.execute(
+            """insert into forecast_snapshots values (
+                'little-bridge-tide', 'run-success', 'little_bridge_sound_access',
+                timestamptz '2026-07-29 06:01:00+00',
+                'C:/private/raw/little-bridge-tide.json', null,
+                null, null, null, null
+            )"""
+        )
+        connection.execute(
+            """insert into tide_snapshots (
+                snapshot_id, station_id, prediction_location, relationship_type,
+                reference_station, product, interval, datum, time_zone, units,
+                response_format, request_begin_date, request_end_date,
+                subordinate_station_type, high_time_offset_minutes,
+                low_time_offset_minutes, high_multiplier, low_multiplier,
+                height_offset_high_tide, height_offset_low_tide,
+                height_adjusted_type, distance_km, coastal_relationship,
+                known_limitation
+            ) values (
+                'little-bridge-tide', '8652591', 'Roanoke Sound Channel',
+                'transfer', '8652587', 'predictions', 'hilo', 'MLLW', 'gmt',
+                'metric', 'json', date '2026-07-29', date '2026-07-31', 'S',
+                97, 77, null, null, 0.47, 0.14, 'R', 11.487,
+                'Approved transferred tide relationship',
+                'Prediction is not an observed water level'
+            )"""
+        )
+        connection.execute(
+            """insert into tide_events values
+                ('little-bridge-tide', 'little_bridge_sound_access',
+                    timestamptz '2026-07-29 22:00:00+00', 'low', 0.2),
+                ('little-bridge-tide', 'little_bridge_sound_access',
+                    timestamptz '2026-07-30 04:00:00+00', 'high', 1.4)"""
+        )
+        connection.execute(
+            """insert into tide_phase_hourly values (
+                'little-bridge-tide', 'little_bridge_sound_access',
+                timestamptz '2026-07-30 00:00:00+00', 'rising'
+            )"""
+        )
+
+    export_dashboard_data(_config(database_path), output_path)
+
+    provenance = _read_json(output_path, "provenance.json")
+    jennettes_tide = next(
+        row
+        for row in provenance
+        if row["location_id"] == "jennettes_pier" and row["source"] == "tide"
+    )
+    little_bridge_tide = next(
+        row
+        for row in provenance
+        if row["location_id"] == "little_bridge_sound_access"
+        and row["source"] == "tide"
+    )
+
+    assert jennettes_tide["high_multiplier"] == 1.04
+    assert jennettes_tide["low_multiplier"] == 1.43
+    assert jennettes_tide["subordinate_station_type"] is None
+    assert jennettes_tide["height_offset_high_tide"] is None
+    assert jennettes_tide["height_offset_low_tide"] is None
+    assert jennettes_tide["height_adjusted_type"] is None
+    assert little_bridge_tide["subordinate_station_type"] == "S"
+    assert little_bridge_tide["height_offset_high_tide"] == 0.47
+    assert little_bridge_tide["height_offset_low_tide"] == 0.14
+    assert little_bridge_tide["height_adjusted_type"] == "R"
+    assert little_bridge_tide["high_multiplier"] is None
+    assert little_bridge_tide["low_multiplier"] is None
 
 
 def test_export_dashboard_data_groups_outstanding_review_patterns(tmp_path: Path) -> None:

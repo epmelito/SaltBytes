@@ -21,19 +21,16 @@ ready for ordinary use and investigation.
 
 ## Next work
 
-### 1. Complete the location foundation
+### 1. Evaluate Spanish mackerel applicability at Little Bridge
 
-The source-independent fishing observation contract and the initial observation
-ingestion and hosted observation feedback loop are established. Sunset Beach
-Pier is implemented as SaltBytes location 6 across environmental ingestion,
-Spanish mackerel applicability, observations, hosted operation, and reporting.
+The planned observation and location foundation is complete. Little Bridge Sound
+Access is SaltBytes location 7 and the first `sound-side` location, with its
+bounded environmental and location relationships implemented.
 
-Little Bridge Sound Access is the approved seventh SaltBytes location and first
-`sound-side` location. Its bounded environmental and source evaluation is
-complete in [Decision 0014](decisions/0014-little-bridge-seventh-location-contract.md).
-Implementation of location 7 is the next location-foundation work.
-Resume species-assessment implementation after the location foundation is
-complete.
+GitHub issue [#189](https://github.com/epmelito/SaltBytes/issues/189),
+`Evaluate Spanish mackerel applicability at Little Bridge`, is the immediate
+next approved work. It is an evidence and methodology decision package; it does
+not authorize adding Little Bridge to Spanish mackerel scoring.
 
 The deterministic red drum score path is paused; its research remains useful
 for later location-first assessment work.
@@ -50,4 +47,4 @@ sequence.
 Hosted telemetry, replay and backfill, environmental observation ingestion,
 forecast verification, storage evolution, and compute evolution remain possible
 or conditional work where their original need applies. They do not displace the
-observational and location foundation above.
+#189 decision package above.

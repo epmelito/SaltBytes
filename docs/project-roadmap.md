@@ -103,9 +103,9 @@ Mobile refinement and static HTML report redesign remain later work.
 
 ## 6. Establish the location-first assessment foundation
 
-**Status: Likely next direction**
+**Status: Complete**
 
-SaltBytes will shift from treating numeric scores as the required form for every
+SaltBytes shifted from treating numeric scores as the required form for every
 species to location-first, species-aware assessments. These assessments combine
 reusable statewide species knowledge, recent fishing observations, and forecast
 and site conditions while keeping their evidence scope and uncertainty visible.
@@ -116,19 +116,21 @@ mentioning a species is not evidence of absence. Observation scope and strength
 must remain distinguishable, and no one publisher may become necessary for the
 assessment model to work.
 
-The next product foundation is a source-risk classification and a
-source-independent observation product contract. The project risk assessment
-uses `green`, `yellow`, and `red` suitability rather than treating written
-permission from every source as a development prerequisite. It is not legal
-advice; a bounded legal review remains a future commercialization gate.
+The project completed source-suitability assessment, a source-independent
+observation product contract, initial observation ingestion, and its hosted
+feedback loop. The source-risk assessment uses `green`, `yellow`, and `red`
+suitability rather than treating written permission from every source as a
+development prerequisite. It is not legal advice; a bounded legal review remains
+a future commercialization gate.
 
 ## 7. Expand locations and observations with evidence
 
 **Status: Later, with decisions still required**
 
-After the observation contract is established, SaltBytes may define bounded
-observational ingestion work and expand locations through normal feasibility
-decisions. The current roadmap owns the near-term location sequence.
+The currently planned location foundation is complete through Little Bridge
+Sound Access as location 7. Further observation ingestion or location expansion
+remains conditional and requires normal feasibility decisions. The current
+roadmap owns the near-term sequence.
 
 Observational richness is one location-selection criterion alongside habitat,
 geographic diversity, cross-species value, and environmental representativeness.
