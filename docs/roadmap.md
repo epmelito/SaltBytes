@@ -31,8 +31,9 @@ to ocean-facing locations.
 
 The Little Bridge applicability research and its approved Spanish mackerel v1.2.0
 implementation are complete. GitHub issue #190, Forecast Revisions alignment,
-is complete. GitHub issue #192 is the next targeted reporting refinement,
-followed by #176, #175, then #191; #149 remains deferred.
+and GitHub issue #192, Species assessments separation, are complete. GitHub
+issue #176 is the next targeted reporting refinement, followed by #175, then
+#191; #149 remains deferred.
 
 The deterministic red drum score path is paused; its research remains useful
 for later location-first assessment work.
@@ -49,4 +50,4 @@ sequence.
 Hosted telemetry, replay and backfill, environmental observation ingestion,
 forecast verification, storage evolution, and compute evolution remain possible
 or conditional work where their original need applies. They do not displace the
-#189 decision package above.
+approved delivery sequence above.

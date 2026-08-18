@@ -12,7 +12,8 @@ export default {
     {
       name: "Coastal conditions",
       pages: [
-        {name: "Conditions", path: "/conditions"}
+        {name: "Conditions", path: "/conditions"},
+        {name: "Species assessments", path: "/species-assessments"}
       ]
     },
     {

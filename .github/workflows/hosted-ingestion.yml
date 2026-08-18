@@ -80,6 +80,7 @@ jobs:
           test -f site/operations/index.html
           test -f site/dashboard/index.html
           test -f site/dashboard/conditions.html
+          test -f site/dashboard/species-assessments.html
           test -f site/dashboard/forecast-revisions.html
           test -f site/dashboard/pipeline-monitoring.html
           test -f site/dashboard/data-provenance.html

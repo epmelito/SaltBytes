@@ -268,6 +268,21 @@ select:focus-visible {
   margin: 1rem 0 2rem;
 }
 
+.species-handoff {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--theme-foreground-faint);
+  border-radius: 0.5rem;
+}
+
+.species-handoff h3,
+.species-handoff p { margin: 0; }
+.species-handoff a { white-space: nowrap; }
+
 .conditions-context {
   padding-bottom: 1.25rem;
   border-bottom: 1px solid var(--saltbytes-border);
@@ -1480,10 +1495,35 @@ body:has(.provenance-verdict) #observablehq-main > .observablehq--block:has(form
   gap: 0.4rem;
 }
 
-body:has(.conditions-assessment) #observablehq-main > .observablehq--block:has(form) {
+body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) {
   display: inline-block;
-  margin-right: 1.25rem;
+  width: min(100%, 24rem);
+  margin: 0 0 1.25rem;
   vertical-align: top;
+}
+
+body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) ~ .observablehq--block:has(form) {
+  margin-left: calc(50% - min(100%, 24rem));
+}
+
+body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) + .observablehq--block:empty,
+body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) + .observablehq--block:empty + .observablehq--block:empty {
+  display: contents;
+}
+
+body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) form,
+body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) select {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) {
+    display: block;
+  }
+
+  body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) ~ .observablehq--block:has(form) {
+    margin-left: 0;
+  }
 }
 
 @media (max-width: 640px) {

@@ -11,6 +11,7 @@ const timeoutMs = 12_000;
 const routes = [
   "/",
   "/conditions",
+  "/species-assessments",
   "/forecast-revisions",
   "/pipeline-monitoring",
   "/data-provenance"
@@ -862,152 +863,104 @@ async function assertObservationHealthStates(page, base, errors) {
   }
 }
 
-async function assertConditionsHierarchy(page, available) {
-  await page.waitForFunction((scoreAvailable) => {
+async function assertConditionsHierarchy(page, verifyDetails = false) {
+  await page.waitForFunction(() => {
     const headings = [...document.querySelectorAll("#observablehq-main h2")]
       .map((heading) => heading.textContent.trim());
-    const assessment = document.querySelector(".conditions-assessment");
+    const handoff = document.querySelector(".species-handoff");
     const current = document.querySelector(".conditions-current");
-    const details = assessment?.querySelector("details");
-    return headings.indexOf("Spanish mackerel assessment") < headings.indexOf("Current coastal conditions")
+    const text = document.querySelector("#observablehq-main")?.textContent ?? "";
+    return headings.indexOf("Current coastal conditions") >= 0
       && headings.indexOf("Current coastal conditions") < headings.indexOf("Upcoming changes")
       && headings.indexOf("Upcoming changes") < headings.indexOf("Supporting evidence and limitations")
-      && assessment
-      && current
-      && (scoreAvailable
-        ? assessment.querySelector(".assessment-score")?.textContent.match(/[0-9]+ \/ 100/)
-          && assessment.textContent.includes("support the assessment, while waves limit it.")
-          && assessment.textContent.includes("Overall confidence")
-          && assessment.textContent.includes("What SaltBytes cannot observe")
-          && !assessment.textContent.includes("Nearshore water temperature accuracy and local representativeness")
-          && assessment.textContent.includes("does not estimate fish presence, catch likelihood, or safety")
-          && details?.querySelector("summary")?.textContent.includes("Assessment factors and confidence")
-          && !assessment.textContent.includes("spanish-mackerel-v1.0.0")
-          && !assessment.textContent.includes("Recent fish observations")
-          && !current.textContent.includes("Success")
-          && !current.textContent.includes("Exact forecast values")
-          && current.textContent.includes("From the E (110°)")
-          && current.querySelector(".conditions-tide-details summary")?.textContent.includes("Tide details")
-          && current.querySelectorAll("article").length === 5
-        : assessment.classList.contains("conditions-assessment-unavailable")
-          && assessment.textContent.includes("Assessment unavailable")
-          && !assessment.querySelector(".assessment-highlights")
-          && current.textContent.includes("Water temperature")
-          && current.textContent.includes("Unavailable"));
-  }, available);
+      && !headings.includes("Spanish mackerel assessment")
+      && current && handoff
+      && !text.includes("What SaltBytes cannot observe")
+      && !text.includes("Assessment factors and confidence")
+      && !document.querySelector(".conditions-assessment")
+      && current.querySelector(".conditions-tide-details summary")?.textContent.includes("Tide details");
+  });
 
-  if (available) {
-    const disclosure = page.locator(".conditions-assessment details");
-    await disclosure.locator("summary").focus();
-    const focusStyle = await disclosure.locator("summary").evaluate(
-      (element) => getComputedStyle(element).outlineStyle
-    );
-    if (focusStyle === "none") throw new Error("assessment disclosure has no visible keyboard focus");
-    await disclosure.locator("summary").press("Enter");
-    await page.waitForFunction(() => document.querySelector(".conditions-assessment details")?.open);
-    const confidenceText = await page.locator(".confidence-values").innerText();
-    if (!confidenceText.toLowerCase().includes("seasonal evidence") || !confidenceText.toLowerCase().includes("forecast data")) {
-      throw new Error("assessment disclosure does not retain complete deeper evidence");
-    }
-    const layout = await page.evaluate(() => {
-      const values = document.querySelector(".confidence-values");
-      const controls = [...document.querySelectorAll("select")];
-      const sourceDetails = [...document.querySelectorAll("#observablehq-main > details")]
-        .find((details) => details.querySelector("summary")?.textContent.includes("Sources and forecast limitations"));
-      if (!values || controls.length !== 2 || !sourceDetails) return {ready: false};
-      const grid = getComputedStyle(values);
-      const firstControl = controls[0].getBoundingClientRect();
-      const secondControl = controls[1].getBoundingClientRect();
-      return {
-        ready: values.children.length === 6
-        && grid.gridAutoFlow === "column"
-        && grid.gridTemplateColumns.split(" ").length === 2
-        && Math.abs(firstControl.top - secondControl.top) < 2
-        && controls.every((control) => {
-          const label = control.previousElementSibling;
-          const form = control.closest("form");
-          return label?.matches("label") && form && getComputedStyle(form).display === "grid"
-            && control.getBoundingClientRect().top > label.getBoundingClientRect().top;
-        })
-      };
-    });
-    if (!layout.ready) throw new Error("Conditions layout did not render as required");
-    const tideDetails = page.locator(".conditions-tide-details");
-    if ((await tideDetails.innerText()).includes("Previous ")) {
-      throw new Error("tide events are visible before Tide details opens");
-    }
-    const summaryLayoutBefore = await page.evaluate(() => {
-      const summary = document.querySelector(".conditions-current-summary");
-      if (!summary) return [];
-      const summaryBox = summary.getBoundingClientRect();
-      return [...summary.querySelectorAll("article")].map((article) => {
-        const box = article.getBoundingClientRect();
-        return {
-          left: box.left - summaryBox.left,
-          top: box.top - summaryBox.top,
-          width: box.width,
-          height: box.height
-        };
-      });
-    });
-    await tideDetails.locator("summary").press("Enter");
-    await page.waitForFunction(() => document.querySelector(".conditions-tide-details")?.open);
-    const tideText = await tideDetails.innerText();
-    if (!tideText.includes("Previous low") || !tideText.includes("Next high")) {
-      throw new Error("Tide details does not show separate predicted events");
-    }
-    const tideLayout = await page.evaluate((before) => {
-      const summary = document.querySelector(".conditions-current-summary");
-      const details = document.querySelector(".conditions-tide-details");
-      if (!summary || !details) return null;
-      const summaryBox = summary.getBoundingClientRect();
-      const after = [...summary.querySelectorAll("article")].map((article) => {
-        const box = article.getBoundingClientRect();
-        return {
-          left: box.left - summaryBox.left,
-          top: box.top - summaryBox.top,
-          width: box.width,
-          height: box.height
-        };
-      });
-      const detailBox = details.getBoundingClientRect();
-      const stable = before.length === after.length && before.every((item, index) => {
-        const current = after[index];
-        return Math.abs(item.left - current.left) <= 2
-          && Math.abs(item.top - current.top) <= 2
-          && Math.abs(item.width - current.width) <= 2
-          && Math.abs(item.height - current.height) <= 2;
-      });
-      return {
-        stable,
-        summaryWidth: summaryBox.width,
-        summaryBottom: summaryBox.bottom,
-        detailWidth: detailBox.width,
-        detailTop: detailBox.top
-      };
-    }, summaryLayoutBefore);
-    if (
-      !tideLayout
-      || !tideLayout.stable
-      || tideLayout.detailTop < tideLayout.summaryBottom - 2
-      || Math.abs(tideLayout.detailWidth - tideLayout.summaryWidth) > 2
-    ) {
-      throw new Error(`Expanded Tide details changed the metric summary layout: ${JSON.stringify(tideLayout)}`);
-    }
-    const sourceDetails = page.locator("#observablehq-main > details").filter({
-      hasText: "Sources and forecast limitations"
-    });
-    await sourceDetails.locator("summary").press("Enter");
-    const sourceText = await sourceDetails.innerText();
-    if (
-      !sourceText.includes("regional marine forecast grid")
-      || !sourceText.includes("exact fishing location may differ")
-      || sourceText.includes("Previous low")
-      || sourceText.includes("Next high")
-    ) {
-      throw new Error("Sources and forecast limitations does not contain the intended concise explanations");
-    }
+  if (!verifyDetails) return;
+
+  const tideDetails = page.locator(".conditions-tide-details");
+  if ((await tideDetails.innerText()).includes("Previous ")) {
+    throw new Error("tide events are visible before Tide details opens");
   }
+  await tideDetails.locator("summary").press("Enter");
+  await page.waitForFunction(() => document.querySelector(".conditions-tide-details")?.open);
+  const tideText = await tideDetails.innerText();
+  if (!tideText.includes("Previous low") || !tideText.includes("Next high")) {
+    throw new Error("Tide details does not show separate predicted events");
+  }
+  const sourceDetails = page.locator("#observablehq-main > details").filter({
+    hasText: "Sources and forecast limitations"
+  });
+  await sourceDetails.locator("summary").press("Enter");
+  const sourceText = await sourceDetails.innerText();
+  if (
+    !sourceText.includes("regional marine forecast grid")
+    || !sourceText.includes("exact fishing location may differ")
+    || sourceText.includes("Previous low")
+    || sourceText.includes("Next high")
+  ) {
+    throw new Error("Sources and forecast limitations does not contain the intended concise explanations");
+  }
+}
+
+async function assertConditionsAssessmentHandoff(page, base, errors) {
+  const handoff = page.locator(".species-handoff a");
+  const href = await handoff.getAttribute("href");
+  const expected = new URL(href ?? "", base);
+  const context = await page.evaluate(() => ({
+    location: document.querySelector(".conditions-context h2")?.textContent,
+    time: document.querySelector(".conditions-context p strong")?.parentElement?.textContent
+  }));
+  if (expected.pathname !== "/species-assessments" || !expected.searchParams.get("location") || !expected.searchParams.get("forecast_time")) {
+    throw new Error("Conditions species-assessment handoff has no selected context");
+  }
+  await Promise.all([
+    page.waitForURL(expected.href),
+    handoff.click()
+  ]);
+  await page.waitForFunction(
+    (expectedContext) => document.querySelector(".conditions-context h2")?.textContent === expectedContext.location
+      && document.querySelector(".conditions-context p strong")?.parentElement?.textContent === expectedContext.time,
+    context
+  );
+  await assertHealthy(page, errors, "Conditions species-assessment handoff");
+}
+
+async function assertSpeciesAssessments(page, base, errors) {
+  const query = "location=jennettes_pier&forecast_time=2026-08-02T12%3A00%3A00Z";
+  await openPage(page, `${base}/species-assessments?${query}`, errors);
+  await assertShell(page, "Coastal conditions", "Species assessments");
+  await page.waitForFunction(() => document.querySelectorAll("select").length === 2);
+  const state = await page.evaluate(() => ({
+    location: document.querySelector(".conditions-context h2")?.textContent,
+    time: document.querySelector(".conditions-context p strong")?.parentElement?.textContent,
+    text: document.querySelector("#observablehq-main")?.textContent ?? "",
+    width: document.documentElement.scrollWidth,
+    viewport: document.documentElement.clientWidth
+  }));
+  if (state.location !== "Jennette's Pier" || !state.time?.includes("Aug 02, 2026, 08:00 AM EDT") || state.width > state.viewport
+    || !state.text.includes("Spanish mackerel assessment") || !state.text.includes("Score")
+    || !state.text.includes("support the assessment, while waves limit it.")
+    || !state.text.includes("What SaltBytes cannot observe") || !state.text.includes("does not estimate fish presence, catch likelihood, or safety")
+    || state.text.includes("spanish-mackerel-v1.0.0")) {
+    throw new Error(`Species assessments direct context is incorrect: ${JSON.stringify(state)}`);
+  }
+  const disclosure = page.locator(".conditions-assessment details summary");
+  await disclosure.focus();
+  if (await disclosure.evaluate((element) => getComputedStyle(element).outlineStyle) === "none") {
+    throw new Error("Species assessment disclosure has no visible keyboard focus");
+  }
+  await disclosure.press("Enter");
+  await page.waitForFunction(() => document.querySelector(".conditions-assessment details")?.open);
+  const before = state.text;
+  await selectOption(page, 0, 1, "Species assessments location control");
+  await page.waitForFunction((previous) => document.querySelector("#observablehq-main")?.textContent !== previous, before);
+  await assertHealthy(page, errors, "Species assessments");
 }
 
 async function assertConditionsVisualizations(page, available) {
@@ -1474,7 +1427,7 @@ async function run() {
       (before) => document.querySelector(".conditions-context")?.innerText !== before,
       locationConditions
     );
-    await assertConditionsHierarchy(page, false);
+    await assertConditionsHierarchy(page);
     const updatedVisuals = await assertConditionsVisualizations(page, false);
     if (
       updatedVisuals.selectedTime === locationVisuals.selectedTime
@@ -1485,6 +1438,9 @@ async function run() {
       throw new Error("Conditions forecast control did not update every selected-time marker");
     }
     await assertHealthy(page, errors, "Conditions");
+
+    await assertConditionsAssessmentHandoff(page, base, errors);
+    await assertSpeciesAssessments(page, base, errors);
 
     await openPage(page, `${base}/forecast-revisions`, errors);
     await assertShell(page, "Operations and product health", "Forecast revisions");
