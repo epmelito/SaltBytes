@@ -1,5 +1,6 @@
+import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,8 @@ import httpx
 import pytest
 
 import saltbytes.database as database
+import saltbytes.pipeline as pipeline
+from saltbytes.dashboard import export_dashboard_data
 from saltbytes.pipeline import run_pipeline
 from saltbytes.solar import solar_calculation_provenance
 
@@ -193,6 +196,184 @@ def atmospheric_payload(
             "precipitation": [0.0] * 168,
         },
     }
+
+
+def pressure_payload(location: dict[str, Any]) -> dict[str, Any]:
+    start = datetime(2026, 7, 28)
+    returned_coordinate = location["pressure"]["expected_returned_coordinate"]
+    return {
+        "latitude": returned_coordinate["latitude"],
+        "longitude": returned_coordinate["longitude"],
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
+        "hourly": {
+            "time": [
+                (start + timedelta(hours=index)).isoformat(timespec="minutes")
+                for index in range(168)
+            ],
+            "pressure_msl": [1012.0] * 168,
+        },
+    }
+
+
+def add_pressure_relationship(config: dict[str, Any]) -> None:
+    for location in config["locations"]:
+        coordinate = location["weather"]["expected_returned_coordinate"]
+        location["pressure"] = {
+            "request_coordinate": coordinate.copy(),
+            "expected_returned_coordinate": coordinate.copy(),
+            "coastal_regime": "regional pressure grid",
+        }
+
+
+def test_optional_nbm_context_is_not_a_weather_rejection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = pipeline_config(tmp_path)
+    add_pressure_relationship(config)
+
+    def fetch_weather_with_optional_context_gap(
+        location: dict[str, Any], client: httpx.Client | None = None
+    ) -> dict[str, Any]:
+        payload = atmospheric_payload(location)
+        if location["id"] == "fort_fisher":
+            payload["hourly"].update(
+                {
+                    "cloud_cover": "unusable",
+                    "temperature_2m": [25.0],
+                    "apparent_temperature": "unusable",
+                }
+            )
+        return payload
+
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_forecast",
+        fetch_weather_with_optional_context_gap,
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_wave_forecast",
+        lambda location, client: wave_payload(location),
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_pressure_forecast",
+        lambda location, client: pressure_payload(location),
+    )
+
+    result = run_pipeline(config)
+
+    with duckdb.connect(str(config["storage"]["database_path"]), read_only=True) as connection:
+        weather_results = connection.execute(
+            "select status from source_results where source = 'weather' order by location_id"
+        ).fetchall()
+        optional_context = connection.execute(
+            """
+            select count(*)
+            from atmospheric_context_hourly
+            where air_temperature is not null or apparent_temperature is not null
+            """
+        ).fetchone()
+
+    assert result["status"] == "success"
+    assert weather_results == [("success",), ("success",)]
+    assert optional_context == (0,)
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_status"),
+    [
+        ("fetch", "fetch_failed"),
+        ("validation", "validation_failed"),
+        ("persistence", "persistence_failed"),
+    ],
+)
+def test_pressure_failures_remain_visible_without_blocking_weather_or_assessments(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+    expected_status: str,
+) -> None:
+    config = pipeline_config(tmp_path)
+    add_pressure_relationship(config)
+    forecast_start = (
+        datetime.now(timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
+        + timedelta(hours=1)
+    )
+
+    def current_forecast(payload: dict[str, Any]) -> dict[str, Any]:
+        payload["hourly"]["time"] = [
+            (forecast_start + timedelta(hours=index)).isoformat(timespec="minutes")
+            for index in range(168)
+        ]
+        return payload
+
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_forecast",
+        lambda location, client: current_forecast(atmospheric_payload(location)),
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_wave_forecast",
+        lambda location, client: current_forecast(wave_payload(location)),
+    )
+    monkeypatch.setattr(
+        "saltbytes.pipeline.fetch_sst_forecast",
+        lambda location, client: current_forecast(sst_payload(location)),
+    )
+
+    if failure == "fetch":
+        def fetch_pressure(
+            location: dict[str, Any], client: httpx.Client | None = None
+        ) -> dict[str, Any]:
+            raise RuntimeError("pressure service unavailable")
+    elif failure == "validation":
+        def fetch_pressure(
+            location: dict[str, Any], client: httpx.Client | None = None
+        ) -> dict[str, Any]:
+            payload = pressure_payload(location)
+            payload["longitude"] = 0
+            return payload
+    else:
+        def fetch_pressure(
+            location: dict[str, Any], client: httpx.Client | None = None
+        ) -> dict[str, Any]:
+            return current_forecast(pressure_payload(location))
+
+        real_persist_source_success = pipeline.persist_source_success
+
+        def fail_pressure_persistence(*args: Any, **kwargs: Any) -> int:
+            if kwargs["source"] == "pressure":
+                raise RuntimeError("pressure normalized storage unavailable")
+            return real_persist_source_success(*args, **kwargs)
+
+        monkeypatch.setattr("saltbytes.pipeline.persist_source_success", fail_pressure_persistence)
+
+    monkeypatch.setattr("saltbytes.pipeline.fetch_pressure_forecast", fetch_pressure)
+
+    result = run_pipeline(config)
+    dashboard_path = tmp_path / "dashboard-data"
+    export_dashboard_data(config, dashboard_path)
+    conditions = json.loads((dashboard_path / "conditions.json").read_text(encoding="utf-8"))
+
+    with duckdb.connect(str(config["storage"]["database_path"]), read_only=True) as connection:
+        pressure_results = connection.execute(
+            "select status from source_results where source = 'pressure' order by location_id"
+        ).fetchall()
+        pressure_rows = connection.execute(
+            "select count(*) from pressure_context_hourly"
+        ).fetchone()
+
+    assert result["status"] == "success"
+    assert pressure_results == [(expected_status,), (expected_status,)]
+    assert pressure_rows == (0,)
+    scored_conditions = [
+        row for row in conditions if row["weather_snapshot_id"] is not None
+    ]
+    assert scored_conditions
+    assert all(row["pressure_msl"] is None for row in scored_conditions)
+    assert all(
+        row["spanish_mackerel_conditions"]["state"] == "available"
+        for row in scored_conditions
+    ), scored_conditions[:2]
 
 
 def wave_payload(location: dict[str, Any]) -> dict[str, Any]:

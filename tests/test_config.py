@@ -59,6 +59,26 @@ def test_load_config_rejects_missing_location_coordinate(tmp_path: Path) -> None
         load_config(config_path)
 
 
+def test_load_config_requires_pressure_relationship(tmp_path: Path) -> None:
+    config = deepcopy(load_config())
+    del config["locations"][0]["pressure"]
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(ValueError, match="locations\\[0\\].pressure must be a mapping"):
+        load_config(config_path)
+
+
+def test_load_config_rejects_invalid_pressure_grid_coordinate(tmp_path: Path) -> None:
+    config = deepcopy(load_config())
+    config["locations"][0]["pressure"]["expected_returned_coordinate"]["latitude"] = 100
+    config_path = tmp_path / "local.yml"
+    write_config(config_path, config)
+
+    with pytest.raises(ValueError, match="pressure.expected_returned_coordinate.latitude"):
+        load_config(config_path)
+
+
 def test_load_config_rejects_invalid_tide_relationship(tmp_path: Path) -> None:
     config = deepcopy(load_config())
     config["locations"][0]["tide"]["relationship_type"] = "nearby"

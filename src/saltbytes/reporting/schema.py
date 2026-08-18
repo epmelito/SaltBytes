@@ -79,6 +79,16 @@ _REQUIRED_DASHBOARD_SCORE_SCHEMA = {
         "weather_status",
         "wave_status",
         "sst_status",
+        "cloud_cover",
+        "air_temperature",
+        "apparent_temperature",
+        "pressure_msl",
+        "pressure_snapshot_id",
+        "sunrise",
+        "sunset",
+        "solar_state",
+        "minutes_from_sunrise",
+        "minutes_from_sunset",
     ),
 }
 

@@ -6,6 +6,7 @@ import pytest
 
 from saltbytes.api import (
     build_forecast_params,
+    build_pressure_params,
     build_sst_params,
     build_tide_params,
     build_wave_params,
@@ -35,6 +36,10 @@ def coastal_location() -> dict[str, Any]:
                 "longitude": -76.717896,
             },
             "coastal_regime": "Atlantic coastal grid",
+        },
+        "pressure": {
+            "request_coordinate": {"latitude": 34.6933, "longitude": -76.7117},
+            "expected_returned_coordinate": {"latitude": 34.75, "longitude": -76.5},
         },
         "wave": {
             "request_coordinate": {
@@ -73,8 +78,20 @@ def test_build_forecast_params_uses_weather_request_relationship() -> None:
         "forecast_days": 7,
         "hourly": (
             "wind_speed_10m,wind_direction_10m,wind_gusts_10m,"
-            "precipitation_probability,precipitation,cloud_cover"
+            "precipitation_probability,precipitation,cloud_cover,"
+            "temperature_2m,apparent_temperature"
         ),
+        "timezone": "GMT",
+    }
+
+
+def test_build_pressure_params_uses_gfs_grid_relationship() -> None:
+    assert build_pressure_params(coastal_location()) == {
+        "latitude": 34.6933,
+        "longitude": -76.7117,
+        "models": "ncep_gfs025",
+        "forecast_days": 7,
+        "hourly": "pressure_msl",
         "timezone": "GMT",
     }
 

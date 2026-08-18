@@ -289,8 +289,7 @@ select:focus-visible {
 }
 
 .conditions-context h2,
-.conditions-assessment h3,
-.conditions-current h3 {
+.conditions-assessment h3 {
   margin: 0.2rem 0 0.5rem;
 }
 
@@ -330,7 +329,19 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 
 .conditions-current {
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
+}
+
+.conditions-current-group {
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--saltbytes-border);
+}
+
+.conditions-current-group > h3 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .conditions-current-summary {
@@ -338,8 +349,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 1rem;
   align-items: start;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--saltbytes-border);
 }
 
 .conditions-current > .conditions-tide-details {
@@ -463,6 +472,10 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 .conditions-current article p {
   margin: 0;
   color: var(--saltbytes-muted);
+}
+
+.conditions-current article h4 {
+  margin: 0.2rem 0 0.5rem;
 }
 
 .tide-events {
@@ -591,7 +604,19 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
   color: var(--saltbytes-gust);
 }
 
+.series-legend .legend-air-temperature {
+  color: var(--saltbytes-temperature);
+}
+
+.series-legend .legend-apparent-temperature {
+  color: var(--saltbytes-wind);
+}
+
 .series-legend .legend-gusts::before {
+  border-top-style: dashed;
+}
+
+.series-legend .legend-apparent-temperature::before {
   border-top-style: dashed;
 }
 

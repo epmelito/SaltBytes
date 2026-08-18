@@ -265,6 +265,25 @@ create table if not exists cloud_cover_hourly (
     foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
 );
 
+create table if not exists atmospheric_context_hourly (
+    snapshot_id varchar not null,
+    location_id varchar not null,
+    forecast_time timestamptz not null,
+    air_temperature double,
+    apparent_temperature double,
+    primary key (snapshot_id, location_id, forecast_time),
+    foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
+);
+
+create table if not exists pressure_context_hourly (
+    snapshot_id varchar not null,
+    location_id varchar not null,
+    forecast_time timestamptz not null,
+    pressure_msl double,
+    primary key (snapshot_id, location_id, forecast_time),
+    foreign key (snapshot_id) references forecast_snapshots(snapshot_id)
+);
+
 create or replace view tide_state_hourly as
 with event_pairs as (
     select
@@ -368,6 +387,28 @@ cloud_rows as (
     inner join forecast_snapshots as snapshots
         on snapshots.snapshot_id = hourly.snapshot_id
 ),
+atmospheric_context_rows as (
+    select
+        snapshots.run_id,
+        hourly.location_id,
+        hourly.forecast_time,
+        hourly.air_temperature,
+        hourly.apparent_temperature
+    from atmospheric_context_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+),
+pressure_rows as (
+    select
+        snapshots.run_id,
+        hourly.snapshot_id,
+        hourly.location_id,
+        hourly.forecast_time,
+        hourly.pressure_msl
+    from pressure_context_hourly as hourly
+    inner join forecast_snapshots as snapshots
+        on snapshots.snapshot_id = hourly.snapshot_id
+),
 wave_rows as (
     select
         snapshots.run_id,
@@ -439,6 +480,10 @@ select
     weather_rows.wind_gusts_10m,
     weather_rows.precipitation,
     cloud_rows.cloud_cover,
+    atmospheric_context_rows.air_temperature,
+    atmospheric_context_rows.apparent_temperature,
+    pressure_rows.snapshot_id as pressure_snapshot_id,
+    pressure_rows.pressure_msl,
     weather_results.status as weather_status,
     wave_rows.snapshot_id as wave_snapshot_id,
     wave_rows.wave_height,
@@ -500,6 +545,14 @@ left join cloud_rows
     on cloud_rows.run_id = hourly_keys.run_id
     and cloud_rows.location_id = hourly_keys.location_id
     and cloud_rows.forecast_time = hourly_keys.forecast_time
+left join atmospheric_context_rows
+    on atmospheric_context_rows.run_id = hourly_keys.run_id
+    and atmospheric_context_rows.location_id = hourly_keys.location_id
+    and atmospheric_context_rows.forecast_time = hourly_keys.forecast_time
+left join pressure_rows
+    on pressure_rows.run_id = hourly_keys.run_id
+    and pressure_rows.location_id = hourly_keys.location_id
+    and pressure_rows.forecast_time = hourly_keys.forecast_time
 left join sst_rows
     on sst_rows.run_id = hourly_keys.run_id
     and sst_rows.location_id = hourly_keys.location_id
@@ -1079,6 +1132,14 @@ def insert_forecast_hourly(
         isinstance(cloud_values, list)
         and len(cloud_values) == len(forecast_times)
     )
+    atmospheric_context = {
+        "temperature_2m": hourly.get("temperature_2m"),
+        "apparent_temperature": hourly.get("apparent_temperature"),
+    }
+    atmospheric_context_is_complete = {
+        name: isinstance(values, list) and len(values) == len(forecast_times)
+        for name, values in atmospheric_context.items()
+    }
 
     rows = [
         (
@@ -1113,6 +1174,23 @@ def insert_forecast_hourly(
         )
         database_connection.executemany(
             """
+            insert into atmospheric_context_hourly values (?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    snapshot_id,
+                    location_id,
+                    forecast_time,
+                    _optional_finite_value(atmospheric_context["temperature_2m"][index])
+                    if atmospheric_context_is_complete["temperature_2m"] else None,
+                    _optional_finite_value(atmospheric_context["apparent_temperature"][index])
+                    if atmospheric_context_is_complete["apparent_temperature"] else None,
+                )
+                for index, forecast_time in enumerate(normalized_times)
+            ],
+        )
+        database_connection.executemany(
+            """
             insert into cloud_cover_hourly values (?, ?, ?, ?)
             """,
             [
@@ -1138,6 +1216,49 @@ def _cloud_cover_value(value: Any) -> float | None:
     if not math.isfinite(cloud_cover) or not 0 <= cloud_cover <= 100:
         return None
     return cloud_cover
+
+
+def _optional_finite_value(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    numeric_value = float(value)
+    return numeric_value if math.isfinite(numeric_value) else None
+
+
+def insert_pressure_hourly(
+    database_path: Path | str,
+    snapshot_id: str,
+    location_id: str,
+    payload: dict[str, Any],
+    connection: duckdb.DuckDBPyConnection | None = None,
+) -> int:
+    hourly = payload.get("hourly")
+    if not isinstance(hourly, dict):
+        raise ValueError("pressure payload must contain an hourly mapping")
+    forecast_times = hourly.get("time")
+    pressures = hourly.get("pressure_msl")
+    if not isinstance(forecast_times, list) or not isinstance(pressures, list):
+        raise ValueError("pressure payload must contain hourly time and pressure lists")
+    if len(forecast_times) != len(pressures):
+        raise ValueError("hourly pressure_msl length must match hourly time length")
+    rows = []
+    for forecast_time, pressure in zip(forecast_times, pressures, strict=True):
+        parsed_time = datetime.fromisoformat(forecast_time)
+        if parsed_time.tzinfo is not None:
+            raise ValueError("pressure payload hourly timestamps must be UTC-naive")
+        rows.append(
+            (
+                snapshot_id,
+                location_id,
+                parsed_time.replace(tzinfo=timezone.utc),
+                _optional_finite_value(pressure),
+            )
+        )
+    with _database_connection(database_path, connection) as database_connection:
+        database_connection.executemany(
+            "insert into pressure_context_hourly values (?, ?, ?, ?)", rows
+        )
+    return len(rows)
 
 
 # insert normalized hourly wave rows for one snapshot
@@ -1537,6 +1658,21 @@ def persist_source_success(
                 )
                 stage = "normalized rows"
                 rows_loaded = insert_wave_hourly(
+                    database_path,
+                    metadata["snapshot_id"],
+                    location_id,
+                    payload,
+                    connection=connection,
+                )
+            elif source == "pressure":
+                stage = "snapshot metadata"
+                insert_forecast_snapshot(
+                    database_path,
+                    metadata,
+                    connection=connection,
+                )
+                stage = "normalized rows"
+                rows_loaded = insert_pressure_hourly(
                     database_path,
                     metadata["snapshot_id"],
                     location_id,

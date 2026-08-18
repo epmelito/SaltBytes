@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 EXPECTED_HOURLY_INSTANTS = 168
-VALID_SOURCE_LABELS = {"weather", "wave", "sst"}
+VALID_SOURCE_LABELS = {"weather", "pressure", "wave", "sst"}
 EXPECTED_TIDE_REQUEST = {
     "product": "predictions",
     "interval": "hilo",

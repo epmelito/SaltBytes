@@ -36,6 +36,27 @@ def atmospheric_payload(
             "wind_gusts_10m": [15.0 + value_offset] * 168,
             "precipitation_probability": [20.0 + value_offset] * 168,
             "precipitation": [value_offset] * 168,
+            "cloud_cover": [40.0 + value_offset] * 168,
+            "temperature_2m": [24.0 + value_offset] * 168,
+            "apparent_temperature": [25.0 + value_offset] * 168,
+        },
+}
+
+
+def pressure_payload(location: dict[str, Any], value_offset: float) -> dict[str, Any]:
+    start = datetime(2026, 7, 28)
+    returned_coordinate = location["pressure"]["expected_returned_coordinate"]
+    return {
+        "latitude": returned_coordinate["latitude"],
+        "longitude": returned_coordinate["longitude"],
+        "timezone": "GMT",
+        "utc_offset_seconds": 0,
+        "hourly": {
+            "time": [
+                (start + timedelta(hours=index)).isoformat(timespec="minutes")
+                for index in range(168)
+            ],
+            "pressure_msl": [1012.0 - value_offset] * 168,
         },
     }
 
@@ -120,6 +141,7 @@ def test_run_pipeline_ingests_all_seven_coastal_locations(
         "database_path": str(tmp_path / "saltbytes.duckdb"),
     }
     weather_payloads: dict[str, dict[str, Any]] = {}
+    pressure_payloads: dict[str, dict[str, Any]] = {}
     wave_payloads: dict[str, dict[str, Any]] = {}
     sst_payloads: dict[str, dict[str, Any]] = {}
     tide_payloads: dict[str, dict[str, Any]] = {}
@@ -158,6 +180,21 @@ def test_run_pipeline_ingests_all_seven_coastal_locations(
         wave_payloads[location["id"]] = payload
         return payload
 
+    def fake_fetch_pressure_forecast(
+        location: dict[str, Any],
+        client: Any | None = None,
+    ) -> dict[str, Any]:
+        value_offset = float(
+            next(
+                index
+                for index, configured_location in enumerate(config["locations"])
+                if configured_location["id"] == location["id"]
+            )
+        )
+        payload = pressure_payload(location, value_offset)
+        pressure_payloads[location["id"]] = payload
+        return payload
+
     def fake_fetch_sst_forecast(
         location: dict[str, Any],
         client: Any | None = None,
@@ -183,6 +220,7 @@ def test_run_pipeline_ingests_all_seven_coastal_locations(
         "saltbytes.pipeline.fetch_wave_forecast",
         fake_fetch_wave_forecast,
     )
+    monkeypatch.setattr("saltbytes.pipeline.fetch_pressure_forecast", fake_fetch_pressure_forecast)
     monkeypatch.setattr(
         "saltbytes.pipeline.fetch_sst_forecast",
         fake_fetch_sst_forecast,
@@ -217,8 +255,8 @@ def test_run_pipeline_ingests_all_seven_coastal_locations(
     result = run_pipeline(config)
 
     assert result["status"] == "success"
-    assert result["snapshots_written"] == 28
-    assert result["rows_loaded"] == 4977
+    assert result["snapshots_written"] == 35
+    assert result["rows_loaded"] == 6153
 
     database_path = Path(config["storage"]["database_path"])
 
@@ -403,7 +441,7 @@ def test_run_pipeline_ingests_all_seven_coastal_locations(
         for location in config["locations"]
     }
 
-    assert run == ("success", 4977, None)
+    assert run == ("success", 6153, None)
     assert weather_hourly_counts == [
         ("bogue_inlet_pier", 168),
         ("fort_fisher", 168),
@@ -455,10 +493,11 @@ def test_run_pipeline_ingests_all_seven_coastal_locations(
         ("ocracoke_ramp_72", 135.0, None),
         ("sunset_beach_pier", 165.0, 180.0),
     ]
-    assert len(source_results) == 28
+    assert len(source_results) == 35
     assert all(status == "success" for _, _, status, _ in source_results)
     assert {source for _, source, _, _ in source_results} == {
         "weather",
+        "pressure",
         "wave",
         "sst",
         "tide",
@@ -482,6 +521,9 @@ def test_run_pipeline_ingests_all_seven_coastal_locations(
         elif model_selector == "meteofrance_currents":
             source_relationship = location["sst"]
             expected_payload = sst_payloads[location_id]
+        elif model_selector == "ncep_gfs025":
+            source_relationship = location["pressure"]
+            expected_payload = pressure_payloads[location_id]
         else:
             assert snapshot[3:] == (None, None, None, None)
             expected_payload = tide_payloads[location_id]
@@ -506,17 +548,18 @@ def test_run_pipeline_ingests_all_seven_coastal_locations(
             raw_file_path.read_text(encoding="utf-8")
         ) == expected_payload
 
-    assert len(snapshots) == 28
+    assert len(snapshots) == 35
     assert {
         snapshot[2]
         for snapshot in snapshots
     } == {
         "ncep_nbm_conus",
+        "ncep_gfs025",
         "meteofrance_wave",
         "meteofrance_currents",
         None,
     }
-    assert len({snapshot[1] for snapshot in snapshots}) == 28
+    assert len({snapshot[1] for snapshot in snapshots}) == 35
 
     expected_raw_directory = (
         tmp_path

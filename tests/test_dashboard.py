@@ -98,6 +98,10 @@ def _seed_dashboard_database(database_path: Path) -> None:
                     timestamptz '2026-07-29 06:01:00+00',
                     'C:/private/raw/current-weather.json', 'ncep_nbm_conus',
                     35.91, -75.60, 35.90, -75.59),
+                ('current-pressure', 'run-success', 'jennettes_pier',
+                    timestamptz '2026-07-29 06:01:00+00',
+                    'C:/private/raw/current-pressure.json', 'ncep_gfs025',
+                    35.91, -75.60, 35.75, -75.75),
                 ('current-wave', 'run-success', 'jennettes_pier',
                     timestamptz '2026-07-29 06:01:00+00',
                     'C:/private/raw/current-wave.json', 'meteofrance_wave',
@@ -134,6 +138,14 @@ def _seed_dashboard_database(database_path: Path) -> None:
                 ('current-weather', 'jennettes_pier',
                     timestamptz '2026-07-30 00:00:00+00', null,
                     12.0, 120.0, 17.0, 0.0);
+
+            insert into atmospheric_context_hourly values
+                ('current-weather', 'jennettes_pier',
+                    timestamptz '2026-07-30 00:00:00+00', 24.0, 25.0);
+
+            insert into pressure_context_hourly values
+                ('current-pressure', 'jennettes_pier',
+                    timestamptz '2026-07-30 00:00:00+00', 1012.0);
 
             insert into wave_hourly values
                 ('old-wave', 'jennettes_pier',
@@ -174,6 +186,8 @@ def _seed_dashboard_database(database_path: Path) -> None:
                     timestamptz '2026-07-29 00:05:00+00'),
                 ('run-success', 'jennettes_pier', 'weather', 'success', null,
                     timestamptz '2026-07-29 06:05:00+00'),
+                ('run-success', 'jennettes_pier', 'pressure', 'success', null,
+                    timestamptz '2026-07-29 06:05:00+00'),
                 ('run-success', 'jennettes_pier', 'wave', 'success', null,
                     timestamptz '2026-07-29 06:05:00+00'),
                 ('run-success', 'jennettes_pier', 'sst', 'success', null,
@@ -182,6 +196,9 @@ def _seed_dashboard_database(database_path: Path) -> None:
                     timestamptz '2026-07-29 06:05:00+00'),
                 ('run-failed', 'jennettes_pier', 'weather', 'fetch_failed',
                     'private connection detail: token=secret',
+                    timestamptz '2026-07-29 12:02:00+00'),
+                ('run-failed', 'jennettes_pier', 'pressure', 'fetch_failed',
+                    'pressure service unavailable',
                     timestamptz '2026-07-29 12:02:00+00'),
                 ('run-failed', 'jennettes_pier', 'wave', 'success', null,
                     timestamptz '2026-07-29 12:02:00+00');
@@ -217,6 +234,9 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert conditions[0]["precipitation_probability"] is None
     assert conditions[0]["wind_speed_10m"] == 12.0
     assert conditions[0]["wind_to_shore_angle_degrees"] == 30.0
+    assert conditions[0]["air_temperature"] == 24.0
+    assert conditions[0]["apparent_temperature"] == 25.0
+    assert conditions[0]["pressure_msl"] == 1012.0
     assert conditions[0]["tide_minutes_until_next_extremum"] == 240
     score = conditions[0]["spanish_mackerel_conditions"]
     assert score == {
@@ -266,6 +286,12 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert summaries["weather"]["success_rate_percent"] == 66.7
     assert summaries["weather"]["failure_count"] == 1
     assert summaries["sst"]["missing_count"] == 1
+    assert summaries["pressure"]["success_count"] == 1
+    assert summaries["pressure"]["failure_count"] == 1
+    assert not any(
+        row["run_id"] == "run-old" and row["source"] == "pressure"
+        for row in source_health["coverage"]
+    )
     assert source_health["failures"][0]["status"] == "fetch_failed"
     assert "detail" not in source_health["failures"][0]
 
@@ -279,6 +305,7 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     provenance = _read_json(output_path, "provenance.json")
     assert {row["source"] for row in provenance} == {
         "weather",
+        "pressure",
         "wave",
         "sst",
         "tide",
@@ -299,6 +326,41 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert "effective_wind_kmh" not in serialized_export
 
 
+def test_dashboard_pressure_introduction_does_not_rewrite_older_provenance(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    output_path = tmp_path / "dashboard-data"
+    _seed_dashboard_database(database_path)
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("delete from pressure_context_hourly")
+        connection.execute("delete from forecast_snapshots where snapshot_id = 'current-pressure'")
+        connection.execute(
+            "delete from source_results where source = 'pressure' and run_id = 'run-success'"
+        )
+
+    export_dashboard_data(_config(database_path), output_path)
+
+    source_health = _read_json(output_path, "source-health.json")
+    assert not any(
+        row["run_id"] == "run-success" and row["source"] == "pressure"
+        for row in source_health["coverage"]
+    )
+    assert any(
+        row["run_id"] == "run-failed"
+        and row["source"] == "pressure"
+        and row["status"] == "fetch_failed"
+        for row in source_health["failures"]
+    )
+    provenance = _read_json(output_path, "provenance.json")
+    assert {row["source"] for row in provenance} == {
+        "weather",
+        "wave",
+        "sst",
+        "tide",
+    }
+
+
 def test_export_dashboard_data_preserves_expected_source_without_snapshot_reference(
     tmp_path: Path,
 ) -> None:
@@ -313,7 +375,7 @@ def test_export_dashboard_data_preserves_expected_source_without_snapshot_refere
     export_dashboard_data(_config(database_path), output_path)
 
     provenance = _read_json(output_path, "provenance.json")
-    assert len(provenance) == 4
+    assert len(provenance) == 5
     wave = next(row for row in provenance if row["source"] == "wave")
     assert wave["location_id"] == "jennettes_pier"
     assert wave["snapshot_id"] is None

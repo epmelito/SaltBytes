@@ -15,7 +15,7 @@ from saltbytes.spanish_mackerel import (
     calculate_spanish_mackerel_conditions_score,
 )
 
-_SOURCES = ("weather", "wave", "sst", "tide")
+_SOURCES = ("weather", "pressure", "wave", "sst", "tide")
 _EXPORT_FILES = (
     "manifest.json",
     "locations.json",
@@ -130,6 +130,11 @@ def _dashboard_conditions(
             conditions.wind_to_shore_angle_degrees,
             conditions.wind_gusts_10m,
             conditions.precipitation,
+            conditions.cloud_cover,
+            conditions.air_temperature,
+            conditions.apparent_temperature,
+            conditions.pressure_snapshot_id,
+            conditions.pressure_msl,
             conditions.weather_status,
             conditions.wave_snapshot_id,
             conditions.wave_height,
@@ -152,6 +157,11 @@ def _dashboard_conditions(
             conditions.tide_minutes_until_next_extremum,
             conditions.tide_predicted_range,
             conditions.tide_status,
+            conditions.sunrise,
+            conditions.sunset,
+            conditions.solar_state,
+            conditions.minutes_from_sunrise,
+            conditions.minutes_from_sunset,
             locations.fishing_context,
             solar_context.display_timezone
         from coastal_conditions_hourly as conditions
@@ -314,10 +324,16 @@ def _dashboard_payloads(
         connection,
         """
         with recent_runs as (
-            select run_id
+            select run_id, started_at
             from pipeline_runs
             order by started_at desc, run_id desc
             limit 20
+        ),
+        pressure_introduction as (
+            select min(runs.started_at) as started_at
+            from source_results as results
+            inner join pipeline_runs as runs on runs.run_id = results.run_id
+            where results.source = 'pressure'
         ),
         expected as (
             select
@@ -328,8 +344,11 @@ def _dashboard_payloads(
             inner join run_locations
                 on run_locations.run_id = recent_runs.run_id
             cross join (
-                values ('weather'), ('wave'), ('sst'), ('tide')
+                values ('weather'), ('pressure'), ('wave'), ('sst'), ('tide')
             ) as sources(source)
+            cross join pressure_introduction
+            where sources.source != 'pressure'
+                or recent_runs.started_at >= pressure_introduction.started_at
         )
         select
             expected.source,
@@ -368,6 +387,12 @@ def _dashboard_payloads(
             order by started_at desc, run_id desc
             limit 20
         ),
+        pressure_introduction as (
+            select min(runs.started_at) as started_at
+            from source_results as results
+            inner join pipeline_runs as runs on runs.run_id = results.run_id
+            where results.source = 'pressure'
+        ),
         expected as (
             select
                 recent_runs.run_id,
@@ -378,8 +403,11 @@ def _dashboard_payloads(
             inner join run_locations
                 on run_locations.run_id = recent_runs.run_id
             cross join (
-                values ('weather'), ('wave'), ('sst'), ('tide')
+                values ('weather'), ('pressure'), ('wave'), ('sst'), ('tide')
             ) as sources(source)
+            cross join pressure_introduction
+            where sources.source != 'pressure'
+                or recent_runs.started_at >= pressure_introduction.started_at
         )
         select
             expected.run_id,
@@ -458,14 +486,30 @@ def _dashboard_payloads(
     provenance = _query(
         connection,
         """
-        with expected_sources as (
+        with selected_run as (
+            select started_at
+            from pipeline_runs
+            where run_id = ?
+        ),
+        pressure_introduction as (
+            select min(runs.started_at) as started_at
+            from source_results as results
+            inner join pipeline_runs as runs on runs.run_id = results.run_id
+            where results.source = 'pressure'
+        ),
+        expected_sources as (
             select *
             from (values
                 ('weather', 1),
-                ('wave', 2),
-                ('sst', 3),
-                ('tide', 4)
+                ('pressure', 2),
+                ('wave', 3),
+                ('sst', 4),
+                ('tide', 5)
             ) as sources(source, source_order)
+            cross join selected_run
+            cross join pressure_introduction
+            where sources.source != 'pressure'
+                or selected_run.started_at >= pressure_introduction.started_at
         ),
         snapshot_references as (
             select distinct location_id, 'weather' as source,
@@ -476,6 +520,10 @@ def _dashboard_payloads(
             select distinct location_id, 'wave', wave_snapshot_id
             from coastal_conditions_hourly
             where run_id = ? and wave_snapshot_id is not null
+            union all
+            select distinct location_id, 'pressure', pressure_snapshot_id
+            from coastal_conditions_hourly
+            where run_id = ? and pressure_snapshot_id is not null
             union all
             select distinct location_id, 'sst', sst_snapshot_id
             from coastal_conditions_hourly
@@ -540,7 +588,7 @@ def _dashboard_payloads(
             expected_sources.source_order,
             snapshot_refs.snapshot_id
         """,
-        [run_id, run_id, run_id, run_id, run_id],
+        [run_id, run_id, run_id, run_id, run_id, run_id, run_id],
     )
 
     freshness_minutes = max(

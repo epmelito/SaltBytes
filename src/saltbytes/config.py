@@ -173,6 +173,10 @@ def _validate_location(
         location_config.get("weather"),
         f"locations[{index}].weather",
     )
+    pressure_config = _require_mapping(
+        location_config.get("pressure"),
+        f"locations[{index}].pressure",
+    )
     request_coordinate = _require_mapping(
         weather_config.get("request_coordinate"),
         f"locations[{index}].weather.request_coordinate",
@@ -180,6 +184,14 @@ def _validate_location(
     expected_returned_coordinate = _require_mapping(
         weather_config.get("expected_returned_coordinate"),
         f"locations[{index}].weather.expected_returned_coordinate",
+    )
+    pressure_request_coordinate = _require_mapping(
+        pressure_config.get("request_coordinate"),
+        f"locations[{index}].pressure.request_coordinate",
+    )
+    pressure_expected_returned_coordinate = _require_mapping(
+        pressure_config.get("expected_returned_coordinate"),
+        f"locations[{index}].pressure.expected_returned_coordinate",
     )
     wave_config = _require_mapping(
         location_config.get("wave"),
@@ -212,6 +224,11 @@ def _validate_location(
             "weather.expected_returned_coordinate",
             expected_returned_coordinate,
         ),
+        ("pressure.request_coordinate", pressure_request_coordinate),
+        (
+            "pressure.expected_returned_coordinate",
+            pressure_expected_returned_coordinate,
+        ),
         ("wave.request_coordinate", wave_request_coordinate),
         (
             "wave.expected_returned_coordinate",
@@ -241,6 +258,10 @@ def _validate_location(
     _require_string(
         weather_config.get("coastal_regime"),
         f"locations[{index}].weather.coastal_regime",
+    )
+    _require_string(
+        pressure_config.get("coastal_regime"),
+        f"locations[{index}].pressure.coastal_regime",
     )
     _require_string(
         sst_config.get("coastal_regime"),
