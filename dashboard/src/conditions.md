@@ -43,93 +43,8 @@ const forecastTime = view(Inputs.select(
 
 ~~~js
 const selected = locationRows.find((row) => row.forecast_time === forecastTime);
-const spanishMackerel = selected?.spanish_mackerel_conditions;
-const scoreIsAvailable = spanishMackerel?.state === "available";
-const scoreBandPresentation = {
-  very_limited_alignment: "Very limited forecast alignment",
-  limited_alignment: "Limited forecast alignment",
-  mixed_conditions: "Mixed forecast conditions",
-  favorable_alignment: "Favorable forecast alignment",
-  strong_alignment: "Strong forecast alignment"
-};
-const factorLabels = {
-  seasonal_alignment: "Seasonal timing", thermal_context: "Water temperature",
-  sound_side_location_context: "Sound-side location context",
-  wind_fishability: "Wind", wave_fishability: "Waves",
-  local_baitfish_presence: "Local baitfish presence",
-  current_spanish_mackerel_presence: "Current Spanish mackerel presence",
-  schools_within_casting_range: "Schools within casting range",
-  nearshore_sst_accuracy_and_site_representativeness: "Nearshore water temperature accuracy and local representativeness"
-};
-const factorSentenceLabels = {
-  seasonal_alignment: "seasonal timing",
-  thermal_context: "water temperature",
-  sound_side_location_context: "sound-side location context",
-  wind_fishability: "wind",
-  wave_fishability: "waves"
-};
-const confidenceLabels = {
-  location_applicability_confidence: "Fit for this location",
-  environmental_source_confidence: "Forecast data",
-  seasonal_evidence_confidence: "Seasonal evidence",
-  habitat_data_confidence: "Habitat information",
-  fishability_data_confidence: "Fishing condition data",
-  overall_interpretation_confidence: "Overall confidence"
-};
-const confidenceState = (value) => value ? `${value[0].toUpperCase()}${value.slice(1)}` : "Unavailable";
-const factorItems = (factors) => factors?.map((factor) => factorLabels[factor] ?? factor) ?? [];
-const factorList = (factors) => factorItems(factors).map((factor) => html`<li>${factor}</li>`);
-const joinItems = (items) => {
-  if (items.length < 2) return items[0] ?? "";
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
-};
-const assessmentSummary = (positiveFactors, limitingFactors) => {
-  const positiveItems = positiveFactors?.map((factor) => factorSentenceLabels[factor] ?? factorLabels[factor] ?? factor) ?? [];
-  const limitingItems = limitingFactors?.map((factor) => factorSentenceLabels[factor] ?? factorLabels[factor] ?? factor) ?? [];
-  const positive = joinItems(positiveItems);
-  const limiting = joinItems(limitingItems);
-  const positiveLead = positive ? `${positive[0].toUpperCase()}${positive.slice(1)}` : "";
-  const limitingLead = limiting ? `${limiting[0].toUpperCase()}${limiting.slice(1)}` : "";
-  const positiveVerb = positiveFactors?.length === 1 && positiveFactors[0] !== "wave_fishability"
-    ? "supports"
-    : "support";
-  const limitingVerb = limitingFactors?.length === 1 && limitingFactors[0] !== "wave_fishability"
-    ? "limits"
-    : "limit";
-  if (positive && limiting) return `${positiveLead} ${positiveVerb} the assessment, while ${limiting} ${limitingVerb} it.`;
-  if (positive) return `${positiveLead} ${positiveVerb} the assessment.`;
-  if (limiting) return `${limitingLead} ${limitingVerb} the assessment.`;
-  return "The available forecast factors do not support a more specific summary.";
-};
-const assessmentUnknownFactors = spanishMackerel?.unknown_factors?.filter(
-  (factor) => factor !== "nearshore_sst_accuracy_and_site_representativeness"
-) ?? [];
-const factorHighlight = (factors) => {
-  const items = factors?.map(
-    (factor) => factorSentenceLabels[factor] ?? factorLabels[factor] ?? factor
-  ).slice(0, 2) ?? [];
-  if (!items.length) return "";
-  const first = `${items[0][0].toUpperCase()}${items[0].slice(1)}`;
-  return [first, ...items.slice(1)].join(", ");
-};
-const overallConfidence = spanishMackerel?.confidence?.find((item) => item.identifier === "overall_interpretation_confidence");
-const confidenceDetails = [
-  "overall_interpretation_confidence",
-  "seasonal_evidence_confidence",
-  "location_applicability_confidence",
-  "environmental_source_confidence",
-  "fishability_data_confidence",
-  "habitat_data_confidence"
-].map((identifier) => spanishMackerel?.confidence?.find((item) => item.identifier === identifier)).filter(Boolean);
-const unavailableMessageGroups = [
-  {reasons: ["location_not_applicable"], message: "This assessment is not available for this location and fishing context."},
-  {reasons: ["forecast_time_invalid", "display_timezone_missing", "display_timezone_invalid", "local_forecast_date_unavailable"], message: "Required forecast timing information is unavailable."},
-  {reasons: ["weather_source_missing", "weather_source_not_success", "wind_speed_10m_missing", "wind_speed_10m_invalid", "wind_gusts_10m_missing", "wind_gusts_10m_invalid"], message: "Required wind forecast data is unavailable."},
-  {reasons: ["wave_source_missing", "wave_source_not_success", "wave_height_missing", "wave_height_invalid"], message: "Required wave forecast data is unavailable."},
-  {reasons: ["sst_source_missing", "sst_source_not_success", "sea_surface_temperature_missing", "sea_surface_temperature_invalid"], message: "Required water temperature forecast data is unavailable."}
-];
-const unavailableMessages = unavailableMessageGroups.filter((group) => spanishMackerel?.unavailable_reasons?.some((reason) => group.reasons.includes(reason))).map((group) => group.message);
+const confidenceState = (value) =>
+  value ? `${value[0].toUpperCase()}${value.slice(1)}` : "Unavailable";
 const contextFreshness = manifest.latest_success_freshness_minutes === null || manifest.latest_success_freshness_minutes === undefined
   ? "Freshness is unavailable."
   : `Updated ${formatTimestamp(manifest.generated_at, manifest.display_timezone)}.`;
@@ -287,30 +202,6 @@ display(html`<section class="conditions-context" aria-label="Forecast context">
 </section>`);
 ~~~
 
-## Spanish mackerel assessment
-
-~~~js
-display(scoreIsAvailable ? html`<section class="conditions-assessment">
-  <div><p class="conditions-eyebrow">Spanish mackerel forecast</p><h3>${scoreBandPresentation[spanishMackerel.score_band] ?? "Forecast assessment available"}</h3><p class="assessment-summary">${assessmentSummary(spanishMackerel.positive_factors, spanishMackerel.limiting_factors)}</p></div>
-  <div class="assessment-support"><div><span class="detail-label">Score</span><strong class="assessment-score">${spanishMackerel.score} / 100</strong></div><div><span class="detail-label">Overall confidence</span><strong>${confidenceState(overallConfidence?.state)}</strong></div></div>
-  <p class="assessment-limitation">This assessment does not estimate fish presence, catch likelihood, or safety.</p>
-  ${factorItems(spanishMackerel.positive_factors).length || factorItems(spanishMackerel.limiting_factors).length ? html`<div class="assessment-highlights">
-    ${factorItems(spanishMackerel.positive_factors).length ? html`<div><span class="detail-label">Most helpful now</span><p>${factorHighlight(spanishMackerel.positive_factors)}</p></div>` : null}
-    ${factorItems(spanishMackerel.limiting_factors).length ? html`<div><span class="detail-label">Main limitation</span><p>${factorItems(spanishMackerel.limiting_factors).slice(0, 1).join(", ")}</p></div>` : null}
-  </div>` : null}
-  ${assessmentUnknownFactors.length ? html`<section class="assessment-unknowns"><h4>What SaltBytes cannot observe</h4><ul>${factorList(assessmentUnknownFactors)}</ul></section>` : null}
-  <details><summary>Assessment factors and confidence</summary><div class="assessment-details">
-    ${factorItems(spanishMackerel.positive_factors).length ? html`<div><h4>Supporting conditions</h4><ul>${factorList(spanishMackerel.positive_factors)}</ul></div>` : null}
-    ${factorItems(spanishMackerel.limiting_factors).length ? html`<div><h4>Limiting conditions</h4><ul>${factorList(spanishMackerel.limiting_factors)}</ul></div>` : null}
-    <div><h4>Confidence in this assessment</h4><dl class="confidence-values">${confidenceDetails.map((item) => html`<div><dt>${confidenceLabels[item.identifier]}</dt><dd>${confidenceState(item.state)}</dd></div>`)}</dl></div>
-  </div></details>
-</section>` : html`<section class="conditions-assessment conditions-assessment-unavailable">
-  <p class="conditions-eyebrow">Spanish mackerel forecast</p><h3>Assessment unavailable</h3>
-  ${unavailableMessages.map((message) => html`<p>${message}</p>`)}
-  <p class="assessment-limitation">This assessment does not estimate fish presence, catch likelihood, or safety.</p>
-</section>`);
-~~~
-
 ## Current coastal conditions
 
 ~~~js
@@ -323,6 +214,15 @@ display(html`<section class="conditions-current">
     <article class="conditions-tide"><span class="detail-label">Tide</span><h3>${selected?.tide_phase ?? "Unavailable"}</h3></article>
   </div>
   <details class="conditions-tide-details"><summary>Tide details</summary><div class="tide-events"><div><strong>Previous ${selected?.tide_previous_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_previous_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(selected?.tide_previous_predicted_water_level, 1, "m")}</span></div><div><strong>Next ${selected?.tide_next_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_next_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(selected?.tide_next_predicted_water_level, 1, "m")}</span></div></div></details>
+</section>`);
+~~~
+
+~~~js
+const assessmentAvailable = selected?.spanish_mackerel_conditions?.state === "available";
+const assessmentHref = `/species-assessments?location=${encodeURIComponent(locationId)}&forecast_time=${encodeURIComponent(forecastTime)}`;
+display(html`<section class="species-handoff">
+  <div><h3>Species assessment</h3><p>Spanish mackerel assessment ${assessmentAvailable ? "available" : "unavailable"} for this forecast.</p></div>
+  <a href=${assessmentHref}>${assessmentAvailable ? "View assessment →" : "View details →"}</a>
 </section>`);
 ~~~
 
