@@ -46,6 +46,7 @@ export function locationName(locationId, locations) {
 export function sourceName(source) {
   return {
     weather: "Weather",
+    pressure: "Barometric pressure",
     wave: "Wave",
     sst: "Sea surface temperature",
     tide: "Tide"

@@ -13,6 +13,7 @@ from saltbytes.database import (
     insert_forecast_hourly,
     insert_forecast_snapshot,
     insert_pipeline_run,
+    insert_pressure_hourly,
     insert_run_locations,
     insert_source_result,
     insert_sst_hourly,
@@ -24,6 +25,8 @@ from saltbytes.database import (
 )
 
 EXPECTED_TABLES = {
+    "atmospheric_context_hourly",
+    "pressure_context_hourly",
     "cloud_cover_hourly",
     "forecast_hourly",
     "forecast_snapshots",
@@ -563,6 +566,68 @@ def test_optional_cloud_cover_preserves_weather_rows_and_availability(
         ).fetchall()
 
     assert cloud_rows == [(25.0,), (None,), (None,)]
+
+
+def test_optional_atmospheric_context_preserves_weather_rows(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_forecast_snapshot(database_path, snapshot_metadata(snapshot_id="atmosphere-weather"))
+    payload = atmospheric_payload()
+    payload["hourly"].update({
+        "temperature_2m": [24.0, None, "invalid"],
+        "apparent_temperature": [25.0, 26.0, 27.0],
+    })
+    payload["hourly"]["time"] = [
+        "2026-07-29T12:00",
+        "2026-07-29T13:00",
+        "2026-07-29T14:00",
+    ]
+    for field_name in (
+        "wind_speed_10m",
+        "wind_direction_10m",
+        "wind_gusts_10m",
+        "precipitation_probability",
+        "precipitation",
+    ):
+        payload["hourly"][field_name] = payload["hourly"][field_name] * 3
+
+    assert (
+        insert_forecast_hourly(
+            database_path,
+            "atmosphere-weather",
+            "jennettes_pier",
+            payload,
+        )
+        == 3
+    )
+
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        rows = connection.execute(
+            "select air_temperature, apparent_temperature "
+            "from atmospheric_context_hourly order by forecast_time"
+        ).fetchall()
+
+    assert rows == [(24.0, 25.0), (None, 26.0), (None, 27.0)]
+
+
+def test_pressure_context_is_stored_separately_from_weather(tmp_path: Path) -> None:
+    database_path = tmp_path / "saltbytes.duckdb"
+    initialize_database(database_path)
+    insert_run(database_path)
+    insert_forecast_snapshot(database_path, snapshot_metadata(snapshot_id="pressure"))
+    payload = atmospheric_payload()
+    payload["hourly"] = {
+        "time": ["2026-07-29T12:00", "2026-07-29T13:00"],
+        "pressure_msl": [1012.0, None],
+    }
+    assert insert_pressure_hourly(database_path, "pressure", "jennettes_pier", payload) == 2
+    with duckdb.connect(str(database_path), read_only=True) as connection:
+        assert connection.execute(
+            "select pressure_msl from pressure_context_hourly order by forecast_time"
+        ).fetchall() == [(1012.0,), (None,)]
 
 
 def test_forecast_hourly_rejects_duplicate_business_key(

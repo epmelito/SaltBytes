@@ -23,14 +23,8 @@ const runs = await FileAttachment("./data/pipeline-runs.json").json();
 const sourceHealth = await FileAttachment("./data/source-health.json").json();
 const observationHealth = await FileAttachment("./data/observation-health.json").json();
 
-const sourceOrder = ["weather", "wave", "sst", "tide"];
-const sourceLabels = {
-  weather: "Weather",
-  wave: "Waves",
-  sst: "Water temperature",
-  tide: "Tides"
-};
-const sourceLabel = (source) => sourceLabels[source] ?? sourceName(source);
+const sourceOrder = ["weather", "pressure", "wave", "sst", "tide"];
+const sourceLabel = sourceName;
 const titleCase = (value) => {
   const label = statusLabel(value);
   return label === "Unavailable" ? label : `${label[0].toUpperCase()}${label.slice(1)}`;
@@ -51,9 +45,13 @@ const statusMeaning = (status) => ({
   success: "Available",
   fetch_failed: "Fetch failed",
   validation_failed: "Validation failed",
+  persistence_failed: "Persistence failed",
+  not_applicable: "Not applicable",
   not_recorded: "Not recorded"
 }[status] ?? titleCase(status));
-const statusKey = (status) => status === "success" ? "healthy" : status === "not_recorded" ? "missing" : "failed";
+const statusKey = (status) => status === "success" || status === "not_applicable"
+  ? "healthy"
+  : status === "not_recorded" ? "missing" : "failed";
 const runTimeLabel = new Intl.DateTimeFormat("en-US", {
   timeZone: manifest.display_timezone,
   month: "short",
@@ -66,7 +64,9 @@ const sortedRuns = [...runs].sort((left, right) =>
 const latestRunId = manifest.latest_attempt?.run_id ?? sortedRuns[0]?.run_id;
 const latestRun = sortedRuns.find((run) => run.run_id === latestRunId) ?? sortedRuns[0] ?? null;
 const latestCoverageRows = sourceHealth.coverage.filter((row) => row.run_id === latestRun?.run_id);
-const latestCoverageExceptions = latestCoverageRows.filter((row) => row.status !== "success");
+const latestCoverageExceptions = latestCoverageRows.filter((row) =>
+  row.status !== "success" && row.status !== "not_applicable"
+);
 const latestFailureRows = sourceHealth.failures.filter((row) => row.run_id === latestRun?.run_id);
 const latestMissingRows = latestCoverageExceptions.filter((row) => row.status === "not_recorded");
 const recentSuccessfulRuns = sortedRuns.filter((run) => run.status === "success" && !run.partial_data);
@@ -145,6 +145,9 @@ const runRows = [...sortedRuns].reverse().map((run) => {
   };
 });
 const recentRuns = sortedRuns.slice(0, 10);
+const pressureRunIds = new Set(sourceHealth.coverage
+  .filter((row) => row.source === "pressure")
+  .map((row) => row.run_id));
 ```
 
 # Pipeline monitoring
@@ -171,7 +174,7 @@ display(html`<section class="pipeline-health pipeline-health-${healthState}" dat
     <div>
       <span class="detail-label">Affected scope</span>
       <strong>${latestCoverageExceptions.length
-        ? `${latestCoverageExceptions.length} of ${locations.length * sourceOrder.length} source checks`
+        ? `${latestCoverageExceptions.length} of ${latestCoverageRows.length} source checks`
         : "No current source exceptions"}</strong>
     </div>
     <div>
@@ -331,16 +334,19 @@ const coverageMatrix = locations.map((location) => ({
     const row = coverageRows.find((item) =>
       item.location_id === location.location_id && item.source === source
     );
-    const status = row?.status ?? "not_recorded";
+    const applicable = source !== "pressure" || pressureRunIds.has(coverageRunId);
+    const status = row?.status ?? (applicable ? "not_recorded" : "not_applicable");
     return {source, status, label: statusMeaning(status), key: statusKey(status)};
   })
 }));
 const coverageExceptions = coverageMatrix.flatMap((row) =>
   row.cells
-    .filter((cell) => cell.status !== "success")
+    .filter((cell) => cell.status !== "success" && cell.status !== "not_applicable")
     .map((cell) => ({location: row.location, ...cell}))
 );
-const coverageCheckCount = locations.length * sourceOrder.length;
+const coverageCheckCount = coverageMatrix
+  .flatMap((row) => row.cells)
+  .filter((cell) => cell.status !== "not_applicable").length;
 const coverageSummary = coverageExceptions.length
   ? `${coverageExceptions.length} of ${coverageCheckCount} source checks need attention.`
   : `All ${coverageCheckCount} source checks succeeded.`;

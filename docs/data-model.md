@@ -91,6 +91,10 @@ support those values.
 - `sst_hourly` stores sea-surface-temperature values
 - `tide_phase_hourly` stores deterministic hourly tide phase
 - `cloud_cover_hourly` stores optional source-attributable cloud-cover percent
+- `atmospheric_context_hourly` stores optional NBM air temperature and apparent
+  temperature
+- `pressure_context_hourly` stores optional GFS mean sea level barometric
+  pressure with its own source snapshot
 - `solar_context_hourly` stores deterministic morning-twilight start and
   evening-twilight end at the civil-twilight boundary (sun six degrees below
   the horizon), sunrise, sunset, solar state, and signed relative solar minutes
@@ -166,9 +170,13 @@ view. Missing normalized values and unavailable bracketing tide context remain
 null. The views do not interpolate, carry values forward, round, tolerate, or
 generate timestamps.
 
-Cloud cover is optional weather context. Missing, null, invalid, or incomplete
-cloud values remain null and do not change weather availability or technical
-eligibility. Solar values remain null for legacy or unavailable display context.
+Cloud cover and NBM atmospheric context are optional. Missing, malformed, null,
+nonfinite, or incomplete values remain null and do not change weather
+availability or technical eligibility. GFS pressure is independently optional:
+its visible source failure leaves pressure unavailable without failing the run
+or changing eligibility. Solar values remain null for legacy or unavailable
+display context. These values are informational only and do not add fishing
+scores, recommendations, or interpretations.
 
 Solar events use the forecast hour's local calendar date in the persisted IANA
 timezone. `minutes_from_sunrise` and `minutes_from_sunset` are signed elapsed

@@ -84,9 +84,11 @@ A rejected source result records an outcome but does not write an
 accepted snapshot or normalized rows for that result. Unrelated sources and
 locations continue processing.
 
-Forecast-source fetch and validation failures are isolated. A source persistence
-failure is recorded as `persistence_failed` and aborts the pipeline run because
-canonical environmental state cannot be completed safely.
+Required forecast-source fetch and validation failures are isolated. A required
+source persistence failure is recorded as `persistence_failed` and aborts the
+pipeline run because canonical environmental state cannot be completed safely.
+Supplemental GFS pressure persistence failure is recorded but does not abort an
+otherwise valid run; pressure remains unavailable for that run.
 
 Fishing observation sources are isolated from forecast ingestion and from each
 other. A fetch, parse, or observation-persistence failure preserves existing
@@ -115,6 +117,10 @@ patterns, candidate-pattern links, dispositions, and ingestion attempts.
 See [data-model.md](data-model.md) for the persisted model.
 
 ## Reporting boundary
+
+NBM remains the required weather source. GFS pressure is separately retained
+supplemental context: its failures are recorded without failing an otherwise
+successful pipeline run. See [ADR 0015](decisions/0015-supplemental-gfs-pressure-context.md).
 
 The integrated view remains downstream from ingestion. It uses the distinct
 union of normalized source keys and exact run, location, and UTC-hour joins.

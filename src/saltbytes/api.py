@@ -20,7 +20,15 @@ WEATHER_API = {
         "precipitation_probability",
         "precipitation",
         "cloud_cover",
+        "temperature_2m",
+        "apparent_temperature",
     ),
+}
+PRESSURE_API = {
+    "base_url": "https://api.open-meteo.com/v1/forecast",
+    "model": "ncep_gfs025",
+    "forecast_days": 7,
+    "hourly_fields": ("pressure_msl",),
 }
 WEATHER_REQUIRED_HOURLY_FIELDS = (
     "wind_speed_10m",
@@ -144,6 +152,36 @@ def fetch_forecast(
     if not isinstance(payload, dict):
         raise ValueError("forecast api response must contain a json object")
 
+    return payload
+
+
+def build_pressure_params(location: dict[str, Any]) -> dict[str, Any]:
+    request_coordinate = location["pressure"]["request_coordinate"]
+    return {
+        "latitude": request_coordinate["latitude"],
+        "longitude": request_coordinate["longitude"],
+        "models": PRESSURE_API["model"],
+        "forecast_days": PRESSURE_API["forecast_days"],
+        "hourly": ",".join(PRESSURE_API["hourly_fields"]),
+        "timezone": "GMT",
+    }
+
+
+def fetch_pressure_forecast(
+    location: dict[str, Any],
+    timeout_seconds: float = 10.0,
+    client: httpx.Client | None = None,
+) -> dict[str, Any]:
+    payload = _fetch_open_meteo_payload(
+        PRESSURE_API["base_url"],
+        build_pressure_params(location),
+        timeout_seconds,
+        client,
+        "pressure",
+        location["id"],
+    )
+    if not isinstance(payload, dict):
+        raise ValueError("pressure forecast api response must contain a json object")
     return payload
 
 

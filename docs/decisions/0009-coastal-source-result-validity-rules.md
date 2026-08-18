@@ -38,6 +38,11 @@ The atmospheric request must use selector `ncep_nbm_conus` and request:
 - `precipitation_probability`
 - `precipitation`
 
+Cloud cover, air temperature, and apparent temperature may be requested as
+optional display context. Their absence or unusable values do not reject the
+NBM weather result. Supplemental GFS pressure responsibility is governed by
+[ADR 0015](0015-supplemental-gfs-pressure-context.md).
+
 The wave request must use selector `meteofrance_wave` and request:
 
 - `wave_height`
@@ -122,9 +127,10 @@ captured source result.
 Incomplete, spatially unexpected, or untraceable results cannot enter
 normalization as though they satisfied the approved contract.
 
-Weather, wave, sea-surface-temperature, and tide failures remain independently
-observable. No partial normalization occurs within a rejected result, and a
-failure does not invalidate unrelated successful source results.
+Weather, supplemental pressure, wave, sea-surface-temperature, and tide
+failures remain independently observable. No partial normalization occurs
+within a rejected required-source result, and a failure does not invalidate
+unrelated successful source results.
 
 No runtime fallback, tolerance tuning, geographic inference, or alternate-model
 selection is authorized.

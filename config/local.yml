@@ -20,6 +20,10 @@ locations:
         latitude: 35.89557
         longitude: -75.5936
       coastal_regime: Atlantic coastal grid
+    pressure:
+      request_coordinate: {latitude: 35.9096355, longitude: -75.5966537}
+      expected_returned_coordinate: {latitude: 35.75, longitude: -75.75}
+      coastal_regime: GFS 0.25 degree atmospheric grid
     wave:
       request_coordinate:
         latitude: 35.91
@@ -69,6 +73,10 @@ locations:
         latitude: 35.101955
         longitude: -75.983315
       coastal_regime: Ocean-side coastal grid
+    pressure:
+      request_coordinate: {latitude: 35.0868922, longitude: -75.9844152}
+      expected_returned_coordinate: {latitude: 35.0, longitude: -76.0}
+      coastal_regime: GFS 0.25 degree atmospheric grid
     wave:
       request_coordinate:
         latitude: 35.0868922
@@ -118,6 +126,10 @@ locations:
         latitude: 34.68586
         longitude: -76.717896
       coastal_regime: Atlantic coastal grid
+    pressure:
+      request_coordinate: {latitude: 34.6933, longitude: -76.7117}
+      expected_returned_coordinate: {latitude: 34.75, longitude: -76.5}
+      coastal_regime: GFS 0.25 degree atmospheric grid
     wave:
       request_coordinate:
         latitude: 34.65
@@ -167,6 +179,10 @@ locations:
         latitude: 34.671284
         longitude: -76.996414
       coastal_regime: Atlantic coastal grid
+    pressure:
+      request_coordinate: {latitude: 34.6601236, longitude: -77.0337424}
+      expected_returned_coordinate: {latitude: 34.75, longitude: -77.0}
+      coastal_regime: GFS 0.25 degree atmospheric grid
     wave:
       request_coordinate:
         latitude: 34.6579882
@@ -216,6 +232,10 @@ locations:
         latitude: 33.954144
         longitude: -77.93454
       coastal_regime: Atlantic coastal grid
+    pressure:
+      request_coordinate: {latitude: 33.9534, longitude: -77.929}
+      expected_returned_coordinate: {latitude: 34.0, longitude: -78.0}
+      coastal_regime: GFS 0.25 degree atmospheric grid
     wave:
       request_coordinate:
         latitude: 33.93
@@ -265,6 +285,10 @@ locations:
         latitude: 33.875553
         longitude: -78.49414
       coastal_regime: Southern North Carolina Atlantic coastal grid
+    pressure:
+      request_coordinate: {latitude: 33.865, longitude: -78.5067}
+      expected_returned_coordinate: {latitude: 34.0, longitude: -78.5}
+      coastal_regime: GFS 0.25 degree atmospheric grid
     wave:
       request_coordinate:
         latitude: 33.8389394
@@ -314,6 +338,10 @@ locations:
         latitude: 35.898766
         longitude: -75.62099
       coastal_regime: Roanoke Sound atmospheric grid
+    pressure:
+      request_coordinate: {latitude: 35.898075, longitude: -75.61635}
+      expected_returned_coordinate: {latitude: 35.75, longitude: -75.75}
+      coastal_regime: GFS 0.25 degree atmospheric grid
     wave:
       request_coordinate:
         latitude: 35.8980750

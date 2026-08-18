@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from saltbytes.api import (
+    PRESSURE_API,
     SST_API,
     TIDE_API,
     WAVE_API,
@@ -13,6 +14,7 @@ from saltbytes.api import (
     WEATHER_REQUIRED_HOURLY_FIELDS,
     build_tide_params,
     fetch_forecast,
+    fetch_pressure_forecast,
     fetch_sst_forecast,
     fetch_tide_predictions,
     fetch_wave_forecast,
@@ -169,7 +171,6 @@ def _run_pipeline(
                         "expected_returned_coordinate"
                     ],
                     source_label="weather",
-                    optional_hourly_fields=("cloud_cover",),
                 )
 
             failed_weather_checks = [
@@ -281,6 +282,112 @@ def _run_pipeline(
                     location["id"],
                     weather_rows_loaded,
                 )
+
+            pressure_payload = None
+            if "pressure" in location:
+                pressure_request_coordinate = location["pressure"]["request_coordinate"]
+                try:
+                    pressure_payload = fetch_pressure_forecast(
+                        location=location,
+                        client=open_meteo_client,
+                    )
+                except Exception as error:
+                    logger.exception(
+                        "pressure API fetch failed run_id=%s location=%s",
+                        run_id,
+                        location["id"],
+                    )
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="pressure",
+                        status="fetch_failed",
+                        detail=str(error),
+                        recorded_at=datetime.now(timezone.utc),
+                    )
+
+            if pressure_payload is not None:
+                pressure_quality_results = run_payload_quality_checks(
+                    payload=pressure_payload,
+                    expected_hourly_fields=PRESSURE_API["hourly_fields"],
+                    expected_returned_coordinate=location["pressure"][
+                        "expected_returned_coordinate"
+                    ],
+                    source_label="pressure",
+                )
+                failed_pressure_checks = [
+                    result for result in pressure_quality_results if result["status"] == "fail"
+                ]
+                if failed_pressure_checks:
+                    failed_check_names = ", ".join(
+                        str(result["check_name"]) for result in failed_pressure_checks
+                    )
+                    logger.error(
+                        "pressure quality checks failed run_id=%s location=%s checks=%s",
+                        run_id,
+                        location["id"],
+                        failed_check_names,
+                    )
+                    insert_source_result(
+                        database_path=database_path,
+                        run_id=run_id,
+                        location_id=location["id"],
+                        source="pressure",
+                        status="validation_failed",
+                        detail=failed_check_names,
+                        recorded_at=datetime.now(timezone.utc),
+                    )
+                else:
+                    persistence_stage = "raw snapshot"
+                    try:
+                        pressure_metadata = write_raw_snapshot(
+                            payload=pressure_payload,
+                            location_id=location["id"],
+                            raw_data_path=raw_data_path,
+                            run_id=run_id,
+                            run_started_at=started_at,
+                        )
+                        persistence_stage = "snapshot metadata"
+                        pressure_metadata.update(
+                            {
+                                "model_selector": PRESSURE_API["model"],
+                                "request_latitude": pressure_request_coordinate["latitude"],
+                                "request_longitude": pressure_request_coordinate["longitude"],
+                                "returned_latitude": pressure_payload["latitude"],
+                                "returned_longitude": pressure_payload["longitude"],
+                            }
+                        )
+                        rows_loaded += persist_source_success(
+                            database_path=database_path,
+                            run_id=run_id,
+                            location_id=location["id"],
+                            source="pressure",
+                            metadata=pressure_metadata,
+                            payload=pressure_payload,
+                            recorded_at=datetime.now(timezone.utc),
+                        )
+                        snapshots_written += 1
+                    except Exception as error:
+                        persistence_stage, detail = _persistence_failure_detail(
+                            persistence_stage,
+                            error,
+                        )
+                        logger.exception(
+                            "pressure source persistence failed run_id=%s location=%s stage=%s",
+                            run_id,
+                            location["id"],
+                            persistence_stage,
+                        )
+                        insert_source_result(
+                            database_path=database_path,
+                            run_id=run_id,
+                            location_id=location["id"],
+                            source="pressure",
+                            status="persistence_failed",
+                            detail=detail,
+                            recorded_at=datetime.now(timezone.utc),
+                        )
 
             logger.info(
                 "wave processing started run_id=%s location=%s",

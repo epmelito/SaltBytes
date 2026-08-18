@@ -704,6 +704,8 @@ async function assertPipelineMonitoring(page) {
       matrixRows: matrixRows.length,
       matrixColumns: matrix?.querySelectorAll("thead th").length ?? 0,
       attentionCells: matrix?.querySelectorAll(".coverage-failed, .coverage-missing").length ?? 0,
+      notApplicableCells: [...(matrix?.querySelectorAll("td") ?? [])]
+        .filter((cell) => cell.textContent.trim() === "Not applicable").length,
       latestRows: latestRows.length,
       shortIds,
       detailsClosed: details ? !details.open : false,
@@ -733,7 +735,7 @@ async function assertPipelineMonitoring(page) {
   if (
     state.healthState !== "degraded"
     || !state.healthText.includes("partial forecast data remains available")
-    || !state.healthText.includes("6 of 20 source checks")
+    || !state.healthText.includes("6 of 25 source checks")
     || state.activeCount !== 6
     || !state.activeText.some((item) => item.includes("Fetch failed"))
     || !state.activeText.some((item) => item.includes("Not recorded"))
@@ -742,8 +744,9 @@ async function assertPipelineMonitoring(page) {
   }
   if (
     state.matrixRows !== 5
-    || state.matrixColumns !== 5
+    || state.matrixColumns !== 6
     || state.attentionCells !== 6
+    || state.notApplicableCells !== 0
     || state.latestRows < 1
     || state.latestRows > 10
     || state.shortIds.some((item) => !item.text.includes("…") || item.full.length <= item.text.length)
@@ -798,7 +801,7 @@ async function assertPipelineMonitoring(page) {
     summary: document.querySelector(".pipeline-section-summary strong")?.textContent ?? "",
     attentionCells: document.querySelectorAll(".pipeline-matrix .coverage-failed, .pipeline-matrix .coverage-missing").length
   }));
-  if (!selectedCoverage.summary.includes("All 20 source checks succeeded") || selectedCoverage.attentionCells !== 0) {
+  if (!selectedCoverage.summary.includes("All 25 source checks succeeded") || selectedCoverage.attentionCells !== 0) {
     throw new Error(`Pipeline coverage selection did not update: ${JSON.stringify(selectedCoverage)}`);
   }
 }
@@ -870,6 +873,9 @@ async function assertConditionsHierarchy(page, verifyDetails = false) {
     const handoff = document.querySelector(".species-handoff");
     const current = document.querySelector(".conditions-current");
     const text = document.querySelector("#observablehq-main")?.textContent ?? "";
+    const currentText = current?.textContent ?? "";
+    const groups = [...(current?.querySelectorAll(".conditions-current-group") ?? [])]
+      .map((group) => group.textContent ?? "");
     return headings.indexOf("Current coastal conditions") >= 0
       && headings.indexOf("Current coastal conditions") < headings.indexOf("Upcoming changes")
       && headings.indexOf("Upcoming changes") < headings.indexOf("Supporting evidence and limitations")
@@ -878,6 +884,14 @@ async function assertConditionsHierarchy(page, verifyDetails = false) {
       && !text.includes("What SaltBytes cannot observe")
       && !text.includes("Assessment factors and confidence")
       && !document.querySelector(".conditions-assessment")
+      && currentText.includes("Air temperature")
+      && currentText.includes("Barometric pressure")
+      && currentText.includes("Sky and sun")
+      && groups.length === 2
+      && groups[0].includes("Coastal conditions")
+      && ["Wind", "Waves", "Water temperature", "Tide"].every((label) => groups[0].includes(label))
+      && groups[1].includes("Weather and sky")
+      && ["Air temperature", "Barometric pressure", "Sky and sun", "Precipitation"].every((label) => groups[1].includes(label))
       && current.querySelector(".conditions-tide-details summary")?.textContent.includes("Tide details");
   });
 
@@ -965,7 +979,7 @@ async function assertSpeciesAssessments(page, base, errors) {
 
 async function assertConditionsVisualizations(page, available) {
   await page.waitForFunction(() => document.querySelector(".shore-direction")
-    && document.querySelectorAll(".trend-track svg").length === 3);
+    && document.querySelectorAll(".trend-track svg").length === 5);
   const readiness = await page.evaluate(() => {
     const trendStory = document.querySelector(".forecast-context");
     const tide = document.querySelector(".tide-timing, .visual-unavailable");
@@ -973,7 +987,7 @@ async function assertConditionsVisualizations(page, available) {
     const selectedRules = document.querySelectorAll(".selected-time-rule");
     return {
       trendStory: Boolean(trendStory),
-      trendTracks: document.querySelectorAll(".forecast-surface").length === 3,
+      trendTracks: document.querySelectorAll(".forecast-surface").length === 5,
       selectedRules: selectedRules.length,
       tide: Boolean(tide),
       direction: Boolean(direction),
@@ -983,7 +997,7 @@ async function assertConditionsVisualizations(page, available) {
   if (
     !readiness.trendStory
     || !readiness.trendTracks
-    || readiness.selectedRules !== 3
+    || readiness.selectedRules !== 5
     || !readiness.tide
     || !readiness.direction
     || readiness.oldChartGrid
@@ -1032,6 +1046,16 @@ async function assertConditionsVisualizations(page, available) {
       })(),
       gridMaxWidth: Number.parseFloat(getComputedStyle(visualGrid).maxWidth),
       plotLayouts,
+      airTemperatureSolid: (() => {
+        const line = document.querySelector(".forecast-air-temperature .air-temperature-line");
+        return Boolean(line) && getComputedStyle(line).strokeDasharray === "none";
+      })(),
+      apparentTemperatureDashed: (() => {
+        const line = document.querySelector(".forecast-air-temperature .apparent-temperature-line");
+        return Boolean(line) && getComputedStyle(line).strokeDasharray !== "none";
+      })(),
+      pressureTrend: Boolean(document.querySelector(".forecast-pressure .pressure-line")),
+      noCloudOrSolarTrend: !document.querySelector(".forecast-cloud, .forecast-solar"),
       tideBox: tide?.querySelector("svg")?.getBoundingClientRect(),
       tideMarker: tide?.querySelector(".tide-selected")?.getBoundingClientRect().left,
       arrows: directionPanels.map((panel) => {
@@ -1063,11 +1087,15 @@ async function assertConditionsVisualizations(page, available) {
     || visualState.duplicateLocalTimeTicks
     || !Number.isFinite(visualState.gridMaxWidth)
     || visualState.gridMaxWidth > 1152.5
-    || visualState.plotLayouts.length !== 3
+    || visualState.plotLayouts.length !== 5
     || visualState.plotLayouts.some((layout) => !Number.isFinite(layout.svgWidth)
       || Math.abs(layout.trackWidth - layout.svgWidth) > 2
       || layout.svgHeight < 200
       || layout.svgHeight > 300)
+    || !visualState.airTemperatureSolid
+    || !visualState.apparentTemperatureDashed
+    || !visualState.pressureTrend
+    || !visualState.noCloudOrSolarTrend
     || visualState.tideBox.width > 1024
     || visualState.tideBox.height > 300
     || visualState.arrows.length !== 2
@@ -1098,11 +1126,64 @@ async function assertConditionsVisualizations(page, available) {
   return visualState;
 }
 
+async function assertConditionsUnavailableContextAndSolarRollover(page, base, errors) {
+  const conditionsPattern = "**/conditions.*.json";
+  const handler = async (route) => {
+    const response = await route.fetch();
+    const conditions = await response.json();
+    const selected = conditions.find((row) => row.location_id === "jennettes_pier");
+    if (!selected) throw new Error("Conditions fixture has no Jennette's Pier row");
+    const rollover = {
+      ...selected,
+      forecast_time: "2026-08-03T12:00:00Z",
+      sunrise: "2026-08-03T10:00:00Z",
+      sunset: "2026-08-03T22:00:00Z",
+      air_temperature: null,
+      apparent_temperature: null,
+      pressure_msl: null
+    };
+    for (const row of conditions) {
+      row.air_temperature = null;
+      row.apparent_temperature = null;
+      row.pressure_msl = null;
+      row.sunrise = "2026-08-02T06:00:00Z";
+      row.sunset = "2026-08-02T10:00:00Z";
+    }
+    conditions.push(rollover);
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify(conditions)
+    });
+  };
+  await page.route(conditionsPattern, handler);
+  await openPage(page, `${base}/conditions`, errors);
+  await page.waitForFunction(() => document.querySelector(".forecast-pressure"));
+  const state = await page.evaluate(() => ({
+    text: document.querySelector(".conditions-current")?.textContent ?? "",
+    unavailable: [...document.querySelectorAll(".visual-data-unavailable")]
+      .map((notice) => notice.textContent),
+    airLine: Boolean(document.querySelector(".air-temperature-line, .apparent-temperature-line")),
+    pressureLine: Boolean(document.querySelector(".pressure-line"))
+  }));
+  if (
+    !state.text.includes("Sunrise in 22h")
+    || !state.unavailable.includes("Air temperature and feels-like temperature are unavailable in this forecast.")
+    || !state.unavailable.includes("Barometric pressure is unavailable in this forecast.")
+    || state.airLine
+    || state.pressureLine
+  ) {
+    throw new Error(`Conditions unavailable context is incorrect: ${JSON.stringify(state)}`);
+  }
+  await assertHealthy(page, errors, "Conditions unavailable context");
+  await page.unroute(conditionsPattern, handler);
+}
+
 
 async function assertDataProvenance(page) {
   await page.waitForFunction(() =>
     document.querySelector('.provenance-verdict[data-traceability-state="complete"]')
-      && document.querySelectorAll(".provenance-source-option").length === 4
+      && document.querySelectorAll(".provenance-source-option").length === 5
       && document.querySelectorAll(".provenance-lineage li").length === 4
   );
 
@@ -1121,7 +1202,7 @@ async function assertDataProvenance(page) {
       )
     ]));
     const columnsAligned = Object.values(columnPositions).every((positions) =>
-      positions.length === 4
+      positions.length === 5
         && positions.every((position) => Number.isFinite(position))
         && Math.max(...positions) - Math.min(...positions) < 1
     );
@@ -1165,15 +1246,15 @@ async function assertDataProvenance(page) {
     initial.pageTitle !== "Forecast sources"
     || !initial.introText.includes("providers support the latest published forecast")
     || initial.verdictState !== "complete"
-    || initial.headline !== "Details are available for all four forecast sources"
+    || initial.headline !== "Details are available for all 5 forecast sources"
     || !initial.verdictText.includes("Jennette's Pier")
-    || !initial.verdictText.includes("4 of 4")
-    || initial.sourceRows.length !== 4
+    || !initial.verdictText.includes("5 of 5")
+    || initial.sourceRows.length !== 5
     || initial.sourceRows.some((row) => row.state !== "complete")
     || initial.sourceRows.filter((row) => row.selected === "true").length !== 1
     || initial.sourceRows.find((row) => row.selected === "true")?.source !== "weather"
     || !initial.sourceRows.some((row) => row.text.includes("NOAA Tides and Currents"))
-    || initial.sourceRows.filter((row) => row.text.includes("Open-Meteo")).length !== 3
+    || initial.sourceRows.filter((row) => row.text.includes("Open-Meteo")).length !== 4
     || initial.sourceRows.some((row) => row.text.includes("Traceable"))
     || initial.sourceRows.some((row) => !row.text.includes("Available"))
     || !initial.columnsAligned
@@ -1292,94 +1373,56 @@ async function assertDataProvenance(page) {
   }
 }
 
-async function assertDataProvenanceIncompleteStates(page, base, errors) {
-  const provenancePattern = "**/provenance.*.json";
-  const longSnapshotId = `snapshot-${"x".repeat(220)}`;
-  const incompleteHandler = async (route) => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    const targetLocation = payload[0].location_id;
-    const modified = payload.map((row) => {
-      if (row.location_id !== targetLocation) return row;
-      if (row.source === "weather") {
-        return {...row, captured_at: null, model_selector: null};
-      }
-      if (row.source === "wave") {
-        return {...row, snapshot_id: null, captured_at: null, model_selector: null};
-      }
-      if (row.source === "sst") {
-        return {...row, snapshot_id: longSnapshotId};
-      }
-      return row;
-    });
-    await route.fulfill({
-      response,
-      contentType: "application/json",
-      body: JSON.stringify(modified)
-    });
-  };
-
-  await page.route(provenancePattern, incompleteHandler);
-  await openPage(page, `${base}/data-provenance`, errors);
-  await page.waitForFunction(() =>
-    document.querySelector(".provenance-verdict")?.dataset.traceabilityState === "attention"
+async function assertPressureOperationsCoverage() {
+  const fixtureDirectory = resolve(dist, "..", "src", "data");
+  const sourceHealth = JSON.parse(await readFile(join(fixtureDirectory, "source-health.json"), "utf8"));
+  const provenance = JSON.parse(await readFile(join(fixtureDirectory, "provenance.json"), "utf8"));
+  const legacySources = ["weather", "wave", "sst", "tide"];
+  const pressureSources = ["weather", "pressure", "wave", "sst", "tide"];
+  const expectedFor = (rows) => pressureSources.filter((source) =>
+    rows.some((row) => row.source === source)
   );
+  const traceability = (row) => !row?.snapshot_id
+    ? "missing"
+    : !row.captured_at || !(row.source === "tide" ? row.station_id : row.model_selector)
+      ? "incomplete"
+      : "complete";
 
-  const state = await page.evaluate(() => ({
-    headline: document.querySelector(".provenance-verdict h2")?.textContent.trim() ?? "",
-    verdictText: document.querySelector(".provenance-verdict")?.textContent.trim() ?? "",
-    incompleteRows: document.querySelectorAll(
-      '.provenance-source-option[data-traceability-state="incomplete"]'
-    ).length,
-    missingRows: document.querySelectorAll(
-      '.provenance-source-option[data-traceability-state="missing"]'
-    ).length,
-    completeRows: document.querySelectorAll(
-      '.provenance-source-option[data-traceability-state="complete"]'
-    ).length,
-    exceptionItems: document.querySelectorAll(".provenance-exception-list li").length,
-    pageWidth: document.documentElement.scrollWidth,
-    viewportWidth: document.documentElement.clientWidth
-  }));
-
+  const selectedLocation = provenance[0]?.location_id;
+  const selectedProvenance = provenance.filter((row) => row.location_id === selectedLocation);
+  const preIntroduction = selectedProvenance.filter((row) => row.source !== "pressure");
+  const incomplete = preIntroduction.map((row) => row.source === "weather"
+    ? {...row, captured_at: null, model_selector: null}
+    : row.source === "wave"
+      ? {...row, snapshot_id: null, captured_at: null, model_selector: null}
+      : row
+  );
+  const incompleteStates = incomplete.map(traceability);
   if (
-    state.headline !== "2 forecast sources need attention"
-    || !state.verdictText.includes("2 of 4")
-    || !state.verdictText.includes("Weather")
-    || !state.verdictText.includes("Wave")
-    || state.incompleteRows !== 1
-    || state.missingRows !== 1
-    || state.completeRows !== 2
-    || state.exceptionItems !== 2
-    || state.pageWidth > state.viewportWidth
+    expectedFor(preIntroduction).join(",") !== legacySources.join(",")
+    || incompleteStates.filter((state) => state === "incomplete").length !== 1
+    || incompleteStates.filter((state) => state === "missing").length !== 1
   ) {
-    throw new Error(`Forecast sources incomplete state is incorrect: ${JSON.stringify(state)}`);
+    throw new Error("Pre-pressure Forecast sources fixture state is incorrect");
   }
 
-  await page.locator('[data-provenance-source="sst"]').click();
-  await page.waitForFunction(() =>
-    document.querySelector(".provenance-source-inspector")?.dataset.selectedSource === "sst"
+  const historicalRun = "run-20260802T120000Z";
+  const currentRun = "run-20260802T180000Z";
+  const historicalCoverage = sourceHealth.coverage.filter((row) => row.run_id === historicalRun);
+  const failedPressureCoverage = sourceHealth.coverage.map((row) =>
+    row.run_id === currentRun && row.source === "pressure"
+      ? {...row, status: "fetch_failed"}
+      : row
   );
-  const details = page.locator(".provenance-details");
-  await details.locator("summary").press("Enter");
-  await page.waitForFunction(() => document.querySelector(".provenance-details")?.open);
-  const identifier = page.locator('[data-provenance-identifier="snapshot"]');
-  const identifierState = await identifier.evaluate((element) => ({
-    text: element.textContent,
-    width: element.getBoundingClientRect().width,
-    parentWidth: element.parentElement.getBoundingClientRect().width,
-    pageWidth: document.documentElement.scrollWidth,
-    viewportWidth: document.documentElement.clientWidth
-  }));
   if (
-    identifierState.text !== longSnapshotId
-    || identifierState.width > identifierState.parentWidth + 1
-    || identifierState.pageWidth > identifierState.viewportWidth
+    expectedFor(selectedProvenance).join(",") !== pressureSources.join(",")
+    || historicalCoverage.some((row) => row.source === "pressure") === false
+    || failedPressureCoverage.filter((row) =>
+      row.run_id === currentRun && row.source === "pressure" && row.status === "fetch_failed"
+    ).length !== 5
   ) {
-    throw new Error(`Forecast sources long identifier handling failed: ${JSON.stringify(identifierState)}`);
+    throw new Error("Pressure Operations fixture state is incorrect");
   }
-
-  await page.unroute(provenancePattern, incompleteHandler);
 }
 
 async function run() {
@@ -1441,6 +1484,7 @@ async function run() {
 
     await assertConditionsAssessmentHandoff(page, base, errors);
     await assertSpeciesAssessments(page, base, errors);
+    await assertConditionsUnavailableContextAndSolarRollover(page, base, errors);
 
     await openPage(page, `${base}/forecast-revisions`, errors);
     await assertShell(page, "Operations and product health", "Forecast revisions");
@@ -1467,7 +1511,7 @@ async function run() {
     await page.waitForFunction(() => document.querySelectorAll("select").length === 1);
     await assertDataProvenance(page);
     await assertHealthy(page, errors, "Forecast sources");
-    await assertDataProvenanceIncompleteStates(page, base, errors);
+    await assertPressureOperationsCoverage();
 
     await assertThemeBehavior(page, base, errors);
 

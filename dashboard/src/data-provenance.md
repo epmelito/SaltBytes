@@ -17,7 +17,10 @@ const manifest = await FileAttachment("./data/manifest.json").json();
 const locations = await FileAttachment("./data/locations.json").json();
 const provenance = await FileAttachment("./data/provenance.json").json();
 
-const expectedSources = ["weather", "wave", "sst", "tide"];
+const sourceOrder = ["weather", "pressure", "wave", "sst", "tide"];
+const expectedSources = sourceOrder.filter((source) =>
+  provenance.some((row) => row.source === source)
+);
 
 function providerName(source) {
   return source === "tide" ? "NOAA Tides and Currents" : "Open-Meteo";
@@ -143,6 +146,9 @@ const disclosureState = {source: false, location: false};
 function preserveDisclosureState(element, key) {
   if (!element) return element;
   element.open = disclosureState[key];
+  element.querySelector("summary")?.addEventListener("click", () => {
+    disclosureState[key] = !element.open;
+  });
   element.addEventListener("toggle", () => {
     disclosureState[key] = element.open;
   });
@@ -257,12 +263,12 @@ display(html`
 >
   <p class="provenance-eyebrow">Source details</p>
   <h2>${traceabilityGaps.length === 0
-    ? "Details are available for all four forecast sources"
+    ? `Details are available for all ${expectedSources.length} forecast sources`
     : `${traceabilityGaps.length} forecast ${traceabilityGaps.length === 1 ? "source needs" : "sources need"} attention`}</h2>
   <p class="provenance-verdict-summary">
     ${traceabilityGaps.length === 0
       ? `Each source used for ${locationName(locationId, locations)} links to identified source data from the latest successful update.`
-      : `${completeSourceCount} of 4 forecast sources for ${locationName(locationId, locations)} have saved source details.`}
+      : `${completeSourceCount} of ${expectedSources.length} forecast sources for ${locationName(locationId, locations)} have saved source details.`}
   </p>
   ${traceabilityGaps.length === 0 ? null : html`
     <ul class="provenance-exception-list">
@@ -282,7 +288,7 @@ display(html`
     </div>
     <div>
       <span>Sources with details</span>
-      <strong>${completeSourceCount} of 4</strong>
+      <strong>${completeSourceCount} of ${expectedSources.length}</strong>
     </div>
   </div>
 </section>
@@ -395,7 +401,9 @@ display(html`
     <span>1</span>
     <div>
       <h3>Source data</h3>
-      <p>Weather, wave, water temperature, and tide data come from the providers listed above.</p>
+      <p>${expectedSources.includes("pressure")
+        ? "Weather, pressure, wave, water temperature, and tide data come from the providers listed above."
+        : "Weather, wave, water temperature, and tide data come from the providers listed above."}</p>
     </div>
   </li>
   <li data-lineage-stage="snapshot">

@@ -1,7 +1,280 @@
 {
   "coverage": [
     {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "pressure",
+      "status": "success"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "sst",
+      "status": "success"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "tide",
+      "status": "success"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "wave",
+      "status": "success"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "weather",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "pressure",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "sst",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "tide",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "wave",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "weather",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "pressure",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "sst",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "tide",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "wave",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "weather",
+      "status": "success"
+    },
+    {
       "location_id": "jennettes_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "pressure",
+      "status": "success"
+    },
+    {
+      "location_id": "jennettes_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "sst",
+      "status": "success"
+    },
+    {
+      "location_id": "jennettes_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "tide",
+      "status": "success"
+    },
+    {
+      "location_id": "jennettes_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "wave",
+      "status": "success"
+    },
+    {
+      "location_id": "jennettes_pier",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "weather",
+      "status": "success"
+    },
+    {
+      "location_id": "ocracoke_ramp_72",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "pressure",
+      "status": "success"
+    },
+    {
+      "location_id": "ocracoke_ramp_72",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "sst",
+      "status": "success"
+    },
+    {
+      "location_id": "ocracoke_ramp_72",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "tide",
+      "status": "success"
+    },
+    {
+      "location_id": "ocracoke_ramp_72",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "wave",
+      "status": "success"
+    },
+    {
+      "location_id": "ocracoke_ramp_72",
+      "run_id": "run-20260802T120000Z",
+      "run_started_at": "2026-08-02T12:00:00Z",
+      "source": "weather",
+      "status": "success"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "pressure",
+      "status": "success"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "sst",
+      "status": "validation_failed"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "tide",
+      "status": "success"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "wave",
+      "status": "success"
+    },
+    {
+      "location_id": "bogue_inlet_pier",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "weather",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "pressure",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "sst",
+      "status": "not_recorded"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "tide",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "wave",
+      "status": "fetch_failed"
+    },
+    {
+      "location_id": "fort_fisher",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "weather",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "pressure",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "sst",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "tide",
+      "status": "success"
+    },
+    {
+      "location_id": "fort_macon_ocean",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "wave",
+      "status": "validation_failed"
+    },
+    {
+      "location_id": "fort_macon_ocean",
       "run_id": "run-20260802T180000Z",
       "run_started_at": "2026-08-02T18:00:00Z",
       "source": "weather",
@@ -11,7 +284,7 @@
       "location_id": "jennettes_pier",
       "run_id": "run-20260802T180000Z",
       "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "wave",
+      "source": "pressure",
       "status": "success"
     },
     {
@@ -29,17 +302,24 @@
       "status": "success"
     },
     {
-      "location_id": "ocracoke_ramp_72",
+      "location_id": "jennettes_pier",
+      "run_id": "run-20260802T180000Z",
+      "run_started_at": "2026-08-02T18:00:00Z",
+      "source": "wave",
+      "status": "success"
+    },
+    {
+      "location_id": "jennettes_pier",
       "run_id": "run-20260802T180000Z",
       "run_started_at": "2026-08-02T18:00:00Z",
       "source": "weather",
-      "status": "fetch_failed"
+      "status": "success"
     },
     {
       "location_id": "ocracoke_ramp_72",
       "run_id": "run-20260802T180000Z",
       "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "wave",
+      "source": "pressure",
       "status": "success"
     },
     {
@@ -57,228 +337,18 @@
       "status": "not_recorded"
     },
     {
-      "location_id": "fort_macon_ocean",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "weather",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_macon_ocean",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "wave",
-      "status": "validation_failed"
-    },
-    {
-      "location_id": "fort_macon_ocean",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "sst",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_macon_ocean",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "tide",
-      "status": "success"
-    },
-    {
-      "location_id": "bogue_inlet_pier",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "weather",
-      "status": "success"
-    },
-    {
-      "location_id": "bogue_inlet_pier",
+      "location_id": "ocracoke_ramp_72",
       "run_id": "run-20260802T180000Z",
       "run_started_at": "2026-08-02T18:00:00Z",
       "source": "wave",
       "status": "success"
     },
     {
-      "location_id": "bogue_inlet_pier",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "sst",
-      "status": "validation_failed"
-    },
-    {
-      "location_id": "bogue_inlet_pier",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "tide",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_fisher",
+      "location_id": "ocracoke_ramp_72",
       "run_id": "run-20260802T180000Z",
       "run_started_at": "2026-08-02T18:00:00Z",
       "source": "weather",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_fisher",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "wave",
       "status": "fetch_failed"
-    },
-    {
-      "location_id": "fort_fisher",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "sst",
-      "status": "not_recorded"
-    },
-    {
-      "location_id": "fort_fisher",
-      "run_id": "run-20260802T180000Z",
-      "run_started_at": "2026-08-02T18:00:00Z",
-      "source": "tide",
-      "status": "success"
-    },
-    {
-      "location_id": "jennettes_pier",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "weather",
-      "status": "success"
-    },
-    {
-      "location_id": "jennettes_pier",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "wave",
-      "status": "success"
-    },
-    {
-      "location_id": "jennettes_pier",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "sst",
-      "status": "success"
-    },
-    {
-      "location_id": "jennettes_pier",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "tide",
-      "status": "success"
-    },
-    {
-      "location_id": "ocracoke_ramp_72",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "weather",
-      "status": "success"
-    },
-    {
-      "location_id": "ocracoke_ramp_72",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "wave",
-      "status": "success"
-    },
-    {
-      "location_id": "ocracoke_ramp_72",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "sst",
-      "status": "success"
-    },
-    {
-      "location_id": "ocracoke_ramp_72",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "tide",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_macon_ocean",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "weather",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_macon_ocean",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "wave",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_macon_ocean",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "sst",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_macon_ocean",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "tide",
-      "status": "success"
-    },
-    {
-      "location_id": "bogue_inlet_pier",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "weather",
-      "status": "success"
-    },
-    {
-      "location_id": "bogue_inlet_pier",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "wave",
-      "status": "success"
-    },
-    {
-      "location_id": "bogue_inlet_pier",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "sst",
-      "status": "success"
-    },
-    {
-      "location_id": "bogue_inlet_pier",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "tide",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_fisher",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "weather",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_fisher",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "wave",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_fisher",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "sst",
-      "status": "success"
-    },
-    {
-      "location_id": "fort_fisher",
-      "run_id": "run-20260802T120000Z",
-      "run_started_at": "2026-08-02T12:00:00Z",
-      "source": "tide",
-      "status": "success"
     }
   ],
   "failures": [
@@ -313,32 +383,39 @@
   ],
   "summary": [
     {
+      "source": "pressure",
+      "success_count": 10,
+      "failure_count": 0,
+      "missing_count": 0,
+      "success_rate_percent": 100
+    },
+    {
       "failure_count": 1,
       "missing_count": 1,
       "source": "sst",
       "success_count": 8,
-      "success_rate_percent": 80.0
+      "success_rate_percent": 80
     },
     {
       "failure_count": 0,
       "missing_count": 1,
       "source": "tide",
       "success_count": 9,
-      "success_rate_percent": 90.0
+      "success_rate_percent": 90
     },
     {
       "failure_count": 2,
       "missing_count": 0,
       "source": "wave",
       "success_count": 8,
-      "success_rate_percent": 80.0
+      "success_rate_percent": 80
     },
     {
       "failure_count": 1,
       "missing_count": 0,
       "source": "weather",
       "success_count": 9,
-      "success_rate_percent": 90.0
+      "success_rate_percent": 90
     }
   ]
 }
