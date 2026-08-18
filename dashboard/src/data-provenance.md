@@ -146,6 +146,9 @@ const disclosureState = {source: false, location: false};
 function preserveDisclosureState(element, key) {
   if (!element) return element;
   element.open = disclosureState[key];
+  element.querySelector("summary")?.addEventListener("click", () => {
+    disclosureState[key] = !element.open;
+  });
   element.addEventListener("toggle", () => {
     disclosureState[key] = element.open;
   });
