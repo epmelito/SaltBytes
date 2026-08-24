@@ -412,14 +412,14 @@ async function assertForecastRevisions(page) {
   const initial = await readState();
   if (
     initial.summaryState !== "available"
-    || initial.headline !== "Wind speed finished 1.4 km/h lower"
+    || initial.headline !== "Wind speed finished 0.9 mph lower"
     || !initial.contextText.includes("Jennette's Pier")
     || !initial.contextText.includes("Aug 02, 2026, 08:00 AM EDT")
     || initial.summaryText.includes("It varied from")
-    || initial.metrics.latest?.value !== "18.0 km/h"
-    || initial.metrics.earliest?.value !== "19.4 km/h"
-    || initial.metrics.range?.value !== "18.0–19.4 km/h"
-    || initial.metrics["largest-update"]?.value !== "−0.7 km/h"
+    || initial.metrics.latest?.value !== "11.2 mph"
+    || initial.metrics.earliest?.value !== "12.1 mph"
+    || initial.metrics.range?.value !== "11.2–12.1 mph"
+    || initial.metrics["largest-update"]?.value !== "−0.5 mph"
     || initial.metrics["changed-updates"]?.value !== "2 of 2"
   ) {
     throw new Error(`Forecast revision summary is incorrect: ${JSON.stringify(initial)}`);
@@ -456,10 +456,10 @@ async function assertForecastRevisions(page) {
   );
   const metricState = await readState();
   if (
-    metricState.headline !== "Wave height finished 0.20 m lower"
-    || metricState.metrics.latest?.value !== "1.20 m"
-    || metricState.metrics.range?.value !== "1.20–1.40 m"
-    || metricState.metrics["largest-update"]?.value !== "−0.10 m"
+    metricState.headline !== "Wave height finished 0.7 ft lower"
+    || metricState.metrics.latest?.value !== "3.9 ft"
+    || metricState.metrics.range?.value !== "3.9–4.6 ft"
+    || metricState.metrics["largest-update"]?.value !== "−0.4 ft"
     || metricState.metrics["changed-updates"]?.value !== "2 of 2"
   ) {
     throw new Error(`Forecast revisions measurement control is incorrect: ${JSON.stringify(metricState)}`);
@@ -559,8 +559,8 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
   const state = await readLongState();
   if (
     state.headline !== "Wind speed finished where it started"
-    || state.metrics.range !== "19.9–20.5 km/h"
-    || state.metrics["largest-update"] !== "−0.4 km/h"
+    || state.metrics.range !== "12.4–12.7 mph"
+    || state.metrics["largest-update"] !== "−0.2 mph"
     || state.metrics["changed-updates"] !== "5 of 5"
     || state.summaryText.includes("It varied from")
     || state.recentRows !== 5
@@ -582,15 +582,15 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
   );
   const waveState = await readLongState();
   if (
-    waveState.metrics.latest !== "0.62 m"
-    || waveState.metrics.range !== "0.58–0.64 m"
-    || waveState.metrics["largest-update"] !== "−0.04 m"
-    || waveState.metrics["changed-updates"] !== "5 of 6"
+    waveState.metrics.latest !== "2.0 ft"
+    || waveState.metrics.range !== "1.9–2.1 ft"
+    || waveState.metrics["largest-update"] !== "+0.1 ft"
+    || waveState.metrics["changed-updates"] !== "4 of 6"
     || waveState.chartCount !== 1
     || waveState.chartDots !== 8
     || waveState.largestSegments !== 1
-    || !waveState.chartFooter.includes("−0.04 m")
-    || waveState.chartFooter.includes("0.00 m")
+    || !waveState.chartFooter.includes("+0.1 ft")
+    || waveState.chartFooter.includes("0.0 ft")
   ) {
     throw new Error(`Forecast revision precision is incorrect: ${JSON.stringify(waveState)}`);
   }
@@ -622,7 +622,7 @@ async function assertForecastRevisionLongHistory(page, base, errors) {
   );
   const flatState = await readLongState();
   if (
-    flatState.metrics.range !== "0.86 m"
+    flatState.metrics.range !== "2.8 ft"
     || flatState.metrics["largest-update"] !== "No change"
     || flatState.metrics["changed-updates"] !== "0 of 6"
     || flatState.chartCount !== 0
@@ -688,8 +688,8 @@ async function assertForecastRevisionSparseStates(page, base, errors) {
   }));
   if (
     single.headline !== "Wind speed has one saved value"
-    || single.latest !== "19.4 km/h"
-    || single.range !== "19.4 km/h"
+    || single.latest !== "12.1 mph"
+    || single.range !== "12.1 mph"
     || single.changed !== "0 of 0"
     || single.recentRows !== 1
     || single.chartCount !== 0
@@ -984,6 +984,10 @@ async function assertConditionsHierarchy(page, verifyDetails = false) {
   ) {
     throw new Error("Sources and forecast limitations does not contain the intended concise explanations");
   }
+  await tideDetails.locator("summary").press("Enter");
+  await page.waitForFunction(() => !document.querySelector(".conditions-tide-details")?.open);
+  await sourceDetails.locator("summary").press("Enter");
+  await page.waitForFunction(() => !document.querySelector("#observablehq-main > details")?.open);
 }
 
 async function assertConditionsAssessmentHandoff(page, base, errors) {
@@ -1093,8 +1097,8 @@ async function assertConditionsVisualizations(page, available) {
     const pageWidth = document.documentElement.scrollWidth;
     const viewportWidth = document.documentElement.clientWidth;
     return {
-      exactTideEndpoints: tide?.textContent.includes("Previous low: 0.2 m")
-        && tide?.textContent.includes("Next high: 1.1 m"),
+      exactTideEndpoints: tide?.textContent.includes("Previous low: 0.7 ft")
+        && tide?.textContent.includes("Next high: 3.6 ft"),
       selectedTideText: [...(tide?.querySelectorAll("text") ?? [])]
         .find((text) => text.textContent.includes("Selected time"))?.textContent ?? "",
       tideLimitation: tide?.textContent.includes("The line shows timing between tide predictions, not an exact water level."),
@@ -1107,6 +1111,12 @@ async function assertConditionsVisualizations(page, available) {
       forecastOptionCount: document.querySelectorAll("select")[1]?.options.length ?? 0,
       limitedPreview: forecastTrends?.textContent.includes("forecast hours are available in this preview.") ?? false,
       localTicks: [...document.querySelectorAll(".forecast-temperature .trend-track svg text")].map((text) => text.textContent),
+      fractionalTemperatureTicks: [
+        ".forecast-temperature .trend-track svg text",
+        ".forecast-air-temperature .trend-track svg text"
+      ].flatMap((selector) => [...document.querySelectorAll(selector)])
+        .map((text) => text.textContent.trim())
+        .filter((text) => /^-?\d+\.\d+$/.test(text)),
       duplicateLocalTimeTicks: (() => {
         const labels = [...document.querySelectorAll(".forecast-temperature .trend-track svg text")]
           .map((text) => text.textContent.trim())
@@ -1154,6 +1164,7 @@ async function assertConditionsVisualizations(page, available) {
     || (visualState.forecastOptionCount < 12 && !visualState.limitedPreview)
     || (visualState.forecastOptionCount >= 12 && visualState.limitedPreview)
     || visualState.duplicateLocalTimeTicks
+    || visualState.fractionalTemperatureTicks.length
     || !visualState.gridWidth
     || visualState.plotLayouts.length !== 5
     || visualState.plotLayouts.some((layout) => !Number.isFinite(layout.svgWidth)
@@ -1536,7 +1547,12 @@ async function run() {
       throw new Error("Conditions location control did not update the visual context");
     }
     const forecastOptions = await page.locator("select").nth(1).locator("option").count();
-    await selectOption(page, 1, forecastOptions - 1, "Conditions forecast control");
+    const selectedForecastIndex = await page.locator("select").nth(1)
+      .evaluate((select) => select.selectedIndex);
+    const changedForecastIndex = selectedForecastIndex === forecastOptions - 1
+      ? forecastOptions - 2
+      : forecastOptions - 1;
+    await selectOption(page, 1, changedForecastIndex, "Conditions forecast control");
     await page.waitForFunction(
       (before) => document.querySelector(".conditions-context")?.innerText !== before,
       locationConditions

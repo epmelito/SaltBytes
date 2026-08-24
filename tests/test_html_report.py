@@ -12,6 +12,7 @@ from saltbytes.reporting.html import (
     render_conditions_html_report,
     render_operations_html_report,
 )
+from saltbytes.reporting.presentation import kilometers_per_hour_to_miles_per_hour
 
 
 def _config(database_path: Path) -> dict[str, Any]:
@@ -203,21 +204,25 @@ def test_render_conditions_html_report_shows_forecast_output(
     assert "2026-08-01 09:00 EDT" in report
     assert "&lt;Test Coast&gt;" in report
     assert "surf &amp; pier" in report
-    assert "18.5 km/h" in report
-    assert "27.0 km/h" in report
+    assert "11.5 mph" in report
+    assert "16.8 mph" in report
     assert "120 degrees" in report
     assert "30 degrees" in report
-    assert "1.2 m" in report
+    assert "3.9 ft" in report
     assert "110 degrees" in report
     assert "20 degrees" in report
     assert "8.0 s" in report
-    assert "24.6 °C" in report
+    assert "76 °F" in report
+    assert 'y="24">78 °F</text>' in report
+    assert 'y="150">75 °F</text>' in report
+    assert "78.0 °F" not in report
+    assert "75.3 °F" not in report
     assert "rising" in report
-    assert "low at 2026-08-01 08:30 EDT (0.2 m)" in report
-    assert "high at 2026-08-01 14:30 EDT (1.4 m)" in report
+    assert "low at 2026-08-01 08:30 EDT (0.7 ft)" in report
+    assert "high at 2026-08-01 14:30 EDT (4.6 ft)" in report
     assert "90 degrees" in report
     assert "<dt>Precipitation</dt><dd>Unavailable</dd>" in report
-    assert "88.8 km/h" not in report
+    assert "88.8 mph" not in report
     assert "Wind speed and gust trend" in report
     assert "Wave height trend" in report
     assert "Sea surface temperature trend" in report
@@ -277,13 +282,13 @@ def test_render_operations_html_report_shows_pipeline_output(
     assert "Forecast valid time:</strong> 2026-08-01 09:00 EDT" in report
     assert "Pipeline run start time remains distinct" in report
     assert "2026-08-01 02:00 EDT" in report
-    assert "16.0 km/h" in report
-    assert "18.5 km/h" in report
-    assert "1.0 m" in report
-    assert "24.0 °C" in report
-    assert "999.0 km/h" not in report
-    assert "777.0 km/h" not in report
-    assert "778.0 km/h" not in report
+    assert "9.9 mph" in report
+    assert "11.5 mph" in report
+    assert "3.3 ft" in report
+    assert "75 °F" in report
+    assert "999.0 mph" not in report
+    assert "777.0 mph" not in report
+    assert "778.0 mph" not in report
     assert report.count("<svg") == 4
     assert 'id="conditions"' not in report
     assert 'id="condition-trends"' not in report
@@ -412,8 +417,9 @@ def test_line_chart_marks_missing_series_unavailable() -> None:
             ),
         ],
         (("Wind speed", 2), ("Gust", 3)),
-        "km/h",
+        "mph",
         ZoneInfo("America/New_York"),
+        convert=kilometers_per_hour_to_miles_per_hour,
     )
 
     assert "<svg" in chart

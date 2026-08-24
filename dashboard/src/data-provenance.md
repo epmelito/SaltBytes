@@ -9,6 +9,7 @@ import {html} from "npm:htl";
 import {
   formatNumber,
   formatTimestamp,
+  kilometersToMiles,
   locationName,
   sourceName
 } from "./components/format.js";
@@ -378,7 +379,7 @@ const sourceInspector = html`
         <div><span>How it applies here</span><strong>${selected?.coastal_relationship ?? "Unavailable"}</strong></div>
         <div><span>NOAA reference station</span><strong>${selected?.reference_station ?? "Unavailable"}</strong></div>
         <div><span>Water level reference</span><strong>${waterLevelReferenceLabel(selected?.datum)}</strong></div>
-        <div><span>Distance to fishing location</span><strong>${formatNumber(selected?.distance_km, 3, "km")}</strong></div>
+        <div><span>Distance to fishing location</span><strong>${formatNumber(kilometersToMiles(selected?.distance_km), 1, "mi")}</strong></div>
       </div>
       <div class="provenance-limitation">
         <strong>Tide limitation</strong>

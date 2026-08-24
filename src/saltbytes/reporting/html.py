@@ -8,6 +8,13 @@ import duckdb
 
 from saltbytes.report import _select_run
 from saltbytes.reporting.monitoring import render_monitoring_section
+from saltbytes.reporting.presentation import (
+    celsius_to_fahrenheit,
+    format_display_number,
+    kilometers_per_hour_to_miles_per_hour,
+    meters_to_feet,
+    millimeters_to_inches,
+)
 from saltbytes.reporting.provenance import render_provenance_section
 from saltbytes.reporting.revisions import render_revision_section
 from saltbytes.reporting.schema import validate_report_schema
@@ -54,6 +61,18 @@ def _number(
     return f"{value:.{precision}f}{suffix}"
 
 
+def _display_number(
+    value: float | None,
+    unit: str = "",
+    precision: int = 1,
+) -> str:
+    if value is None:
+        return "Unavailable"
+
+    suffix = f" {unit}" if unit else ""
+    return f"{format_display_number(value, precision)}{suffix}"
+
+
 def _extremum(
     extremum_type: str | None,
     extremum_time: datetime | None,
@@ -65,7 +84,7 @@ def _extremum(
 
     return (
         f"{_text(extremum_type)} at {_time(extremum_time, display_timezone)} "
-        f"({_number(predicted_level, 'm')})"
+        f"({_display_number(meters_to_feet(predicted_level), 'ft')})"
     )
 
 
@@ -78,9 +97,11 @@ def _line_chart_html(
     fixed_minimum: float | None = None,
     fixed_maximum: float | None = None,
     reference_value: float | None = None,
+    convert: Any = None,
+    display_precision: int = 1,
 ) -> str:
     values = [
-        float(row[column])
+        float(convert(row[column]) if convert else row[column])
         for row in rows
         for _, column in series
         if row[column] is not None
@@ -135,9 +156,8 @@ def _line_chart_html(
                     segments.append(segment)
                     segment = []
                 continue
-            segment.append(
-                f"{x_position(row[1]):.1f},{y_position(float(value)):.1f}"
-            )
+            display_value = convert(value) if convert else value
+            segment.append(f"{x_position(row[1]):.1f},{y_position(float(display_value)):.1f}")
         if segment:
             segments.append(segment)
 
@@ -159,6 +179,11 @@ def _line_chart_html(
         style = "dashed" if series_index else "solid"
         legend.append(f'<span>{_text(label)} ({style})</span>')
 
+    def axis_number(value: float) -> str:
+        if convert:
+            return format_display_number(value, display_precision)
+        return f"{value:.{display_precision}f}"
+
     return (
         f'<div class="chart"><h4>{_text(title)}</h4>'
         f'<svg viewBox="0 0 {width} {height}" role="img" '
@@ -168,8 +193,8 @@ def _line_chart_html(
         f'<line class="axis" x1="{left}" y1="{height - bottom}" '
         f'x2="{width - right}" y2="{height - bottom}" />'
         f'{reference_line}'
-        f'<text x="4" y="{top + 4}">{upper:.1f} {_text(unit)}</text>'
-        f'<text x="4" y="{height - bottom}">{lower:.1f} {_text(unit)}</text>'
+        f'<text x="4" y="{top + 4}">{axis_number(upper)} {_text(unit)}</text>'
+        f'<text x="4" y="{height - bottom}">{axis_number(lower)} {_text(unit)}</text>'
         f'<text x="{left}" y="{height - 10}">{_time(start_time, display_timezone)}</text>'
         f'<text x="{width - right}" y="{height - 10}" text-anchor="end">'
         f'{_time(end_time, display_timezone)}</text>'
@@ -259,7 +284,7 @@ def _tide_context_chart_html(
         markers.append(
             f'<circle cx="{event_x:.1f}" cy="{timeline_y:.1f}" r="4" />'
             f'<text x="{event_x:.1f}" y="{label_y:.1f}" text-anchor="middle">'
-            f'{_text(event_type)} {_number(level, "m")}</text>'
+            f'{_text(event_type)} {_display_number(meters_to_feet(level), "ft")}</text>'
         )
 
     return (
@@ -332,15 +357,18 @@ def _condition_summary_html(
     ) = row
 
     metrics = (
-        ("Wind speed", _number(wind_speed, "km/h")),
+        ("Wind speed", _display_number(kilometers_per_hour_to_miles_per_hour(wind_speed), "mph")),
         ("Wind direction", _number(wind_direction, "degrees", 0)),
-        ("Wind gust", _number(wind_gust, "km/h")),
+        ("Wind gust", _display_number(kilometers_per_hour_to_miles_per_hour(wind_gust), "mph")),
         ("Precipitation probability", _number(precipitation_probability, "%", 0)),
-        ("Precipitation", _number(precipitation, "mm")),
-        ("Wave height", _number(wave_height, "m")),
+        ("Precipitation", _display_number(millimeters_to_inches(precipitation), "in", 2)),
+        ("Wave height", _display_number(meters_to_feet(wave_height), "ft")),
         ("Incoming wave direction", _number(wave_direction, "degrees", 0)),
         ("Wave period", _number(wave_period, "s")),
-        ("Sea surface temperature", _number(sea_surface_temperature, "°C")),
+        (
+            "Sea surface temperature",
+            _display_number(celsius_to_fahrenheit(sea_surface_temperature), "°F", 0),
+        ),
         ("Tide phase", _text(tide_phase)),
         (
             "Previous tide extremum",
@@ -360,7 +388,7 @@ def _condition_summary_html(
                 display_timezone,
             ),
         ),
-        ("Predicted tidal range", _number(predicted_tidal_range, "m")),
+        ("Predicted tidal range", _display_number(meters_to_feet(predicted_tidal_range), "ft")),
         ("Persisted shore normal", _number(shore_normal, "degrees", 0)),
         ("Wind to shore angle", _number(wind_to_shore_angle, "degrees", 0)),
         ("Wave to shore angle", _number(wave_to_shore_angle, "degrees", 0)),
@@ -600,22 +628,26 @@ def render_conditions_html_report(
             "Wind speed and gust trend",
             location_trends,
             (("Wind speed", 2), ("Wind gust", 3)),
-            "km/h",
+            "mph",
             display_timezone,
+            convert=kilometers_per_hour_to_miles_per_hour,
         )
         wave_chart = _line_chart_html(
             "Wave height trend",
             location_trends,
             (("Wave height", 4),),
-            "m",
+            "ft",
             display_timezone,
+            convert=meters_to_feet,
         )
         sst_chart = _line_chart_html(
             "Sea surface temperature trend",
             location_trends,
             (("SST", 5),),
-            "°C",
+            "°F",
             display_timezone,
+            convert=celsius_to_fahrenheit,
+            display_precision=0,
         )
         tide_chart = _tide_context_chart_html(
             location_trends,

@@ -26,6 +26,30 @@ export function formatNumber(value, digits = 1, unit = "") {
   return `${Number(value).toFixed(digits)}${suffix}`;
 }
 
+export function celsiusToFahrenheit(value) {
+  return value === null || value === undefined ? value : Number(value) * 9 / 5 + 32;
+}
+
+export function kilometersPerHourToMph(value) {
+  return value === null || value === undefined ? value : Number(value) / 1.609344;
+}
+
+export function metersToFeet(value) {
+  return value === null || value === undefined ? value : Number(value) * 3.2808398950131;
+}
+
+export function millimetersToInches(value) {
+  return value === null || value === undefined ? value : Number(value) / 25.4;
+}
+
+export function hectopascalsToInchesMercury(value) {
+  return value === null || value === undefined ? value : Number(value) * 0.0295299830714;
+}
+
+export function kilometersToMiles(value) {
+  return value === null || value === undefined ? value : Number(value) / 1.609344;
+}
+
 export function formatMinutes(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "Unavailable";

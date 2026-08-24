@@ -9,9 +9,12 @@ import {html} from "npm:htl";
 
 import {
   asDate,
+  celsiusToFahrenheit,
   formatNumber,
   formatTimestamp,
-  locationName
+  kilometersPerHourToMph,
+  locationName,
+  metersToFeet
 } from "./components/format.js";
 
 const manifest = await FileAttachment("./data/manifest.json").json();
@@ -22,10 +25,10 @@ const rows = history.map((row) => ({
   runDate: asDate(row.run_started_at)
 }));
 const metrics = [
-  {field: "wind_speed_10m", label: "Wind speed", unit: "km/h", digits: 1},
-  {field: "wave_height", label: "Wave height", unit: "m", digits: 2},
-  {field: "sea_surface_temperature", label: "Sea surface temperature", unit: "°C", digits: 1},
-  {field: "tide_predicted_range", label: "Predicted tide range", unit: "m", digits: 2}
+  {field: "wind_speed_10m", label: "Wind speed", unit: "mph", digits: 1, convert: kilometersPerHourToMph},
+  {field: "wave_height", label: "Wave height", unit: "ft", digits: 1, convert: metersToFeet},
+  {field: "sea_surface_temperature", label: "Sea surface temperature", unit: "°F", digits: 0, convert: celsiusToFahrenheit},
+  {field: "tide_predicted_range", label: "Predicted tide range", unit: "ft", digits: 1, convert: metersToFeet}
 ];
 function measurementPicker(items) {
   const picker = html`
@@ -69,12 +72,16 @@ const shortRunId = (value) => {
   const text = String(value);
   return text.length <= 16 ? text : `${text.slice(0, 6)}…${text.slice(-6)}`;
 };
-const presentationValue = (value, digits) => {
+const roundedValue = (value, digits) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
   return Number(Number(value).toFixed(digits));
 };
+const presentationValue = (value, metric) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
+  return roundedValue(metric.convert(value), metric.digits);
+};
 const normalizedChange = (value, digits) => {
-  const number = presentationValue(value, digits);
+  const number = roundedValue(value, digits);
   if (number === null) return null;
   return Object.is(number, -0) ? 0 : number;
 };
@@ -149,7 +156,7 @@ const chartRows = selectedRows
   .filter((row) => metricValueAvailable(row[metricField]))
   .map((row) => ({
     ...row,
-    metricValue: presentationValue(row[metricField], metric.digits)
+    metricValue: presentationValue(row[metricField], metric)
   }));
 const revisionRows = chartRows.map((row, index) => {
   const previous = chartRows[index - 1] ?? null;
@@ -304,7 +311,8 @@ if (chartRows.length === 0) {
       y: {
         grid: true,
         label: null,
-        ticks: 5
+        ticks: 5,
+        tickFormat: (value) => formatNumber(value, metric.digits)
       },
       marks: [
         Plot.lineY(chartRows, {
@@ -374,7 +382,7 @@ if (recentRows.length === 0) {
           const revision = revisionByRun.get(row.run_id);
           return html`<tr>
             <td>${formatTimestamp(row.run_started_at, manifest.display_timezone)}</td>
-            <td>${formatNumber(row[metricField], metric.digits, metric.unit)}</td>
+            <td>${formatNumber(revision?.metricValue, metric.digits, metric.unit)}</td>
             <td>${revision?.change === null || revision?.change === undefined
               ? "First available value"
               : formatSignedNumber(revision.change, metric.digits, metric.unit)}</td>
@@ -414,7 +422,7 @@ if (historyIsTruncated) {
               <td><code>${row.run_id}</code></td>
               <td>${formatTimestamp(row.run_started_at, manifest.display_timezone)}</td>
               <td>${formatTimestamp(row.forecast_time, manifest.display_timezone)}</td>
-              <td>${formatNumber(row[metricField], metric.digits, metric.unit)}</td>
+              <td>${formatNumber(revision?.metricValue, metric.digits, metric.unit)}</td>
               <td>${revision?.change === null || revision?.change === undefined
                 ? "First available value"
                 : formatSignedNumber(revision.change, metric.digits, metric.unit)}</td>

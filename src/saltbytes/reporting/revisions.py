@@ -5,6 +5,13 @@ from zoneinfo import ZoneInfo
 
 import duckdb
 
+from saltbytes.reporting.presentation import (
+    celsius_to_fahrenheit,
+    format_display_number,
+    kilometers_per_hour_to_miles_per_hour,
+    meters_to_feet,
+)
+
 
 def _text(value: object | None) -> str:
     return "Unavailable" if value is None else escape(str(value))
@@ -14,10 +21,10 @@ def _time(value: datetime, display_timezone: ZoneInfo) -> str:
     return value.astimezone(display_timezone).strftime("%Y-%m-%d %H:%M %Z")
 
 
-def _number(value: float | None, unit: str) -> str:
+def _number(value: float | None, unit: str, precision: int = 1) -> str:
     if value is None:
         return "Unavailable"
-    return f"{value:.1f} {unit}"
+    return f"{format_display_number(value, precision)} {unit}"
 
 
 def _insufficient_history_html() -> str:
@@ -87,9 +94,9 @@ def render_revision_section(
             "<tr>"
             f"<td>{_text(run_id)}</td>"
             f"<td>{_time(started_at, display_timezone)}</td>"
-            f"<td>{_number(wind_speed, 'km/h')}</td>"
-            f"<td>{_number(wave_height, 'm')}</td>"
-            f"<td>{_number(sst, '°C')}</td>"
+            f"<td>{_number(kilometers_per_hour_to_miles_per_hour(wind_speed), 'mph')}</td>"
+            f"<td>{_number(meters_to_feet(wave_height), 'ft')}</td>"
+            f"<td>{_number(celsius_to_fahrenheit(sst), '°F', 0)}</td>"
             f"<td>{_text(tide_phase)}</td>"
             "</tr>"
         )
