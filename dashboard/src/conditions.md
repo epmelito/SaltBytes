@@ -266,7 +266,7 @@ display(html`<section class="conditions-current">
 
 ~~~js
 const assessmentAvailable = selected?.spanish_mackerel_conditions?.state === "available";
-const assessmentHref = `/species-assessments?location=${encodeURIComponent(locationId)}&forecast_time=${encodeURIComponent(forecastTime)}`;
+const assessmentHref = `./species-assessments?location=${encodeURIComponent(locationId)}&forecast_time=${encodeURIComponent(forecastTime)}`;
 display(html`<section class="species-handoff">
   <div><h3>Species assessment</h3><p>Spanish mackerel assessment ${assessmentAvailable ? "available" : "unavailable"} for this forecast.</p></div>
   <a href=${assessmentHref}>${assessmentAvailable ? "View assessment →" : "View details →"}</a>

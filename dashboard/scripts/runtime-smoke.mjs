@@ -17,6 +17,7 @@ const routes = [
   "/data-provenance"
 ];
 const publicLandingUrl = "https://epmelito.github.io/SaltBytes/";
+const deployedBasePath = "/SaltBytes";
 
 function contentType(path) {
   return {
@@ -27,8 +28,12 @@ function contentType(path) {
   }[extname(path)] ?? "application/octet-stream";
 }
 
-function requestPath(pathname) {
-  let relative = decodeURIComponent(pathname).replace(/^\/+/, "");
+function requestPath(pathname, basePath = "") {
+  const normalizedBasePath = basePath.replace(/\/$/, "");
+  if (normalizedBasePath && pathname !== normalizedBasePath && !pathname.startsWith(`${normalizedBasePath}/`)) {
+    throw new Error("invalid base path");
+  }
+  let relative = decodeURIComponent(pathname.slice(normalizedBasePath.length)).replace(/^\/+/, "");
   if (!relative) relative = "index.html";
   if (!extname(relative)) relative += ".html";
   const file = resolve(dist, relative);
@@ -36,10 +41,10 @@ function requestPath(pathname) {
   return file;
 }
 
-async function startServer() {
+async function startServer(basePath = "") {
   const server = createServer(async (request, response) => {
     try {
-      const file = requestPath(new URL(request.url, "http://localhost").pathname);
+      const file = requestPath(new URL(request.url, "http://localhost").pathname, basePath);
       await stat(file);
       response.writeHead(200, {"content-type": contentType(file)});
       response.end(await readFile(file));
@@ -229,6 +234,65 @@ async function assertShell(page, section, route) {
     }
   }
   throw new Error("SaltBytes landing link is not reachable by keyboard");
+}
+
+async function assertSharedOuterLayout(page, label, selectors) {
+  const state = await page.evaluate((surfaceSelectors) => {
+    const main = document.querySelector("#observablehq-main");
+    const mainBox = main?.getBoundingClientRect();
+    const headerBox = document.querySelector(".shell-header")?.getBoundingClientRect();
+    return {
+      headerLeft: headerBox?.left ?? 0,
+      mainLeft: mainBox?.left ?? 0,
+      mainWidth: mainBox?.width ?? 0,
+      maxWidth: Number.parseFloat(main ? getComputedStyle(main).maxWidth : ""),
+      surfaces: surfaceSelectors.map((selector) => {
+        const element = document.querySelector(selector);
+        const box = element?.getBoundingClientRect();
+        return {
+          selector,
+          left: box?.left ?? null,
+          width: box?.width ?? null
+        };
+      })
+    };
+  }, selectors);
+  if (
+    Math.abs(state.maxWidth - 1312) > 2
+    || !state.mainWidth
+    || Math.abs(state.mainLeft - state.headerLeft) > 2
+    || state.surfaces.some((surface) => surface.left === null || surface.width === null
+      || Math.abs(surface.left - state.mainLeft) > 2
+      || Math.abs(surface.width - state.mainWidth) > 2)
+  ) {
+    throw new Error(`${label} does not use the shared dashboard layout: ${JSON.stringify(state)}`);
+  }
+}
+
+async function assertResponsiveShell(browser, base) {
+  const context = await browser.newContext({viewport: {width: 640, height: 900}});
+  const page = await context.newPage();
+  page.setDefaultTimeout(timeoutMs);
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    for (const route of routes.slice(1)) {
+      await openPage(page, `${base}${route}`, errors);
+      const state = await page.evaluate(() => {
+        const main = document.querySelector("#observablehq-main")?.getBoundingClientRect();
+        return {
+          mainWidth: main?.width ?? 0,
+          pageWidth: document.documentElement.scrollWidth,
+          viewportWidth: document.documentElement.clientWidth
+        };
+      });
+      if (!state.mainWidth || state.mainWidth > state.viewportWidth || state.pageWidth > state.viewportWidth) {
+        throw new Error(`Responsive dashboard shell is invalid at ${route}: ${JSON.stringify(state)}`);
+      }
+    }
+  } finally {
+    await context.close();
+  }
 }
 
 async function assertThemeBehavior(page, base, errors) {
@@ -925,12 +989,17 @@ async function assertConditionsHierarchy(page, verifyDetails = false) {
 async function assertConditionsAssessmentHandoff(page, base, errors) {
   const handoff = page.locator(".species-handoff a");
   const href = await handoff.getAttribute("href");
-  const expected = new URL(href ?? "", base);
+  const expected = new URL(href ?? "", `${base}/conditions`);
   const context = await page.evaluate(() => ({
     location: document.querySelector(".conditions-context h2")?.textContent,
     time: document.querySelector(".conditions-context p strong")?.parentElement?.textContent
   }));
-  if (expected.pathname !== "/species-assessments" || !expected.searchParams.get("location") || !expected.searchParams.get("forecast_time")) {
+  if (
+    !href?.startsWith("./species-assessments?")
+    || expected.pathname !== `${deployedBasePath}/species-assessments`
+    || !expected.searchParams.get("location")
+    || !expected.searchParams.get("forecast_time")
+  ) {
     throw new Error("Conditions species-assessment handoff has no selected context");
   }
   await Promise.all([
@@ -1044,7 +1113,7 @@ async function assertConditionsVisualizations(page, available) {
           .filter((text) => /(?:AM|PM)$/.test(text));
         return new Set(labels).size !== labels.length;
       })(),
-      gridMaxWidth: Number.parseFloat(getComputedStyle(visualGrid).maxWidth),
+      gridWidth: visualGrid?.getBoundingClientRect().width ?? 0,
       plotLayouts,
       airTemperatureSolid: (() => {
         const line = document.querySelector(".forecast-air-temperature .air-temperature-line");
@@ -1085,8 +1154,7 @@ async function assertConditionsVisualizations(page, available) {
     || (visualState.forecastOptionCount < 12 && !visualState.limitedPreview)
     || (visualState.forecastOptionCount >= 12 && visualState.limitedPreview)
     || visualState.duplicateLocalTimeTicks
-    || !Number.isFinite(visualState.gridMaxWidth)
-    || visualState.gridMaxWidth > 1152.5
+    || !visualState.gridWidth
     || visualState.plotLayouts.length !== 5
     || visualState.plotLayouts.some((layout) => !Number.isFinite(layout.svgWidth)
       || Math.abs(layout.trackWidth - layout.svgWidth) > 2
@@ -1426,7 +1494,7 @@ async function assertPressureOperationsCoverage() {
 }
 
 async function run() {
-  const {server, port} = await startServer();
+  const {server, port} = await startServer(deployedBasePath);
   const browser = await chromium.launch({
     executablePath: browserPath(),
     headless: true,
@@ -1436,7 +1504,7 @@ async function run() {
   page.setDefaultTimeout(timeoutMs);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const base = `http://127.0.0.1:${port}`;
+  const base = `http://127.0.0.1:${port}${deployedBasePath}`;
 
   try {
     await openPage(page, `${base}/`, errors);
@@ -1450,6 +1518,9 @@ async function run() {
     }
     await assertConditionsHierarchy(page, true);
     const initialVisuals = await assertConditionsVisualizations(page, true);
+    await assertSharedOuterLayout(page, "Conditions", [
+      ".conditions-context", ".conditions-current", ".conditions-visual-grid"
+    ]);
     await selectOption(page, 0, 1, "Conditions location control");
     await page.waitForFunction(
       (before) => document.querySelector(".conditions-context")?.innerText !== before,
@@ -1484,6 +1555,9 @@ async function run() {
 
     await assertConditionsAssessmentHandoff(page, base, errors);
     await assertSpeciesAssessments(page, base, errors);
+    await assertSharedOuterLayout(page, "Species assessments", [
+      ".conditions-context", ".conditions-assessment"
+    ]);
     await assertConditionsUnavailableContextAndSolarRollover(page, base, errors);
 
     await openPage(page, `${base}/forecast-revisions`, errors);
@@ -1493,6 +1567,9 @@ async function run() {
         && document.querySelectorAll(".revision-measurement-option").length === 4
     );
     await assertForecastRevisions(page);
+    await assertSharedOuterLayout(page, "Forecast revisions", [
+      ".revision-summary", ".revision-chart"
+    ]);
     await assertScrollableTables(page, "Forecast revisions");
     await assertHealthy(page, errors, "Forecast revisions");
     await assertForecastRevisionLongHistory(page, base, errors);
@@ -1502,6 +1579,9 @@ async function run() {
     await assertShell(page, "Operations and product health", "Pipeline monitoring");
     await page.waitForFunction(() => document.querySelectorAll("select").length === 1);
     await assertPipelineMonitoring(page);
+    await assertSharedOuterLayout(page, "Pipeline monitoring", [
+      ".pipeline-health", ".pipeline-reliability"
+    ]);
     await assertObservationHealthStates(page, base, errors);
     await assertScrollableTables(page, "Pipeline monitoring");
     await assertHealthy(page, errors, "Pipeline monitoring");
@@ -1510,10 +1590,14 @@ async function run() {
     await assertShell(page, "Operations and product health", "Forecast sources");
     await page.waitForFunction(() => document.querySelectorAll("select").length === 1);
     await assertDataProvenance(page);
+    await assertSharedOuterLayout(page, "Forecast sources", [
+      ".provenance-verdict", ".provenance-source-list", ".provenance-lineage"
+    ]);
     await assertHealthy(page, errors, "Forecast sources");
     await assertPressureOperationsCoverage();
 
     await assertThemeBehavior(page, base, errors);
+    await assertResponsiveShell(browser, base);
 
     for (const route of routes) {
       await openPage(page, `${base}${route}`, errors);

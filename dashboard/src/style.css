@@ -45,6 +45,10 @@ html[data-saltbytes-theme="dark"] #observablehq-sidebar {
 }
 
 #observablehq-main {
+  width: 100%;
+  max-width: 82rem;
+  margin-right: auto;
+  margin-left: 0;
   background: transparent;
 }
 
@@ -88,6 +92,11 @@ html[data-saltbytes-theme="dark"] #observablehq-sidebar {
 #observablehq-main > h1 {
   font-size: clamp(2.2rem, 3vw, 3rem);
   line-height: 1.05;
+}
+
+#observablehq-main > h2 {
+  margin-top: 2.25rem;
+  font-size: 1.7rem;
 }
 
 select {
@@ -142,7 +151,7 @@ select:focus-visible {
   margin: 0 0 0.35rem;
 }
 
-.hero p {
+#observablehq-main .hero p {
   max-width: 72ch;
   margin: 0;
   color: var(--saltbytes-muted);
@@ -293,11 +302,6 @@ select:focus-visible {
   margin: 0.2rem 0 0.5rem;
 }
 
-body:has(.conditions-assessment) #observablehq-main > h2 {
-  margin-top: 2.25rem;
-  font-size: 1.7rem;
-}
-
 .conditions-eyebrow {
   margin: 0;
   color: var(--saltbytes-muted);
@@ -314,7 +318,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .assessment-summary {
-  max-width: 62ch;
   margin-bottom: 1.25rem;
   font-size: 1.08rem;
 }
@@ -378,7 +381,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .assessment-limitation {
-  max-width: 72ch;
   margin: 1rem 0;
   color: var(--saltbytes-muted);
 }
@@ -412,14 +414,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 .conditions-current details,
 #observablehq-main > details {
   margin-top: 1rem;
-}
-
-.conditions-assessment summary,
-.conditions-current summary,
-#observablehq-main > details > summary {
-  color: var(--saltbytes-shell-emphasis);
-  cursor: pointer;
-  font-weight: 700;
 }
 
 .assessment-details {
@@ -509,11 +503,10 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 .conditions-visual-grid {
   display: grid;
   width: 100%;
-  max-width: 72rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.25rem;
   align-items: stretch;
-  margin: 1rem auto 1.5rem 0;
+  margin: 1rem 0 1.5rem;
 }
 
 .forecast-surface,
@@ -813,10 +806,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
     grid-template-columns: 1fr;
   }
 
-  .conditions-tide-details > summary {
-    margin-left: 0;
-  }
-
   .forecast-wind {
     grid-column: auto;
   }
@@ -832,7 +821,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 .pipeline-coverage,
 .pipeline-details {
   width: 100%;
-  max-width: 72rem;
   box-sizing: border-box;
 }
 
@@ -872,7 +860,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .pipeline-health-summary {
-  max-width: 68ch;
   margin: 0;
   font-size: 1.08rem;
 }
@@ -898,7 +885,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 
 .pipeline-exceptions {
   width: 100%;
-  max-width: 72rem;
   margin: 0 0 2rem;
 }
 
@@ -953,7 +939,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .pipeline-healthy-notice {
-  max-width: 72rem;
   border-left: 4px solid var(--pipeline-healthy);
 }
 
@@ -992,7 +977,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 }
 
 .pipeline-chart-footer p {
-  max-width: 60ch;
   margin: 0;
   color: var(--saltbytes-muted);
   font-size: 0.9rem;
@@ -1101,11 +1085,6 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
 
 .pipeline-runs-scroll {
   width: 100%;
-  max-width: 72rem;
-}
-
-.pipeline-section-note {
-  max-width: 88ch;
 }
 
 .pipeline-runs-table code,
@@ -1121,32 +1100,8 @@ body:has(.conditions-assessment) #observablehq-main > h2 {
   background: var(--saltbytes-surface);
 }
 
-.pipeline-details > summary {
-  color: var(--saltbytes-shell-emphasis);
-  cursor: pointer;
-  font-weight: 750;
-}
-
-.pipeline-details > p {
-  max-width: 88ch;
-}
-
-.pipeline-details > .page-note {
-  max-width: 88ch;
-}
-
 .pipeline-details h3 {
   margin-top: 1.5rem;
-}
-
-body:has(.pipeline-health) #observablehq-main > h2 {
-  margin-top: 2.25rem;
-  font-size: 1.7rem;
-}
-
-body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
-  display: inline-block;
-  margin-bottom: 0.4rem;
 }
 
 @media (max-width: 900px) {
@@ -1178,7 +1133,6 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
 .provenance-source-inspector,
 .provenance-location-details {
   width: 100%;
-  max-width: 82rem;
   box-sizing: border-box;
 }
 
@@ -1209,7 +1163,6 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
 }
 
 .provenance-verdict-summary {
-  max-width: 72ch;
   margin: 0.55rem 0 0;
 }
 
@@ -1372,6 +1325,8 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
 
 .provenance-lineage {
   display: grid;
+  width: 100%;
+  max-width: none;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 1rem 0 2.5rem;
   padding: 1.1rem 0;
@@ -1442,20 +1397,17 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
   margin-bottom: 2rem;
 }
 
-.provenance-details > summary,
-.provenance-location-details > summary {
-  color: var(--saltbytes-shell-emphasis);
-  cursor: pointer;
-  font-weight: 750;
+/* Dashboard copy uses its containing surface unless long-form prose opts in. */
+#observablehq-main p {
+  max-width: none;
 }
 
-.provenance-details > p,
-.provenance-location-details > p {
+#observablehq-main .long-form-prose,
+#observablehq-main .long-form-prose p {
   max-width: 72ch;
 }
 
 .provenance-detail-note {
-  max-width: 72ch;
   color: var(--saltbytes-muted);
 }
 
@@ -1502,14 +1454,15 @@ body:has(.pipeline-health) #observablehq-main > .observablehq--block:has(form) {
   margin: 0.3rem 0 0;
 }
 
-body:has(.provenance-verdict) #observablehq-main > h2 {
-  margin-top: 2.25rem;
-  font-size: 1.7rem;
-}
-
-body:has(.provenance-verdict) #observablehq-main > .observablehq--block:has(form) {
+#observablehq-main > .observablehq--block:has(form) {
   display: inline-block;
   margin-bottom: 0.4rem;
+  vertical-align: top;
+}
+
+body:has(.provenance-verdict) #observablehq-main > .observablehq--block:has(.provenance-lineage) {
+  width: 100%;
+  max-width: none;
 }
 .observablehq--block:has(form) label {
   display: block;
@@ -1520,11 +1473,15 @@ body:has(.provenance-verdict) #observablehq-main > .observablehq--block:has(form
   gap: 0.4rem;
 }
 
+#observablehq-main details > summary {
+  color: var(--saltbytes-shell-emphasis);
+  cursor: pointer;
+  font-weight: 750;
+}
+
 body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) {
-  display: inline-block;
   width: min(100%, 24rem);
   margin: 0 0 1.25rem;
-  vertical-align: top;
 }
 
 body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form) ~ .observablehq--block:has(form) {
@@ -1570,7 +1527,6 @@ body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form
 .revision-recent-table,
 .revision-empty-history {
   width: 100%;
-  max-width: 82rem;
   box-sizing: border-box;
 }
 
@@ -1618,7 +1574,6 @@ body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form
 }
 
 .revision-summary-story > p:last-child {
-  max-width: 72ch;
   margin: 0.7rem 0 0;
   color: var(--saltbytes-muted);
 }
@@ -1747,30 +1702,8 @@ body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form
   background: var(--saltbytes-surface);
 }
 
-.revision-details > summary {
-  color: var(--saltbytes-shell-emphasis);
-  cursor: pointer;
-  font-weight: 750;
-}
-
-.revision-details > p {
-  max-width: 72ch;
-}
-
-.revision-notice {
-  max-width: 82rem;
-}
-
-body:has(.revision-summary) #observablehq-main > h2 {
-  margin-top: 2.25rem;
-  font-size: 1.7rem;
-}
-
 body:has(.revision-summary) #observablehq-main > .observablehq--block:has(form) {
-  display: inline-block;
   margin-right: 1.25rem;
-  margin-bottom: 0.4rem;
-  vertical-align: top;
 }
 
 body:has(.revision-summary) #observablehq-main > .observablehq--block:has(.revision-measurement-control) {
@@ -1864,49 +1797,6 @@ body:has(.revision-summary) #observablehq-main > .observablehq--block:has(.revis
     display: block;
     margin-top: 0.25rem;
   }
-}
-
-body:has(.pipeline-health) #observablehq-main {
-  max-width: 72rem;
-  margin-right: auto;
-  margin-left: auto;
-}
-
-body:has(.conditions-assessment) #observablehq-main {
-  max-width: 72rem;
-  margin-right: auto;
-  margin-left: auto;
-}
-
-body:has(.revision-summary) #observablehq-main,
-body:has(.provenance-verdict) #observablehq-main {
-  max-width: 82rem;
-  margin-right: auto;
-  margin-left: auto;
-}
-
-#observablehq-main > p,
-.assessment-summary,
-.assessment-limitation,
-.pipeline-health-summary,
-.provenance-verdict-summary,
-.provenance-detail-note,
-.revision-summary-story > p:last-child,
-.revision-details > p {
-  max-width: 88ch;
-}
-
-body:has(.conditions-assessment) #observablehq-main > p,
-body:has(.pipeline-health) #observablehq-main > p,
-body:has(.revision-summary) #observablehq-main > p,
-body:has(.provenance-verdict) #observablehq-main > p {
-  width: 100%;
-  max-width: none;
-}
-
-.conditions-visual-grid {
-  margin-right: auto;
-  margin-left: auto;
 }
 
 .trend-track svg text,
