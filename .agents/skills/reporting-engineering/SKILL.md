@@ -84,6 +84,13 @@ Assess whether:
 Recommend removing, condensing, grouping, relocating, or separating content when
 the current structure does not support the reporting flow.
 
+Treat shared outer layout as a product-wide reporting contract. When adding or
+materially restructuring a maintained page, compare it with representative
+sibling pages for content width, left edge, control alignment, major section
+width, and responsive behavior. Prefer shared shell and layout rules over
+page-specific exceptions. Use a different outer layout only when the page
+purpose requires it.
+
 ## Language and meaning
 
 Follow the
@@ -143,7 +150,10 @@ Verify as applicable:
 - meaningful default states
 - working controls and dependent content
 - direct route loading and refresh
+- working cross-page links and handoffs under the deployed site base path
 - clear navigation
+- consistent outer page width and alignment with representative sibling pages
+  unless the page purpose requires a deliberate exception
 - readable charts, tables, and supporting detail
 - usable overflow and responsive behavior
 - correct unavailable and failure states
@@ -170,16 +180,19 @@ For implementation work:
 1. Read the active issue and applicable repository guidance.
 2. Identify the changed reporting contract and user outcome.
 3. Inspect the minimum relevant data contract, source, and generated output.
-4. Preserve public contracts and routes unless the issue changes them.
-5. Keep query and export logic outside browser presentation code unless an
+4. When the change creates or materially restructures a page, inspect
+   representative sibling pages and shared layout rules before adding
+   page-specific width or alignment behavior.
+5. Preserve public contracts and routes unless the issue changes them.
+6. Keep query and export logic outside browser presentation code unless an
    accepted design requires otherwise.
-6. Implement the smallest complete change.
-7. Build the production artifact.
-8. Serve and inspect the built artifact, or inspect the deployed artifact when
+7. Implement the smallest complete change.
+8. Build the production artifact.
+9. Serve and inspect the built artifact, or inspect the deployed artifact when
    hosted verification is required.
-9. Exercise changed routes, controls, layouts, unavailable states, and
-   accessibility basics.
-10. Inspect the complete affected diff.
+10. Exercise changed routes, controls, layouts, unavailable states, and
+    accessibility basics.
+11. Inspect the complete affected diff.
 
 Browser checks must wait for the exact user-visible state being asserted. Do not
 use sleeps, arbitrary delays, or unrelated readiness signals to hide reactive
@@ -313,7 +326,10 @@ For implementation work, validate:
 - generated production artifact
 - browser behavior
 - relevant wide and narrow layouts
+- representative sibling-page shell consistency when a page is added or
+  materially restructured
 - changed routes and controls
+- changed cross-page links and handoffs under the deployed site base path
 - unavailable and error states
 - deployed output when required
 - complete affected diff
