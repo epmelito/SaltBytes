@@ -1189,11 +1189,13 @@ select:focus-visible {
 
 .provenance-scope div,
 .provenance-lineage li,
+.provenance-relationship-grid div,
 .provenance-technical-grid div {
   min-width: 0;
 }
 
 .provenance-scope span,
+.provenance-relationship-grid span,
 .provenance-technical-grid span {
   display: block;
   margin-bottom: 0.25rem;
@@ -1205,6 +1207,7 @@ select:focus-visible {
 }
 
 .provenance-scope strong,
+.provenance-relationship-grid strong,
 .provenance-technical-grid strong {
   display: block;
   overflow-wrap: anywhere;
@@ -1385,8 +1388,37 @@ select:focus-visible {
   margin: 1rem 0 0.85rem;
 }
 
+.provenance-relationship {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--saltbytes-border);
+  border-radius: 0.75rem;
+  background: var(--saltbytes-surface);
+}
+
+.provenance-relationship h3 {
+  margin: 0;
+}
+
+.provenance-relationship-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 0.85rem;
+}
+
+.provenance-relationship-grid div {
+  padding: 0.8rem;
+  border: 1px solid var(--saltbytes-border);
+  border-radius: 0.6rem;
+}
+
+.provenance-relationship > p {
+  margin: 0.85rem 0 0;
+}
+
 .provenance-details,
 .provenance-location-details {
+  margin-top: 0.8rem;
   padding: 1rem 1.1rem;
   border: 1px solid var(--saltbytes-border);
   border-radius: 0.75rem;
@@ -1518,6 +1550,31 @@ body:has(.conditions-context) #observablehq-main > .observablehq--block:has(form
   .detail-grid,
   .link-grid {
     grid-template-columns: 1fr;
+  }
+
+  .provenance-relationship-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .provenance-lineage {
+    grid-template-columns: 1fr;
+  }
+
+  .provenance-lineage li {
+    padding: 0.9rem 0;
+  }
+
+  .provenance-lineage li:first-child {
+    padding-top: 0;
+  }
+
+  .provenance-lineage li:last-child {
+    padding-bottom: 0;
+  }
+
+  .provenance-lineage li + li {
+    border-top: 1px solid var(--saltbytes-border);
+    border-left: 0;
   }
 }
 

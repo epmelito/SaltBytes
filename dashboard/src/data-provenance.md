@@ -116,11 +116,51 @@ function formatCoordinatePair(latitude, longitude) {
   return `${formatNumber(latitude, 5)}, ${formatNumber(longitude, 5)}`;
 }
 
-function tideRelationshipLabel(value) {
+function coordinateDistanceKm(requestLatitude, requestLongitude, returnedLatitude, returnedLongitude) {
+  const coordinates = [requestLatitude, requestLongitude, returnedLatitude, returnedLongitude];
+  if (coordinates.some((value) => value === null || value === undefined || Number.isNaN(Number(value)))) {
+    return null;
+  }
+  const radians = (value) => Number(value) * Math.PI / 180;
+  const latitudeDifference = radians(returnedLatitude) - radians(requestLatitude);
+  const longitudeDifference = radians(returnedLongitude) - radians(requestLongitude);
+  const distance = Math.sin(latitudeDifference / 2) ** 2
+    + Math.cos(radians(requestLatitude)) * Math.cos(radians(returnedLatitude))
+      * Math.sin(longitudeDifference / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(distance), Math.sqrt(1 - distance));
+}
+
+function modelRelationshipSummary(row) {
+  const distanceKm = coordinateDistanceKm(
+    row?.request_latitude,
+    row?.request_longitude,
+    row?.returned_latitude,
+    row?.returned_longitude
+  );
+  if (distanceKm === null) {
+    return {
+      distance: "Unavailable",
+      explanation: "Distance cannot be calculated because one or both forecast points are unavailable."
+    };
+  }
+  const distance = formatNumber(kilometersToMiles(distanceKm), 1, "mi");
   return {
-    direct: "NOAA prediction used directly",
-    transfer: "Nearby NOAA prediction used for this fishing location"
-  }[value] ?? "Unavailable";
+    distance,
+    explanation: distanceKm < 0.001
+      ? "Open-Meteo returned the same point SaltBytes requested."
+      : `Open-Meteo used a forecast point ${distance} from the requested point.`
+  };
+}
+
+function tideRelationshipSummary(row) {
+  return {
+    distance: formatNumber(kilometersToMiles(row?.distance_km), 1, "mi"),
+    explanation: row?.relationship_type === "direct"
+      ? "NOAA publishes a tide forecast directly for this location."
+      : row?.relationship_type === "transfer"
+        ? "SaltBytes uses NOAA's tide forecast from this nearby location because there isn't a tide forecast published directly for the fishing location."
+        : "SaltBytes cannot confirm how this tide forecast relates to the fishing location for this update."
+  };
 }
 
 function waterLevelReferenceLabel(value) {
@@ -312,17 +352,27 @@ The selected source remains highlighted in the coverage list above.
 const selected = sourceRows.find((row) => row.source === source);
 const selectedState = traceabilityState(selected);
 const isTide = source === "tide";
-const hasCoordinates = [
-  selected?.request_latitude,
-  selected?.request_longitude,
-  selected?.returned_latitude,
-  selected?.returned_longitude
-].some((value) => value != null);
+const relationship = isTide ? tideRelationshipSummary(selected) : modelRelationshipSummary(selected);
 ```
 
 ```js
 const sourceInspector = html`
 <section class="provenance-source-inspector" data-selected-source=${source}>
+  <section class="provenance-relationship" data-relationship-kind=${isTide ? "tide" : "model"}>
+    <h3>Where this forecast comes from</h3>
+    <div class="provenance-relationship-grid">
+      <div><span>${isTide ? "Fishing location" : "Requested point"}</span><strong>${isTide ? locationName(locationId, locations) : formatCoordinatePair(selected?.request_latitude, selected?.request_longitude)}</strong></div>
+      <div><span>${isTide ? "Tide forecast location" : "Forecast point used"}</span><strong>${isTide ? selected?.prediction_location ?? "Unavailable" : formatCoordinatePair(selected?.returned_latitude, selected?.returned_longitude)}</strong></div>
+      <div><span>Distance</span><strong>${relationship.distance}</strong></div>
+    </div>
+    <p>${relationship.explanation}</p>
+    ${isTide ? html`
+      <div class="provenance-limitation">
+        <strong>Tide limitation</strong>
+        <p>${tideLimitationLabel(selected?.known_limitation)}</p>
+      </div>
+    ` : null}
+  </section>
   <details class="provenance-details">
     <summary>${sourceName(source)} source details</summary>
     <p>
@@ -355,35 +405,10 @@ const sourceInspector = html`
       </div>
     </div>
 
-    ${hasCoordinates ? html`
-      <h4>Forecast grid location</h4>
-      <p class="provenance-detail-note">
-        SaltBytes sends a coordinate with the request. Open-Meteo returns the
-        grid coordinate represented by the forecast.
-      </p>
-      <div class="provenance-technical-grid">
-        <div><span>Point SaltBytes requested</span><strong>${formatCoordinatePair(selected?.request_latitude, selected?.request_longitude)}</strong></div>
-        <div><span>Provider grid point returned</span><strong>${formatCoordinatePair(selected?.returned_latitude, selected?.returned_longitude)}</strong></div>
-      </div>
-    ` : null}
-
     ${isTide ? html`
-      <h4>Tide prediction location</h4>
-      <p class="provenance-detail-note">
-        NOAA predictions come from the location below. SaltBytes shows how
-        that prediction location relates to the selected fishing location.
-      </p>
       <div class="provenance-technical-grid">
-        <div><span>NOAA prediction location</span><strong>${selected?.prediction_location ?? "Unavailable"}</strong></div>
-        <div><span>How the prediction is used</span><strong>${tideRelationshipLabel(selected?.relationship_type)}</strong></div>
-        <div><span>How it applies here</span><strong>${selected?.coastal_relationship ?? "Unavailable"}</strong></div>
         <div><span>NOAA reference station</span><strong>${selected?.reference_station ?? "Unavailable"}</strong></div>
         <div><span>Water level reference</span><strong>${waterLevelReferenceLabel(selected?.datum)}</strong></div>
-        <div><span>Distance to fishing location</span><strong>${formatNumber(kilometersToMiles(selected?.distance_km), 1, "mi")}</strong></div>
-      </div>
-      <div class="provenance-limitation">
-        <strong>Tide limitation</strong>
-        <p>${tideLimitationLabel(selected?.known_limitation)}</p>
       </div>
     ` : null}
   </details>
