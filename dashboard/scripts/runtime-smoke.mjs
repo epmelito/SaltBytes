@@ -278,15 +278,28 @@ async function assertResponsiveShell(browser, base) {
   try {
     for (const route of routes.slice(1)) {
       await openPage(page, `${base}${route}`, errors);
+      if (route === "/data-provenance") {
+        await page.waitForFunction(() => document.querySelectorAll(".provenance-relationship-grid > div").length === 3);
+      }
       const state = await page.evaluate(() => {
         const main = document.querySelector("#observablehq-main")?.getBoundingClientRect();
         return {
           mainWidth: main?.width ?? 0,
           pageWidth: document.documentElement.scrollWidth,
-          viewportWidth: document.documentElement.clientWidth
+          viewportWidth: document.documentElement.clientWidth,
+          relationshipTops: [...document.querySelectorAll(".provenance-relationship-grid > div")]
+            .map((card) => card.getBoundingClientRect().top),
+          lineageTops: [...document.querySelectorAll(".provenance-lineage li")]
+            .map((step) => step.getBoundingClientRect().top)
         };
       });
-      if (!state.mainWidth || state.mainWidth > state.viewportWidth || state.pageWidth > state.viewportWidth) {
+      if (
+        !state.mainWidth
+        || state.mainWidth > state.viewportWidth
+        || state.pageWidth > state.viewportWidth
+        || (route === "/data-provenance" && new Set(state.relationshipTops).size !== 3)
+        || (route === "/data-provenance" && new Set(state.lineageTops).size !== 4)
+      ) {
         throw new Error(`Responsive dashboard shell is invalid at ${route}: ${JSON.stringify(state)}`);
       }
     }
@@ -1273,6 +1286,7 @@ async function assertDataProvenance(page) {
     const locationDetails = document.querySelector(".provenance-location-details");
     const sourceInspector = document.querySelector(".provenance-source-inspector");
     const lineage = document.querySelector(".provenance-lineage");
+    const relationship = document.querySelector(".provenance-relationship");
     const columnNames = ["source", "provider", "captured"];
     const columnPositions = Object.fromEntries(columnNames.map((column) => [
       column,
@@ -1302,6 +1316,16 @@ async function assertDataProvenance(page) {
       detailsClosed: !details?.open,
       locationDetailsClosed: !locationDetails?.open,
       selectedSource: sourceInspector?.dataset.selectedSource ?? "",
+      relationship: {
+        kind: relationship?.dataset.relationshipKind ?? "",
+        cards: [...(relationship?.querySelectorAll(".provenance-relationship-grid > div") ?? [])]
+          .map((card) => ({
+            label: card.querySelector("span")?.textContent.trim() ?? "",
+            value: card.querySelector("strong")?.textContent.trim() ?? ""
+          })),
+        explanation: relationship?.querySelector(":scope > p")?.textContent.trim() ?? "",
+        limitation: relationship?.querySelector(".provenance-limitation")?.textContent.trim() ?? ""
+      },
       detailsBeforeLineage: Boolean(
         sourceInspector
           && lineage
@@ -1341,6 +1365,12 @@ async function assertDataProvenance(page) {
     || !initial.detailsClosed
     || !initial.locationDetailsClosed
     || initial.selectedSource !== "weather"
+    || initial.relationship.kind !== "model"
+    || JSON.stringify(initial.relationship.cards.map((card) => card.label))
+      !== JSON.stringify(["Requested point", "Forecast point used", "Distance"])
+    || initial.relationship.cards[2]?.value !== "1.0 mi"
+    || !initial.relationship.explanation.includes("forecast point 1.0 mi from the requested point")
+    || initial.relationship.limitation
     || !initial.detailsBeforeLineage
     || initial.selectCount !== 1
     || initial.repeatedHealthyDetail
@@ -1350,6 +1380,19 @@ async function assertDataProvenance(page) {
     || initial.pageWidth > initial.viewportWidth
   ) {
     throw new Error(`Forecast sources complete state is incorrect: ${JSON.stringify(initial)}`);
+  }
+
+  await page.locator('[data-provenance-source="pressure"]').click();
+  await page.waitForFunction(() =>
+    document.querySelector(".provenance-source-inspector")?.dataset.selectedSource === "pressure"
+  );
+  const pressureState = await readState();
+  if (
+    pressureState.relationship.kind !== "model"
+    || pressureState.relationship.cards[2]?.value !== "0.0 mi"
+    || pressureState.relationship.explanation !== "Open-Meteo returned the same point SaltBytes requested."
+  ) {
+    throw new Error(`Forecast source pressure relationship is incorrect: ${JSON.stringify(pressureState)}`);
   }
 
   const tideButton = page.locator('[data-provenance-source="tide"]');
@@ -1364,6 +1407,14 @@ async function assertDataProvenance(page) {
   if (
     tideState.selectedSource !== "tide"
     || tideState.sourceRows.find((row) => row.source === "tide")?.selected !== "true"
+    || tideState.relationship.kind !== "tide"
+    || JSON.stringify(tideState.relationship.cards.map((card) => card.label))
+      !== JSON.stringify(["Fishing location", "Tide forecast location", "Distance"])
+    || tideState.relationship.cards[0]?.value !== "Jennette's Pier"
+    || tideState.relationship.cards[1]?.value !== "Jennettes Pier, Nags Head (ocean)"
+    || tideState.relationship.cards[2]?.value !== "0.3 mi"
+    || tideState.relationship.explanation !== "NOAA publishes a tide forecast directly for this location."
+    || !tideState.relationship.limitation.includes("Tide predictions are not observed water levels.")
   ) {
     throw new Error(`Forecast source selection is incorrect: ${JSON.stringify(tideState)}`);
   }
@@ -1380,18 +1431,9 @@ async function assertDataProvenance(page) {
   if (
     !detailText.includes("run-20260802T120000Z-jennettes_pier-tide")
     || !detailText.includes("8652226")
-    || !detailText.includes("Tide prediction location")
-    || !detailText.includes("NOAA prediction location")
-    || !detailText.includes("How the prediction is used")
-    || !detailText.includes("NOAA prediction used directly")
-    || !detailText.includes("How it applies here")
     || !detailText.includes("Water level reference")
     || !detailText.includes("Mean Lower Low Water (MLLW)")
-    || !detailText.includes("Distance to fishing location")
-    || !detailText.includes("Direct use at the Atlantic-facing pier")
-    || !detailText.includes("Tide predictions are not observed water levels.")
     || !detailText.includes("Tide source details")
-    || detailText.includes("Coastal relationship")
     || detailText.includes("Datum")
     || detailText.includes("Location orientation context")
   ) {
@@ -1405,9 +1447,9 @@ async function assertDataProvenance(page) {
   );
   const gridDetailText = await page.locator(".provenance-details").textContent();
   if (
-    !gridDetailText.includes("Forecast grid location")
-    || !gridDetailText.includes("Point SaltBytes requested")
-    || !gridDetailText.includes("Provider grid point returned")
+    !gridDetailText.includes("Sea surface temperature source details")
+    || gridDetailText.includes("Requested point")
+    || gridDetailText.includes("Forecast point used")
   ) {
     throw new Error("Forecast source grid location language is incomplete");
   }
@@ -1447,8 +1489,58 @@ async function assertDataProvenance(page) {
     document.querySelector(".provenance-details")?.open
       && document.querySelector(".provenance-location-details")?.open
   );
-  if (!updatedLocation.includes("Beach Access Ramp 72") || !disclosuresStayedOpen) {
-    throw new Error("Forecast sources location control did not update while preserving open details");
+  await page.locator('[data-provenance-source="tide"]').click();
+  await page.waitForFunction(() =>
+    document.querySelector(".provenance-source-inspector")?.dataset.selectedSource === "tide"
+      && document.querySelector(".provenance-details")?.open
+  );
+  const transferredTide = await readState();
+  if (
+    !updatedLocation.includes("Beach Access Ramp 72")
+    || !disclosuresStayedOpen
+    || transferredTide.relationship.cards[0]?.value !== "Beach Access Ramp 72, Ocracoke Island"
+    || transferredTide.relationship.cards[1]?.value !== "Ocracoke Inlet"
+    || transferredTide.relationship.cards[2]?.value !== "2.3 mi"
+    || !transferredTide.relationship.explanation.includes("isn't a tide forecast published directly")
+  ) throw new Error("Forecast sources location control did not update while preserving open details");
+}
+
+async function assertUnavailableProvenanceRelationship(browser, base) {
+  const context = await browser.newContext({viewport: {width: 1440, height: 900}});
+  const page = await context.newPage();
+  page.setDefaultTimeout(timeoutMs);
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const fixtureDirectory = resolve(dist, "..", "src", "data");
+  const provenance = JSON.parse(await readFile(join(fixtureDirectory, "provenance.json"), "utf8"));
+  const unavailableWeather = provenance.map((row) => row.source === "weather"
+    ? {
+      ...row,
+      returned_latitude: null,
+      returned_longitude: null
+    }
+    : row);
+  await page.route(/\/provenance\.[^.]+\.json$/, (route) => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify(unavailableWeather)
+  }));
+  try {
+    await openPage(page, `${base}/data-provenance`, errors);
+    await page.waitForFunction(() => document.querySelectorAll(".provenance-relationship-grid > div").length === 3);
+    const relationship = await page.evaluate(() => ({
+      values: [...document.querySelectorAll(".provenance-relationship-grid > div strong")]
+        .map((value) => value.textContent.trim()),
+      explanation: document.querySelector(".provenance-relationship > p")?.textContent.trim() ?? ""
+    }));
+    if (
+      JSON.stringify(relationship.values) !== JSON.stringify(["35.90964, -75.59665", "Unavailable", "Unavailable"])
+      || relationship.explanation !== "Distance cannot be calculated because one or both forecast points are unavailable."
+    ) {
+      throw new Error(`Forecast sources unavailable relationship state is incorrect: ${JSON.stringify(relationship)}`);
+    }
+    await assertHealthy(page, errors, "Forecast sources unavailable relationship");
+  } finally {
+    await context.close();
   }
 }
 
@@ -1610,6 +1702,7 @@ async function run() {
       ".provenance-verdict", ".provenance-source-list", ".provenance-lineage"
     ]);
     await assertHealthy(page, errors, "Forecast sources");
+    await assertUnavailableProvenanceRelationship(browser, base);
     await assertPressureOperationsCoverage();
 
     await assertThemeBehavior(page, base, errors);
