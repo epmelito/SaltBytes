@@ -133,8 +133,9 @@ latest attempted run by default, or a requested run ID. The text conditions
 report renders integrated forecast values across the selected window, while the
 text operations report renders selected run metadata and source status. The HTML
 conditions report adds forecast charts, and the HTML operations report adds run
-history, revisions, source coverage, and provenance. All report outputs convert
-UTC timestamps only while formatting.
+history, revisions, source coverage, and provenance. Report outputs convert
+UTC timestamps and user-facing physical measurements only while formatting;
+stored forecast values and assessment calculations remain metric.
 
 The dashboard export opens DuckDB read only, validates the reporting schema, and
 writes seven documented JSON files. Current conditions come from the latest

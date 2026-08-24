@@ -9,10 +9,15 @@ import {html} from "npm:htl";
 
 import {
   asDate,
+  celsiusToFahrenheit,
   compassDirection,
   formatNumber,
   formatTimestamp,
-  locationName
+  hectopascalsToInchesMercury,
+  kilometersPerHourToMph,
+  locationName,
+  metersToFeet,
+  millimetersToInches
 } from "./components/format.js";
 
 const manifest = await FileAttachment("./data/manifest.json").json();
@@ -112,29 +117,29 @@ const trendTitle = (row, label, value) => `${label}: ${value}\nForecast time: ${
 const isFiniteNumber = (value) => value !== null && value !== undefined && Number.isFinite(Number(value));
 const wind = trendRows
   .filter((row) => isFiniteNumber(row.wind_speed_10m))
-  .map((row) => ({...row, metric: "Wind", value: Number(row.wind_speed_10m)}));
+  .map((row) => ({...row, metric: "Wind", value: kilometersPerHourToMph(row.wind_speed_10m)}));
 const gusts = trendRows
   .filter((row) => isFiniteNumber(row.wind_gusts_10m))
-  .map((row) => ({...row, metric: "Gusts", value: Number(row.wind_gusts_10m)}));
+  .map((row) => ({...row, metric: "Gusts", value: kilometersPerHourToMph(row.wind_gusts_10m)}));
 const windBand = trendRows
   .filter((row) => isFiniteNumber(row.wind_speed_10m) && isFiniteNumber(row.wind_gusts_10m))
   .map((row) => ({
     ...row,
-    wind: Number(row.wind_speed_10m),
-    gust: Number(row.wind_gusts_10m)
+    wind: kilometersPerHourToMph(row.wind_speed_10m),
+    gust: kilometersPerHourToMph(row.wind_gusts_10m)
   }));
 const waveSeries = trendRows
   .filter((row) => isFiniteNumber(row.wave_height))
-  .map((row) => ({...row, value: Number(row.wave_height)}));
+  .map((row) => ({...row, value: metersToFeet(row.wave_height)}));
 const temperatureSeries = trendRows
   .filter((row) => isFiniteNumber(row.sea_surface_temperature))
-  .map((row) => ({...row, value: Number(row.sea_surface_temperature)}));
+  .map((row) => ({...row, value: celsiusToFahrenheit(row.sea_surface_temperature)}));
 const airTemperatureSeries = trendRows.filter((row) => isFiniteNumber(row.air_temperature))
-  .map((row) => ({...row, value: Number(row.air_temperature)}));
+  .map((row) => ({...row, value: celsiusToFahrenheit(row.air_temperature)}));
 const apparentTemperatureSeries = trendRows.filter((row) => isFiniteNumber(row.apparent_temperature))
-  .map((row) => ({...row, value: Number(row.apparent_temperature)}));
+  .map((row) => ({...row, value: celsiusToFahrenheit(row.apparent_temperature)}));
 const pressureSeries = trendRows.filter((row) => isFiniteNumber(row.pressure_msl))
-  .map((row) => ({...row, value: Number(row.pressure_msl)}));
+  .map((row) => ({...row, value: hectopascalsToInchesMercury(row.pressure_msl)}));
 const minimumSpanDomain = (series, minimumSpan) => {
   if (!series.length) return undefined;
   const values = series.map((row) => row.value);
@@ -148,7 +153,7 @@ const minimumSpanDomain = (series, minimumSpan) => {
 const temperatureDomain = minimumSpanDomain(temperatureSeries, 1);
 const temperatureBaseline = temperatureDomain?.[0] ?? 0;
 const airTemperatureDomain = minimumSpanDomain([...airTemperatureSeries, ...apparentTemperatureSeries], 1);
-const pressureDomain = minimumSpanDomain(pressureSeries, 2);
+const pressureDomain = minimumSpanDomain(pressureSeries, 0.06);
 const selectedSeries = (series) => series.filter((row) => row.forecast_time === selected?.forecast_time);
 const previousTideTime = asDate(selected?.tide_previous_extremum_time);
 const nextTideTime = asDate(selected?.tide_next_extremum_time);
@@ -245,22 +250,22 @@ display(html`<section class="conditions-current">
   <section class="conditions-current-group" aria-labelledby="coastal-conditions-heading">
     <h3 id="coastal-conditions-heading">Coastal conditions</h3>
     <div class="conditions-current-summary">
-      <article><span class="detail-label">Wind</span><h4>${formatNumber(selected?.wind_speed_10m, 1, "km/h")} with gusts to ${formatNumber(selected?.wind_gusts_10m, 1, "km/h")}</h4><p>From the ${compassDirection(selected?.wind_direction_10m)} (${formatNumber(selected?.wind_direction_10m, 0)}°).</p></article>
-      <article><span class="detail-label">Waves</span><h4>${formatNumber(selected?.wave_height, 1, "m")} every ${formatNumber(selected?.wave_period, 1, "s")}</h4><p>From the ${compassDirection(selected?.wave_direction)} (${formatNumber(selected?.wave_direction, 0)}°).</p></article>
-      <article><span class="detail-label">Water temperature</span><h4>${formatNumber(selected?.sea_surface_temperature, 1, "\u00b0C")}</h4></article>
+      <article><span class="detail-label">Wind</span><h4>${formatNumber(kilometersPerHourToMph(selected?.wind_speed_10m), 1, "mph")} with gusts to ${formatNumber(kilometersPerHourToMph(selected?.wind_gusts_10m), 1, "mph")}</h4><p>From the ${compassDirection(selected?.wind_direction_10m)} (${formatNumber(selected?.wind_direction_10m, 0)}°).</p></article>
+      <article><span class="detail-label">Waves</span><h4>${formatNumber(metersToFeet(selected?.wave_height), 1, "ft")} every ${formatNumber(selected?.wave_period, 1, "s")}</h4><p>From the ${compassDirection(selected?.wave_direction)} (${formatNumber(selected?.wave_direction, 0)}°).</p></article>
+      <article><span class="detail-label">Water temperature</span><h4>${formatNumber(celsiusToFahrenheit(selected?.sea_surface_temperature), 0, "°F")}</h4></article>
       <article class="conditions-tide"><span class="detail-label">Tide</span><h4>${selected?.tide_phase ?? "Unavailable"}</h4></article>
     </div>
   </section>
   <section class="conditions-current-group" aria-labelledby="weather-sky-heading">
     <h3 id="weather-sky-heading">Weather and sky</h3>
     <div class="conditions-current-summary">
-      <article><span class="detail-label">Air temperature</span><h4>${formatNumber(selected?.air_temperature, 1, "\u00b0C")}</h4><p>Feels like ${formatNumber(selected?.apparent_temperature, 1, "\u00b0C")}.</p></article>
-      <article><span class="detail-label">Barometric pressure</span><h4>${formatNumber(selected?.pressure_msl, 1, "hPa")}</h4></article>
+      <article><span class="detail-label">Air temperature</span><h4>${formatNumber(celsiusToFahrenheit(selected?.air_temperature), 0, "°F")}</h4><p>Feels like ${formatNumber(celsiusToFahrenheit(selected?.apparent_temperature), 0, "°F")}.</p></article>
+      <article><span class="detail-label">Barometric pressure</span><h4>${formatNumber(hectopascalsToInchesMercury(selected?.pressure_msl), 2, "inHg")}</h4></article>
       <article><span class="detail-label">Sky and sun</span><h4>${solarStateLabel[selected?.solar_state] ?? "Unavailable"}</h4><p>${solarEventSummary}<br>${cloudCoverSummary}</p></article>
-      <article><span class="detail-label">Precipitation</span><h4>${selected?.precipitation_probability === null || selected?.precipitation_probability === undefined ? "Unavailable" : `${formatNumber(selected?.precipitation_probability, 0, "%")} chance`}</h4><p>${selected?.precipitation === null || selected?.precipitation === undefined ? "Expected amount unavailable." : `${formatNumber(selected?.precipitation, 1, "mm")} expected.`}</p></article>
+      <article><span class="detail-label">Precipitation</span><h4>${selected?.precipitation_probability === null || selected?.precipitation_probability === undefined ? "Unavailable" : `${formatNumber(selected?.precipitation_probability, 0, "%")} chance`}</h4><p>${selected?.precipitation === null || selected?.precipitation === undefined ? "Expected amount unavailable." : `${formatNumber(millimetersToInches(selected?.precipitation), 2, "in")} expected.`}</p></article>
     </div>
   </section>
-  <details class="conditions-tide-details"><summary>Tide details</summary><div class="tide-events"><div><strong>Previous ${selected?.tide_previous_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_previous_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(selected?.tide_previous_predicted_water_level, 1, "m")}</span></div><div><strong>Next ${selected?.tide_next_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_next_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(selected?.tide_next_predicted_water_level, 1, "m")}</span></div></div></details>
+  <details class="conditions-tide-details"><summary>Tide details</summary><div class="tide-events"><div><strong>Previous ${selected?.tide_previous_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_previous_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(metersToFeet(selected?.tide_previous_predicted_water_level), 1, "ft")}</span></div><div><strong>Next ${selected?.tide_next_extremum_type ?? "tide"}</strong><span>${formatTimestamp(selected?.tide_next_extremum_time, manifest.display_timezone)}</span><span>${formatNumber(metersToFeet(selected?.tide_next_predicted_water_level), 1, "ft")}</span></div></div></details>
 </section>`);
 ~~~
 
@@ -300,7 +305,7 @@ const trendTickValues = (width) => {
   );
   return [...new Set(indexes)].map((index) => dates[index]);
 };
-const trendPlot = ({width, height, marks, yDomain}) => Plot.plot({
+const trendPlot = ({width, height, marks, yDomain, yTickFormat}) => Plot.plot({
   width,
   height,
   marginTop: 12,
@@ -321,6 +326,7 @@ const trendPlot = ({width, height, marks, yDomain}) => Plot.plot({
     grid: true,
     label: null,
     ticks: 4,
+    tickFormat: yTickFormat,
     nice: true
   },
   style: {background: "transparent"},
@@ -374,11 +380,11 @@ const windPlot = resize((width) => trendPlot({
     }),
     line(wind, {stroke: "var(--saltbytes-wind)", className: "wind-line"}),
     line(gusts, {stroke: "var(--saltbytes-gust)", dashed: true, className: "gust-line"}),
-    point(wind, (row) => trendTitle(row, "Wind", formatNumber(row.value, 1, "km/h")), {fill: "var(--saltbytes-wind)", className: "wind-points"}),
-    point(gusts, (row) => trendTitle(row, "Gusts", formatNumber(row.value, 1, "km/h")), {fill: "var(--saltbytes-gust)", className: "gust-points"}),
+    point(wind, (row) => trendTitle(row, "Wind", formatNumber(row.value, 1, "mph")), {fill: "var(--saltbytes-wind)", className: "wind-points"}),
+    point(gusts, (row) => trendTitle(row, "Gusts", formatNumber(row.value, 1, "mph")), {fill: "var(--saltbytes-gust)", className: "gust-points"}),
     selectedRuleMark(),
-    point(selectedSeries(wind), (row) => trendTitle(row, "Wind", formatNumber(row.value, 1, "km/h")), {r: 5.6, fill: "var(--saltbytes-wind)", strokeWidth: 2, className: "selected-wind-point"}),
-    point(selectedSeries(gusts), (row) => trendTitle(row, "Gusts", formatNumber(row.value, 1, "km/h")), {r: 5.6, fill: "var(--saltbytes-gust)", strokeWidth: 2, className: "selected-gust-point"})
+    point(selectedSeries(wind), (row) => trendTitle(row, "Wind", formatNumber(row.value, 1, "mph")), {r: 5.6, fill: "var(--saltbytes-wind)", strokeWidth: 2, className: "selected-wind-point"}),
+    point(selectedSeries(gusts), (row) => trendTitle(row, "Gusts", formatNumber(row.value, 1, "mph")), {r: 5.6, fill: "var(--saltbytes-gust)", strokeWidth: 2, className: "selected-gust-point"})
   ]
 }));
 const wavePlot = resize((width) => trendPlot({
@@ -396,15 +402,16 @@ const wavePlot = resize((width) => trendPlot({
       className: "wave-area"
     }),
     line(waveSeries, {stroke: "var(--saltbytes-wave)", className: "wave-line"}),
-    point(waveSeries, (row) => trendTitle(row, "Wave height", formatNumber(row.value, 1, "m")), {fill: "var(--saltbytes-wave)", className: "wave-points"}),
+    point(waveSeries, (row) => trendTitle(row, "Wave height", formatNumber(row.value, 1, "ft")), {fill: "var(--saltbytes-wave)", className: "wave-points"}),
     selectedRuleMark(),
-    point(selectedSeries(waveSeries), (row) => trendTitle(row, "Wave height", formatNumber(row.value, 1, "m")), {r: 5.6, fill: "var(--saltbytes-wave)", strokeWidth: 2, className: "selected-wave-point"})
+    point(selectedSeries(waveSeries), (row) => trendTitle(row, "Wave height", formatNumber(row.value, 1, "ft")), {r: 5.6, fill: "var(--saltbytes-wave)", strokeWidth: 2, className: "selected-wave-point"})
   ]
 }));
 const temperaturePlot = resize((width) => trendPlot({
   width,
   height: 240,
   yDomain: temperatureDomain,
+  yTickFormat: (value) => formatNumber(value, 0),
   marks: [
     selectedBandMark(),
     Plot.areaY(temperatureSeries, {
@@ -417,19 +424,20 @@ const temperaturePlot = resize((width) => trendPlot({
       className: "temperature-area"
     }),
     line(temperatureSeries, {stroke: "var(--saltbytes-temperature)", className: "temperature-line"}),
-    point(temperatureSeries, (row) => trendTitle(row, "Water temperature", formatNumber(row.value, 1, "°C")), {fill: "var(--saltbytes-temperature)", className: "temperature-points"}),
+    point(temperatureSeries, (row) => trendTitle(row, "Water temperature", formatNumber(row.value, 0, "°F")), {fill: "var(--saltbytes-temperature)", className: "temperature-points"}),
     selectedRuleMark(),
-    point(selectedSeries(temperatureSeries), (row) => trendTitle(row, "Water temperature", formatNumber(row.value, 1, "°C")), {r: 5.6, fill: "var(--saltbytes-temperature)", strokeWidth: 2, className: "selected-temperature-point"})
+    point(selectedSeries(temperatureSeries), (row) => trendTitle(row, "Water temperature", formatNumber(row.value, 0, "°F")), {r: 5.6, fill: "var(--saltbytes-temperature)", strokeWidth: 2, className: "selected-temperature-point"})
   ]
 }));
 const airTemperatureLegend = html`<div class="series-legend" aria-label="Air temperature chart legend"><span class="legend-air-temperature">Air temperature</span><span class="legend-apparent-temperature">Feels like</span></div>`;
 const airTemperaturePlot = resize((width) => trendPlot({
   width, height: 240, yDomain: airTemperatureDomain,
-  marks: [selectedBandMark(), line(airTemperatureSeries, {stroke: "var(--saltbytes-temperature)", className: "air-temperature-line"}), line(apparentTemperatureSeries, {stroke: "var(--saltbytes-wind)", dashed: true, className: "apparent-temperature-line"}), point(airTemperatureSeries, (row) => trendTitle(row, "Air temperature", formatNumber(row.value, 1, "°C")), {fill: "var(--saltbytes-temperature)", className: "air-temperature-points"}), point(apparentTemperatureSeries, (row) => trendTitle(row, "Feels like", formatNumber(row.value, 1, "°C")), {fill: "var(--saltbytes-wind)", className: "apparent-temperature-points"}), selectedRuleMark()]
+  yTickFormat: (value) => formatNumber(value, 0),
+  marks: [selectedBandMark(), line(airTemperatureSeries, {stroke: "var(--saltbytes-temperature)", className: "air-temperature-line"}), line(apparentTemperatureSeries, {stroke: "var(--saltbytes-wind)", dashed: true, className: "apparent-temperature-line"}), point(airTemperatureSeries, (row) => trendTitle(row, "Air temperature", formatNumber(row.value, 0, "°F")), {fill: "var(--saltbytes-temperature)", className: "air-temperature-points"}), point(apparentTemperatureSeries, (row) => trendTitle(row, "Feels like", formatNumber(row.value, 0, "°F")), {fill: "var(--saltbytes-wind)", className: "apparent-temperature-points"}), selectedRuleMark()]
 }));
 const pressurePlot = resize((width) => trendPlot({
   width, height: 240, yDomain: pressureDomain,
-  marks: [selectedBandMark(), line(pressureSeries, {stroke: "var(--saltbytes-gust)", className: "pressure-line"}), point(pressureSeries, (row) => trendTitle(row, "Barometric pressure", formatNumber(row.value, 1, "hPa")), {fill: "var(--saltbytes-gust)", className: "pressure-points"}), selectedRuleMark()]
+  marks: [selectedBandMark(), line(pressureSeries, {stroke: "var(--saltbytes-gust)", className: "pressure-line"}), point(pressureSeries, (row) => trendTitle(row, "Barometric pressure", formatNumber(row.value, 2, "inHg")), {fill: "var(--saltbytes-gust)", className: "pressure-points"}), selectedRuleMark()]
 }));
 const tideSurface = tideTimingAvailable ? html`<article class="tide-timing">
   <header class="visual-surface-header">
@@ -446,8 +454,8 @@ const tideSurface = tideTimingAvailable ? html`<article class="tide-timing">
     </svg>
   </div>
   <div class="tide-event-row">
-    <div><strong>Previous ${selected.tide_previous_extremum_type}: ${formatNumber(selected.tide_previous_predicted_water_level, 1, "m")}</strong><span>${tideEventTime(selected.tide_previous_extremum_time)}</span></div>
-    <div><strong>Next ${selected.tide_next_extremum_type}: ${formatNumber(selected.tide_next_predicted_water_level, 1, "m")}</strong><span>${tideEventTime(selected.tide_next_extremum_time)}</span></div>
+    <div><strong>Previous ${selected.tide_previous_extremum_type}: ${formatNumber(metersToFeet(selected.tide_previous_predicted_water_level), 1, "ft")}</strong><span>${tideEventTime(selected.tide_previous_extremum_time)}</span></div>
+    <div><strong>Next ${selected.tide_next_extremum_type}: ${formatNumber(metersToFeet(selected.tide_next_predicted_water_level), 1, "ft")}</strong><span>${tideEventTime(selected.tide_next_extremum_time)}</span></div>
   </div>
   <p class="tide-limitation">The line shows timing between tide predictions, not an exact water level.</p>
 </article>` : html`<article class="visual-unavailable"><h3>Tide timing</h3><strong>Tide timing unavailable</strong><p>Required tide-event timing or predicted levels are unavailable.</p></article>`;
@@ -492,11 +500,11 @@ display(html`<section class="forecast-context" aria-label="Forecast trend contex
   ${trendRows.length < 12 ? html`<p class="trend-availability">Only ${trendRows.length} forecast hours are available in this preview.</p>` : null}
 </section>`);
 display(html`<section class="conditions-visual-grid">
-  ${chartSurface({title: "Wind and gusts", unit: "km/h", className: "forecast-wind", plot: windPlot, legend: windLegend})}
-  ${chartSurface({title: "Wave height", unit: "m", className: "forecast-wave", plot: wavePlot})}
-  ${chartSurface({title: "Water temperature", unit: "°C", className: "forecast-temperature", plot: temperaturePlot, notice: temperatureNotice})}
-  ${chartSurface({title: "Air temperature", unit: "°C", className: "forecast-air-temperature", plot: airTemperaturePlot, legend: airTemperatureLegend, notice: airTemperatureNotice})}
-  ${chartSurface({title: "Barometric pressure", unit: "hPa", className: "forecast-pressure", plot: pressurePlot, notice: pressureNotice})}
+  ${chartSurface({title: "Wind and gusts", unit: "mph", className: "forecast-wind", plot: windPlot, legend: windLegend})}
+  ${chartSurface({title: "Wave height", unit: "ft", className: "forecast-wave", plot: wavePlot})}
+  ${chartSurface({title: "Water temperature", unit: "°F", className: "forecast-temperature", plot: temperaturePlot, notice: temperatureNotice})}
+  ${chartSurface({title: "Air temperature", unit: "°F", className: "forecast-air-temperature", plot: airTemperaturePlot, legend: airTemperatureLegend, notice: airTemperatureNotice})}
+  ${chartSurface({title: "Barometric pressure", unit: "inHg", className: "forecast-pressure", plot: pressurePlot, notice: pressureNotice})}
   ${tideSurface}
   ${directionSurface}
 </section>`);

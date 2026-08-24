@@ -181,10 +181,10 @@ def test_render_conditions_report_uses_latest_attempted_run(
         "2026-07-30 09:00 EDT"
     ) in report
     assert (
-        "2026-07-30 09:00 EDT | 4.5 | 135 | 6.0 | 20 | 1.5 | "
+        "2026-07-30 09:00 EDT | 2.8 | 135 | 3.7 | 20 | 0.06 | "
         "- | - | - | - | -"
     ) in report
-    assert "Wind km/h | Dir deg | Gust km/h" in report
+    assert "Wind mph | Dir deg | Gust mph" in report
     assert "Rows loaded:" not in report
     assert "Sources:" not in report
     assert "provider unavailable" not in report
@@ -210,7 +210,7 @@ def test_render_operations_report_preserves_source_failures(
     assert "weather: success" in report
     assert "wave: fetch_failed (provider unavailable)" in report
     assert "sst: validation_failed (returned coordinate)" in report
-    assert "Wind km/h | Dir deg | Gust km/h" not in report
+    assert "Wind mph | Dir deg | Gust mph" not in report
     assert "2026-07-30 09:00 EDT | 4.5" not in report
 
 

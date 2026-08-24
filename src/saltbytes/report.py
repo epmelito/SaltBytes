@@ -5,6 +5,14 @@ from zoneinfo import ZoneInfo
 
 import duckdb
 
+from saltbytes.reporting.presentation import (
+    celsius_to_fahrenheit,
+    format_display_number,
+    kilometers_per_hour_to_miles_per_hour,
+    meters_to_feet,
+    millimeters_to_inches,
+)
+
 _SOURCES = ("weather", "wave", "sst", "tide")
 
 
@@ -17,6 +25,10 @@ def _format_value(value: float | None, precision: int = 1) -> str:
         return "-"
 
     return f"{value:.{precision}f}"
+
+
+def _format_converted_value(value: float | None, precision: int = 1) -> str:
+    return "-" if value is None else format_display_number(value, precision)
 
 
 def _source_summary(
@@ -149,8 +161,8 @@ def render_conditions_report(
         )
 
     header = (
-        "Time | Wind km/h | Dir deg | Gust km/h | Precip % | Rain mm | "
-        "Wave m | Wave dir deg | Period s | SST C | Tide"
+        "Time | Wind mph | Dir deg | Gust mph | Precip % | Rain in | "
+        "Wave ft | Wave dir deg | Period s | SST °F | Tide"
     )
     for location in selected_locations:
         current_location_id = location["id"]
@@ -185,15 +197,15 @@ def render_conditions_report(
                 " | ".join(
                     (
                         _format_time(forecast_time, display_timezone),
-                        _format_value(wind_speed),
+                        _format_converted_value(kilometers_per_hour_to_miles_per_hour(wind_speed)),
                         _format_value(wind_direction, 0),
-                        _format_value(wind_gust),
+                        _format_converted_value(kilometers_per_hour_to_miles_per_hour(wind_gust)),
                         _format_value(precipitation_probability, 0),
-                        _format_value(precipitation),
-                        _format_value(wave_height),
+                        _format_converted_value(millimeters_to_inches(precipitation), 2),
+                        _format_converted_value(meters_to_feet(wave_height)),
                         _format_value(wave_direction, 0),
                         _format_value(wave_period),
-                        _format_value(sea_surface_temperature),
+                        _format_converted_value(celsius_to_fahrenheit(sea_surface_temperature), 0),
                         tide_phase or "-",
                     )
                 )
