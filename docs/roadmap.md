@@ -32,8 +32,9 @@ to ocean-facing locations.
 The Little Bridge applicability research and its approved Spanish mackerel v1.2.0
 implementation are complete. GitHub issue #190, Forecast Revisions alignment,
 and GitHub issue #192, Species assessments separation, are complete. GitHub
-issue #176 expands Conditions with informational NBM weather context and
-supplemental GFS pressure, followed by #175, then #191; #149 remains deferred.
+issue #176, Conditions atmospheric context, is complete. GitHub issue #204,
+dashboard page layout and navigation standardization, is next, followed by #175,
+then #191; #149 remains deferred.
 
 The deterministic red drum score path is paused; its research remains useful
 for later location-first assessment work.
