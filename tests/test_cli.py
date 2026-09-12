@@ -1,3 +1,5 @@
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -111,6 +113,70 @@ def test_retention_command_reports_policy_result_without_loading_configuration(
         "metadata rows removed: 10\n"
         "database size before: 2048 bytes\n"
         "database size after checkpoint: 1024 bytes\n"
+    )
+
+
+def test_retention_command_emits_stable_versioned_json(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        "saltbytes.cli.apply_environmental_retention",
+        lambda _: SimpleNamespace(
+            pipeline_run_id="run123",
+            observed_at=datetime(2026, 9, 12, 12, tzinfo=timezone.utc),
+            normalized_retention_days=7,
+            metadata_retention_days=90,
+            protected_run_id="run122",
+            normalized_rows_removed=100,
+            normalized_rows_retained=900,
+            metadata_rows_removed=10,
+            metadata_rows_retained=90,
+            database_size_before=2048,
+            database_size_after=1024,
+        ),
+    )
+
+    main(["retention", "--database", "retention.duckdb", "--json"])
+
+    assert json.loads(capsys.readouterr().out) == {
+        "duckdb_payload_bytes": {
+            "after_checkpoint": 1024,
+            "before_retention": 2048,
+        },
+        "observed_at": "2026-09-12T12:00:00Z",
+        "pipeline_run_id": "run123",
+        "protected_successful_run_id": "run122",
+        "record_type": "database_retention",
+        "retention_days": {"metadata": 90, "normalized": 7},
+        "rows": {
+            "metadata": {"removed": 10, "retained": 90},
+            "normalized": {"removed": 100, "retained": 900},
+        },
+        "schema": "saltbytes.storage-lifecycle",
+        "version": 1,
+    }
+
+
+def test_retention_telemetry_formatting_failure_is_visible_and_nonfatal(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        "saltbytes.cli.apply_environmental_retention",
+        lambda _: SimpleNamespace(),
+    )
+    monkeypatch.setattr(
+        "saltbytes.cli.database_retention_record",
+        lambda _: (_ for _ in ()).throw(ValueError("controlled formatting failure")),
+    )
+
+    main(["retention", "--database", "retention.duckdb", "--json"])
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "environmental retention telemetry unavailable: controlled formatting failure\n"
     )
 
 

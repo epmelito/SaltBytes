@@ -228,9 +228,15 @@ def test_retention_applies_7_and_90_day_windows_and_preserves_observations(
 
     result = apply_environmental_retention(database_path, as_of=NOW)
 
+    assert result.pipeline_run_id == "recent-success"
+    assert result.observed_at == NOW
+    assert result.normalized_retention_days == 7
+    assert result.metadata_retention_days == 90
     assert result.protected_run_id == "recent-success"
     assert result.normalized_rows_removed == 18
+    assert result.normalized_rows_retained == 9
     assert result.metadata_rows_removed == 6
+    assert result.metadata_rows_retained == 12
     assert result.database_size_before > 0
     assert result.database_size_after > 0
     with duckdb.connect(str(database_path), read_only=True) as connection:
@@ -263,7 +269,9 @@ def test_retention_applies_7_and_90_day_windows_and_preserves_observations(
 
     second_result = apply_environmental_retention(database_path, as_of=NOW)
     assert second_result.normalized_rows_removed == 0
+    assert second_result.normalized_rows_retained == 9
     assert second_result.metadata_rows_removed == 0
+    assert second_result.metadata_rows_retained == 12
 
 
 def test_retention_preserves_only_the_latest_completed_success_when_it_is_old(
@@ -285,7 +293,9 @@ def test_retention_preserves_only_the_latest_completed_success_when_it_is_old(
 
     assert result.protected_run_id == "protected-success"
     assert result.normalized_rows_removed == 9
+    assert result.normalized_rows_retained == 18
     assert result.metadata_rows_removed == 6
+    assert result.metadata_rows_retained == 12
     with duckdb.connect(str(database_path), read_only=True) as connection:
         for table_name in NORMALIZED_TABLES:
             assert _run_ids(connection, table_name) == {

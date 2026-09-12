@@ -23,12 +23,12 @@ ready for ordinary use and investigation.
 
 ### Active next work
 
-GitHub issue #184, Define environmental data retention lifecycle, is active.
-Accumulated environmental history is now producing real storage cost, so bounded
-retention has become an active platform need. #184 must preserve all
-fishing-observation state.
+GitHub issue #209, Capture hosted storage lifecycle telemetry, is active. It
+adds reconstructable operational evidence to the retention lifecycle completed
+in #184 without changing retention policy, storage permissions, or canonical
+publication.
 
-After #184, inspect and disposition outstanding fishing-observation review
+After #209, inspect and disposition outstanding fishing-observation review
 patterns through the existing manual review path.
 
 ### Completed current work
@@ -46,6 +46,9 @@ issue #176, Conditions atmospheric context, #204, dashboard page layout and
 navigation standardization, #175, imperial user-facing units, and #191,
 Forecast Sources relationship presentation, are complete; #149 remains
 deferred.
+
+GitHub issue #184 completed the fixed environmental data retention lifecycle
+while preserving all fishing-observation state.
 
 The deterministic red drum score path is paused; its research remains useful
 for later location-first assessment work.
