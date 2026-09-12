@@ -23,13 +23,14 @@ ready for ordinary use and investigation.
 
 ### Active next work
 
-GitHub issue #209, Capture hosted storage lifecycle telemetry, is active. It
-adds reconstructable operational evidence to the retention lifecycle completed
-in #184 without changing retention policy, storage permissions, or canonical
-publication.
+GitHub issue #211, Explore temporal historization from retained state, is the
+active next work package. The environmental retention lifecycle in #184 and
+hosted storage lifecycle telemetry in #209 are complete.
 
-After #209, inspect and disposition outstanding fishing-observation review
-patterns through the existing manual review path.
+Outstanding fishing-observation review patterns remain preserved and deferred
+for later disposition through the existing manual review path. GitHub issue
+#212, fishing-observation review retention reassessment, remains deferred until
+measurable storage, performance, review, or maintenance pressure exists.
 
 ### Completed current work
 
