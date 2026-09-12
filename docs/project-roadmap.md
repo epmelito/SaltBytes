@@ -94,10 +94,10 @@ different needs:
   source traceability
 
 The public landing page and dashboard now provide direct routes for those
-audiences. Conditions presents coastal conditions and species assessments;
-Operations presents pipeline health, forecast changes, and source traceability.
-The desktop views use plain language, useful summaries, and deeper evidence only
-when needed.
+audiences. Conditions and Species Assessments are separate angler-facing
+surfaces. Operations presents pipeline health, forecast changes, and source
+traceability for maintainers. The desktop views use plain language, useful
+summaries, and deeper evidence only when needed.
 
 Mobile refinement and static HTML report redesign remain later work.
 

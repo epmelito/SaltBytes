@@ -21,6 +21,16 @@ ready for ordinary use and investigation.
 
 ## Next work
 
+### Active next work
+
+GitHub issue #184, Define environmental data retention lifecycle, is active.
+Accumulated environmental history is now producing real storage cost, so bounded
+retention has become an active platform need. #184 must preserve all
+fishing-observation state.
+
+After #184, inspect and disposition outstanding fishing-observation review
+patterns through the existing manual review path.
+
 ### Completed current work
 
 The planned observation and location foundation is complete. Little Bridge Sound
@@ -46,8 +56,8 @@ Fishing opportunity comparisons and a general fishing-conditions or fishability
 score remain later work. Their methods will not be selected until the evidence
 foundation matures.
 
-Forecast Sources spatial presentation remains deferred outside the active work
-sequence.
+#149, Forecast Sources spatial presentation, remains deferred outside the
+active work sequence.
 
 Hosted telemetry, replay and backfill, environmental observation ingestion,
 forecast verification, storage evolution, and compute evolution remain possible
