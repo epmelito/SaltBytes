@@ -4,6 +4,7 @@ from pathlib import Path
 
 from saltbytes.config import load_config
 from saltbytes.dashboard import DashboardSchemaError, export_dashboard_data
+from saltbytes.database import apply_environmental_retention
 from saltbytes.logging import configure_logging
 from saltbytes.observations import (
     retrieve_and_record_jennettes_pier_attempt,
@@ -57,6 +58,9 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
     review_parser.add_argument("--pattern-id")
     review_parser.add_argument("--disposition")
 
+    retention_parser = subparsers.add_parser("retention")
+    retention_parser.add_argument("--database")
+
     return parser.parse_args(argv)
 
 
@@ -96,8 +100,24 @@ def _run_current_observation_ingestion(database_path: Path | str) -> None:
         )
 
 
+def _run_environmental_retention(database_path: Path | str) -> None:
+    try:
+        result = apply_environmental_retention(database_path)
+    except Exception as exc:
+        raise SystemExit(f"error: environmental retention failed: {exc}") from None
+    print(f"protected successful run: {result.protected_run_id or 'none'}")
+    print(f"normalized rows removed: {result.normalized_rows_removed}")
+    print(f"metadata rows removed: {result.metadata_rows_removed}")
+    print(f"database size before: {result.database_size_before} bytes")
+    print(f"database size after checkpoint: {result.database_size_after} bytes")
+
+
 def main(argv: list[str] | None = None) -> None:
     arguments = _parse_arguments(argv)
+
+    if arguments.command == "retention" and arguments.database is not None:
+        _run_environmental_retention(arguments.database)
+        return
 
     if (
         arguments.command == "observations"
@@ -161,6 +181,10 @@ def main(argv: list[str] | None = None) -> None:
     config = load_config()
 
     configure_logging(config)
+
+    if arguments.command == "retention":
+        _run_environmental_retention(config["storage"]["database_path"])
+        return
 
     if arguments.command == "observations":
         if arguments.observations_command == "ingest-current":
