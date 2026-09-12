@@ -7,7 +7,7 @@ import duckdb
 import pytest
 
 from saltbytes.dashboard import DashboardSchemaError, export_dashboard_data
-from saltbytes.database import initialize_database
+from saltbytes.database import apply_environmental_retention, initialize_database
 
 _LOCATION = {
     "id": "jennettes_pier",
@@ -324,6 +324,38 @@ def test_export_dashboard_data_writes_curated_public_json(tmp_path: Path) -> Non
     assert ".duckdb" not in serialized_export
     assert "biological_alignment" not in serialized_export
     assert "effective_wind_kmh" not in serialized_export
+
+
+def test_dashboard_conditions_and_provenance_survive_protected_run_retention(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "retained.duckdb"
+    output_path = tmp_path / "dashboard-data"
+    _seed_dashboard_database(database_path)
+
+    apply_environmental_retention(
+        database_path,
+        as_of=datetime(2026, 11, 1, tzinfo=timezone.utc),
+    )
+    export_dashboard_data(
+        _config(database_path),
+        output_path,
+        generated_at=datetime(2026, 11, 1, tzinfo=timezone.utc),
+    )
+
+    manifest = _read_json(output_path, "manifest.json")
+    assert manifest["latest_attempt"]["run_id"] == "run-success"
+    assert manifest["latest_success"]["run_id"] == "run-success"
+    conditions = _read_json(output_path, "conditions.json")
+    assert [row["run_id"] for row in conditions] == ["run-success"]
+    provenance = _read_json(output_path, "provenance.json")
+    assert {row["source"] for row in provenance} == {
+        "weather",
+        "pressure",
+        "wave",
+        "sst",
+        "tide",
+    }
 
 
 def test_dashboard_pressure_introduction_does_not_rewrite_older_provenance(

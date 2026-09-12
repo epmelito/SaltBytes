@@ -8,6 +8,7 @@ readonly raw_data_path="data/local/raw"
 readonly database_blob="state/saltbytes.duckdb"
 readonly publication_attempts=3
 readonly publication_retry_delay_seconds=2
+readonly artifact_retention_days=90
 readonly published_raw_paths_path="data/local/published-raw-paths.bin"
 readonly raw_reference_failures_path="data/local/raw-reference-failures.txt"
 
@@ -108,15 +109,69 @@ validate_database() {
         return 1
     fi
 
+    python scripts/validate_hosted_database.py "$database_path"
+}
+
+validate_raw_references() {
     python scripts/validate_hosted_database.py \
         "$database_path" \
         "$raw_data_path" \
         "$published_raw_paths_path" \
-        "$raw_reference_failures_path"
+        "$raw_reference_failures_path" > /dev/null
 }
 
 publish_database() {
     upload_blob "$database_blob" "$database_path" true
+}
+
+cleanup_historical_artifacts() {
+    local cutoff prefix listed_blobs blob_name
+    local artifact_total=0
+    local artifact_removed=0
+    local artifact_failed=0
+
+    cutoff="$(date -u -d "$artifact_retention_days days ago" +%Y-%m-%dT%H:%M:%SZ)" \
+        || return 1
+
+    # raw and recovery uploads are immutable, so last modified is their creation age
+    for prefix in raw/ recovery/; do
+        if ! listed_blobs="$(az storage blob list \
+            --account-name "$AZURE_STORAGE_ACCOUNT" \
+            --container-name "$AZURE_STORAGE_CONTAINER" \
+            --prefix "$prefix" \
+            --num-results "*" \
+            --auth-mode login \
+            --query "[?properties.lastModified < '$cutoff'].name" \
+            --output tsv \
+            --only-show-errors)"; then
+            echo "historical artifact listing failed: $prefix" >&2
+            return 1
+        fi
+
+        while IFS= read -r blob_name; do
+            [[ -z "$blob_name" ]] && continue
+            if [[ "$blob_name" != "$prefix"* || "$blob_name" == state/* ]]; then
+                echo "refusing lifecycle deletion outside $prefix: $blob_name" >&2
+                return 1
+            fi
+
+            ((artifact_total += 1))
+            if az storage blob delete \
+                --account-name "$AZURE_STORAGE_ACCOUNT" \
+                --container-name "$AZURE_STORAGE_CONTAINER" \
+                --name "$blob_name" \
+                --auth-mode login \
+                --only-show-errors; then
+                ((artifact_removed += 1))
+            else
+                ((artifact_failed += 1))
+                echo "historical artifact deletion failed: $blob_name" >&2
+            fi
+        done <<< "$listed_blobs"
+    done
+
+    echo "historical artifact cleanup totals: total=$artifact_total removed=$artifact_removed failed=$artifact_failed"
+    [[ "$artifact_failed" -eq 0 ]]
 }
 
 write_failure_manifest() {
@@ -173,6 +228,7 @@ main() {
     local publication_status=0
     local validation_status="failed"
     local canonical_status="not_attempted"
+    local cleanup_status="not_attempted"
     local run_id=""
 
     require_environment || return 1
@@ -187,10 +243,16 @@ main() {
         echo "fishing observation ingestion had source failures; source outcomes are shown above" >&2
     fi
 
-    publish_raw_snapshots
+    if ! saltbytes retention --database "$database_path"; then
+        echo "environmental retention failed; canonical state unchanged" >&2
+        return 1
+    fi
+
     if run_id="$(validate_database)"; then
         validation_status="passed"
-        if [[ -s "$raw_reference_failures_path" ]]; then
+        echo "retained database validation: passed"
+        publish_raw_snapshots
+        if ! validate_raw_references || [[ -s "$raw_reference_failures_path" ]]; then
             publication_status=1
         fi
     else
@@ -202,29 +264,39 @@ main() {
     elif [[ "$validation_status" == "passed" ]]; then
         if publish_database; then
             canonical_status="published"
+            if cleanup_historical_artifacts; then
+                cleanup_status="completed"
+            else
+                cleanup_status="failed"
+                publication_status=1
+            fi
         else
             canonical_status="failed"
             publication_status=1
         fi
     fi
 
-    if [[ "$publication_status" -ne 0 && "$validation_status" == "passed" ]]; then
-        publish_recovery \
-            "$run_id" "$validation_status" "$canonical_status" || true
-    elif [[ "$publication_status" -ne 0 ]]; then
-        echo "recovery publication status: not attempted; completed run database validation failed"
+    if [[ "$publication_status" -ne 0 && "$canonical_status" != "published" ]]; then
+        if [[ "$validation_status" == "passed" ]]; then
+            publish_recovery \
+                "$run_id" "$validation_status" "$canonical_status" || true
+        else
+            echo "recovery publication status: not attempted; completed run database validation failed"
+        fi
     fi
 
     if [[ "$pipeline_status" -ne 0 ]]; then
-        if [[ "$publication_status" -ne 0 ]]; then
-            echo "final hosted outcome: pipeline failed with status $pipeline_status and publication incomplete; canonical state unchanged" >&2
-        else
+        if [[ "$canonical_status" == "published" ]]; then
             echo "final hosted outcome: pipeline failed with status $pipeline_status after canonical state publication" >&2
+        elif [[ "$publication_status" -ne 0 ]]; then
+            echo "final hosted outcome: pipeline failed with status $pipeline_status and publication incomplete; canonical state unchanged" >&2
         fi
         return "$pipeline_status"
     fi
 
-    if [[ "$publication_status" -ne 0 ]]; then
+    if [[ "$cleanup_status" == "failed" ]]; then
+        echo "final hosted outcome: canonical state published; historical artifact cleanup failed" >&2
+    elif [[ "$publication_status" -ne 0 ]]; then
         echo "final hosted outcome: publication incomplete; canonical state unchanged" >&2
     else
         echo "final hosted outcome: canonical state published"

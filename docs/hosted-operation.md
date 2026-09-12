@@ -81,6 +81,32 @@ failed pipeline can therefore retain its run record and accepted raw data when
 state publication succeeds, while its nonzero status prevents report generation
 and Pages deployment.
 
+After environmental and fishing-observation ingestion, the runner applies the
+fixed environmental retention policy to the local DuckDB file, checkpoints it,
+and reports deleted row counts and file sizes. It validates that retained
+database before uploading the current run's raw snapshots, verifies the current
+raw references, and only then replaces `state/saltbytes.duckdb`. A retention or
+retained-database validation failure stops publication and leaves canonical
+state unchanged.
+
+DuckDB 1.5 cannot delete foreign-key children and their parents in one
+transaction because its foreign-key index continues to see the deleted child
+keys until commit. Retention therefore checkpoints and closes the original,
+creates a collision-safe working copy beside it, and performs the required
+child-to-parent deletions in transactional stages on that copy. It checkpoints
+and closes the result, verifies the protected successful run and exact fishing
+observation state, and atomically replaces the original local file only after
+all validation passes. Any earlier failure discards the working copy and leaves
+the original local database unchanged.
+
+Only after the canonical database upload succeeds, the runner lists all blobs
+under `raw/` and `recovery/` and removes artifacts whose last-modified time is
+older than approximately 90 days. Listing explicitly requests all results, so
+cleanup does not stop at Azure CLI's 5,000-result default. Cleanup never targets
+`state/`. A historical-artifact cleanup failure fails the hosted run and remains
+visible in its log, but it does not undo the canonical database already
+published. Blob soft delete remains enabled for seven days.
+
 Fishing observation ingestion is isolated from forecast ingestion and between
 report sources. A fetch, parse, or persistence failure preserves prior valid
 observation history, records a source-specific failed attempt when possible,

@@ -1,11 +1,54 @@
 import hashlib
 import math
+import shutil
+import tempfile
 from contextlib import nullcontext
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import duckdb
+
+_NORMALIZED_ENVIRONMENTAL_TABLES = (
+    "tide_events",
+    "tide_phase_hourly",
+    "forecast_hourly",
+    "wave_hourly",
+    "sst_hourly",
+    "cloud_cover_hourly",
+    "atmospheric_context_hourly",
+    "pressure_context_hourly",
+    "solar_context_hourly",
+)
+_ENVIRONMENTAL_METADATA_TABLES = (
+    "tide_snapshots",
+    "forecast_snapshots",
+    "source_results",
+    "run_location_solar_context",
+    "run_locations",
+    "pipeline_runs",
+)
+_FISHING_OBSERVATION_TABLES = (
+    "fishing_observation_reports",
+    "fishing_observation_retrievals",
+    "fishing_observation_assertions",
+    "fishing_observation_review_candidates",
+    "fishing_observation_review_patterns",
+    "fishing_observation_review_candidate_patterns",
+    "fishing_observation_ingestion_attempts",
+)
+_NORMALIZED_RETENTION_DAYS = 7
+_METADATA_RETENTION_DAYS = 90
+
+
+@dataclass(frozen=True)
+class EnvironmentalRetentionResult:
+    protected_run_id: str | None
+    normalized_rows_removed: int
+    metadata_rows_removed: int
+    database_size_before: int
+    database_size_after: int
 
 
 class SourcePersistenceError(RuntimeError):
@@ -725,6 +768,341 @@ def initialize_database(database_path: Path | str) -> None:
             raise
         else:
             connection.execute("commit")
+
+
+def _delete_environmental_rows(
+    connection: duckdb.DuckDBPyConnection,
+    table_name: str,
+    run_table_name: str,
+    *,
+    snapshot_keyed: bool,
+) -> int:
+    if snapshot_keyed:
+        predicate = f"""
+            snapshot_id in (
+                select snapshot_id
+                from forecast_snapshots
+                where run_id in (select run_id from {run_table_name})
+            )
+        """
+    else:
+        predicate = f"run_id in (select run_id from {run_table_name})"
+
+    rows_removed = connection.execute(
+        f"select count(*) from {table_name} where {predicate}"
+    ).fetchone()[0]
+    connection.execute(f"delete from {table_name} where {predicate}")
+    return rows_removed
+
+
+def _run_retention_stage(
+    connection: duckdb.DuckDBPyConnection,
+    tables: tuple[tuple[str, bool], ...],
+    run_table_name: str,
+) -> int:
+    connection.execute("begin transaction")
+    rows_removed = 0
+    try:
+        for table_name, snapshot_keyed in tables:
+            rows_removed += _delete_environmental_rows(
+                connection,
+                table_name,
+                run_table_name,
+                snapshot_keyed=snapshot_keyed,
+            )
+    except Exception:
+        connection.execute("rollback")
+        raise
+    else:
+        connection.execute("commit")
+    return rows_removed
+
+
+def _environmental_run_count(
+    connection: duckdb.DuckDBPyConnection,
+    table_name: str,
+    run_id: str,
+) -> int:
+    if table_name in {"pipeline_runs", "run_locations", "source_results"}:
+        predicate = "run_id = ?"
+    elif table_name in {"run_location_solar_context", "solar_context_hourly"}:
+        predicate = "run_id = ?"
+    else:
+        predicate = """
+            snapshot_id in (
+                select snapshot_id from forecast_snapshots where run_id = ?
+            )
+        """
+    return connection.execute(
+        f"select count(*) from {table_name} where {predicate}",
+        [run_id],
+    ).fetchone()[0]
+
+
+def _protected_run_counts(
+    connection: duckdb.DuckDBPyConnection,
+    protected_run_id: str | None,
+) -> dict[str, int]:
+    if protected_run_id is None:
+        return {}
+    return {
+        table_name: _environmental_run_count(
+            connection,
+            table_name,
+            protected_run_id,
+        )
+        for table_name in (
+            *_NORMALIZED_ENVIRONMENTAL_TABLES,
+            *_ENVIRONMENTAL_METADATA_TABLES,
+        )
+    }
+
+
+def _validate_unchanged_observation_state(
+    connection: duckdb.DuckDBPyConnection,
+) -> None:
+    for table_name in _FISHING_OBSERVATION_TABLES:
+        changed_rows = connection.execute(
+            f"""
+            select count(*)
+            from (
+                (select * from main.{table_name}
+                except
+                select * from retention_original.{table_name})
+                union all
+                (select * from retention_original.{table_name}
+                except
+                select * from main.{table_name})
+            ) as differences
+            """
+        ).fetchone()[0]
+        if changed_rows:
+            raise ValueError(
+                f"retention changed fishing-observation table: {table_name}"
+            )
+
+
+def _validate_retained_working_copy(
+    original_database_path: Path,
+    working_database_path: Path,
+    normalized_cutoff: datetime,
+    metadata_cutoff: datetime,
+    protected_run_id: str | None,
+    protected_counts: dict[str, int],
+) -> None:
+    with duckdb.connect(str(working_database_path), read_only=True) as connection:
+        original_path_literal = str(original_database_path).replace("'", "''")
+        connection.execute(
+            f"attach '{original_path_literal}' as retention_original (read_only)"
+        )
+        try:
+            latest_run = connection.execute(
+                """
+                select run_id, completed_at, status
+                from pipeline_runs
+                order by started_at desc, run_id desc
+                limit 1
+                """
+            ).fetchone()
+            if latest_run is None:
+                raise ValueError("retained database has no pipeline runs")
+            if latest_run[1] is None or latest_run[2] not in {"failed", "success"}:
+                raise ValueError(
+                    f"retained database has an unfinished latest run: {latest_run[0]}"
+                )
+
+            for table_name in _NORMALIZED_ENVIRONMENTAL_TABLES:
+                if table_name == "solar_context_hourly":
+                    predicate = """
+                        run_id in (
+                            select run_id
+                            from retention_original.pipeline_runs
+                            where started_at < ? and run_id is distinct from ?
+                        )
+                    """
+                else:
+                    predicate = """
+                        snapshot_id in (
+                            select snapshots.snapshot_id
+                            from retention_original.forecast_snapshots as snapshots
+                            inner join retention_original.pipeline_runs as runs using (run_id)
+                            where runs.started_at < ?
+                                and runs.run_id is distinct from ?
+                        )
+                    """
+                if connection.execute(
+                    f"select count(*) from {table_name} where {predicate}",
+                    [normalized_cutoff, protected_run_id],
+                ).fetchone()[0]:
+                    raise ValueError(
+                        f"retained database still has expired rows in {table_name}"
+                    )
+
+            for table_name in _ENVIRONMENTAL_METADATA_TABLES:
+                if table_name == "tide_snapshots":
+                    predicate = """
+                        snapshot_id in (
+                            select snapshots.snapshot_id
+                            from retention_original.forecast_snapshots as snapshots
+                            inner join retention_original.pipeline_runs as runs using (run_id)
+                            where runs.started_at < ?
+                                and runs.run_id is distinct from ?
+                        )
+                    """
+                else:
+                    predicate = """
+                        run_id in (
+                            select run_id
+                            from retention_original.pipeline_runs
+                            where started_at < ? and run_id is distinct from ?
+                        )
+                    """
+                if connection.execute(
+                    f"select count(*) from {table_name} where {predicate}",
+                    [metadata_cutoff, protected_run_id],
+                ).fetchone()[0]:
+                    raise ValueError(
+                        f"retained database still has expired rows in {table_name}"
+                    )
+
+            retained_protected_counts = _protected_run_counts(
+                connection,
+                protected_run_id,
+            )
+            if retained_protected_counts != protected_counts:
+                raise ValueError("retention changed the protected successful run")
+
+            _validate_unchanged_observation_state(connection)
+        finally:
+            connection.execute("detach retention_original")
+
+
+def _replace_retained_database(
+    working_database_path: Path,
+    original_database_path: Path,
+) -> None:
+    working_database_path.replace(original_database_path)
+
+
+def apply_environmental_retention(
+    database_path: Path | str,
+    *,
+    as_of: datetime | None = None,
+) -> EnvironmentalRetentionResult:
+    database_path = Path(database_path).resolve()
+    if not database_path.is_file():
+        raise ValueError(f"database file does not exist: {database_path}")
+
+    reference_time = as_of or datetime.now(timezone.utc)
+    if reference_time.tzinfo is None or reference_time.utcoffset() is None:
+        raise ValueError("retention reference time must include a timezone")
+    reference_time = reference_time.astimezone(timezone.utc)
+    normalized_cutoff = reference_time - timedelta(days=_NORMALIZED_RETENTION_DAYS)
+    metadata_cutoff = reference_time - timedelta(days=_METADATA_RETENTION_DAYS)
+
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("checkpoint")
+
+    database_size_before = database_path.stat().st_size
+    normalized_rows_removed = 0
+    metadata_rows_removed = 0
+    working_file = tempfile.NamedTemporaryFile(
+        prefix=f".{database_path.name}.retention-",
+        suffix=".duckdb",
+        dir=database_path.parent,
+        delete=False,
+    )
+    working_database_path = Path(working_file.name)
+    working_file.close()
+
+    try:
+        shutil.copy2(database_path, working_database_path)
+        with duckdb.connect(str(working_database_path)) as connection:
+            protected_run = connection.execute(
+                """
+                select run_id
+                from pipeline_runs
+                where status = 'success' and completed_at is not null
+                order by started_at desc, run_id desc
+                limit 1
+                """
+            ).fetchone()
+            protected_run_id = protected_run[0] if protected_run is not None else None
+            protected_counts = _protected_run_counts(connection, protected_run_id)
+
+            connection.execute(
+                """
+                create temporary table retention_normalized_runs as
+                select run_id
+                from pipeline_runs
+                where started_at < ?
+                    and run_id is distinct from ?
+                """,
+                [normalized_cutoff, protected_run_id],
+            )
+            connection.execute(
+                """
+                create temporary table retention_metadata_runs as
+                select run_id
+                from pipeline_runs
+                where started_at < ?
+                    and run_id is distinct from ?
+                """,
+                [metadata_cutoff, protected_run_id],
+            )
+
+            normalized_rows_removed = _run_retention_stage(
+                connection,
+                tuple(
+                    (table_name, table_name != "solar_context_hourly")
+                    for table_name in _NORMALIZED_ENVIRONMENTAL_TABLES
+                ),
+                "retention_normalized_runs",
+            )
+            metadata_rows_removed += _run_retention_stage(
+                connection,
+                (("tide_snapshots", True),),
+                "retention_metadata_runs",
+            )
+            metadata_rows_removed += _run_retention_stage(
+                connection,
+                (
+                    ("forecast_snapshots", False),
+                    ("source_results", False),
+                    ("run_location_solar_context", False),
+                    ("run_locations", False),
+                ),
+                "retention_metadata_runs",
+            )
+            metadata_rows_removed += _run_retention_stage(
+                connection,
+                (("pipeline_runs", False),),
+                "retention_metadata_runs",
+            )
+
+            connection.execute("checkpoint")
+
+        database_size_after = working_database_path.stat().st_size
+        _validate_retained_working_copy(
+            database_path,
+            working_database_path,
+            normalized_cutoff,
+            metadata_cutoff,
+            protected_run_id,
+            protected_counts,
+        )
+        _replace_retained_database(working_database_path, database_path)
+    finally:
+        working_database_path.unlink(missing_ok=True)
+        Path(f"{working_database_path}.wal").unlink(missing_ok=True)
+
+    return EnvironmentalRetentionResult(
+        protected_run_id=protected_run_id,
+        normalized_rows_removed=normalized_rows_removed,
+        metadata_rows_removed=metadata_rows_removed,
+        database_size_before=database_size_before,
+        database_size_after=database_size_after,
+    )
 
 
 def _migrate_source_result_statuses(connection: duckdb.DuckDBPyConnection) -> None:

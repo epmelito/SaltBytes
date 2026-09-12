@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -77,6 +78,40 @@ def test_main_rejects_invalid_configuration_before_pipeline(
         main([])
 
     assert pipeline_called is False
+
+
+def test_retention_command_reports_policy_result_without_loading_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "retention.duckdb"
+    monkeypatch.setattr(
+        "saltbytes.cli.load_config",
+        lambda: pytest.fail("explicit retention database must not load configuration"),
+    )
+    monkeypatch.setattr(
+        "saltbytes.cli.apply_environmental_retention",
+        lambda path: SimpleNamespace(
+            protected_run_id="run123",
+            normalized_rows_removed=100,
+            metadata_rows_removed=10,
+            database_size_before=2048,
+            database_size_after=1024,
+        )
+        if path == str(database_path)
+        else pytest.fail("unexpected database path"),
+    )
+
+    main(["retention", "--database", str(database_path)])
+
+    assert capsys.readouterr().out == (
+        "protected successful run: run123\n"
+        "normalized rows removed: 100\n"
+        "metadata rows removed: 10\n"
+        "database size before: 2048 bytes\n"
+        "database size after checkpoint: 1024 bytes\n"
+    )
 
 
 def test_main_requires_explicit_report_type(

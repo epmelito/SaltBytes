@@ -142,6 +142,22 @@ Source-specific coordinates and NOAA station identifiers are provenance and
 configuration details. Cross-source integration should use the stable location
 identifier rather than comparing raw coordinates.
 
+## Retention lifecycle
+
+Environmental rows use `pipeline_runs.started_at` as their age anchor. The
+normalized hourly tables, tide events, and their deterministic solar context
+are retained for seven days. Compact run, location, source-result, snapshot,
+and calculation-provenance records are retained for approximately 90 days.
+
+The most recent completed successful environmental run is exempt from both
+cutoffs. Its normalized facts and the metadata needed to render and trace that
+run remain until a newer completed successful run exists. This prevents an
+extended source outage from removing the only usable successful state.
+
+All `fishing_observation_*` tables are outside the environmental lifecycle.
+Reports, retrievals, assertions, review work, human dispositions, and ingestion
+attempts are retained long term and are not changed by environmental cleanup.
+
 ## Integrated hourly view
 
 ```text
