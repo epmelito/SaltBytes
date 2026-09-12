@@ -5,6 +5,7 @@ from pathlib import Path
 from saltbytes.config import load_config
 from saltbytes.dashboard import DashboardSchemaError, export_dashboard_data
 from saltbytes.database import apply_environmental_retention
+from saltbytes.lifecycle_telemetry import database_retention_record, encode_telemetry
 from saltbytes.logging import configure_logging
 from saltbytes.observations import (
     retrieve_and_record_jennettes_pier_attempt,
@@ -60,6 +61,7 @@ def _parse_arguments(argv: list[str] | None) -> argparse.Namespace:
 
     retention_parser = subparsers.add_parser("retention")
     retention_parser.add_argument("--database")
+    retention_parser.add_argument("--json", action="store_true")
 
     return parser.parse_args(argv)
 
@@ -100,11 +102,24 @@ def _run_current_observation_ingestion(database_path: Path | str) -> None:
         )
 
 
-def _run_environmental_retention(database_path: Path | str) -> None:
+def _run_environmental_retention(
+    database_path: Path | str,
+    *,
+    json_output: bool = False,
+) -> None:
     try:
         result = apply_environmental_retention(database_path)
     except Exception as exc:
         raise SystemExit(f"error: environmental retention failed: {exc}") from None
+    if json_output:
+        try:
+            print(encode_telemetry(database_retention_record(result)))
+        except Exception as exc:
+            print(
+                f"environmental retention telemetry unavailable: {exc}",
+                file=sys.stderr,
+            )
+        return
     print(f"protected successful run: {result.protected_run_id or 'none'}")
     print(f"normalized rows removed: {result.normalized_rows_removed}")
     print(f"metadata rows removed: {result.metadata_rows_removed}")
@@ -116,7 +131,10 @@ def main(argv: list[str] | None = None) -> None:
     arguments = _parse_arguments(argv)
 
     if arguments.command == "retention" and arguments.database is not None:
-        _run_environmental_retention(arguments.database)
+        _run_environmental_retention(
+            arguments.database,
+            json_output=arguments.json,
+        )
         return
 
     if (
@@ -183,7 +201,10 @@ def main(argv: list[str] | None = None) -> None:
     configure_logging(config)
 
     if arguments.command == "retention":
-        _run_environmental_retention(config["storage"]["database_path"])
+        _run_environmental_retention(
+            config["storage"]["database_path"],
+            json_output=arguments.json,
+        )
         return
 
     if arguments.command == "observations":

@@ -83,7 +83,9 @@ and Pages deployment.
 
 After environmental and fishing-observation ingestion, the runner applies the
 fixed environmental retention policy to the local DuckDB file, checkpoints it,
-and reports deleted row counts and file sizes. It validates that retained
+and emits a versioned JSON log record with the current run and observation time,
+policy values, protected successful run, removed and retained row totals, and
+file sizes before retention and after checkpoint. It validates that retained
 database before uploading the current run's raw snapshots, verifies the current
 raw references, and only then replaces `state/saltbytes.duckdb`. A retention or
 retained-database validation failure stops publication and leaves canonical
@@ -103,9 +105,19 @@ Only after the canonical database upload succeeds, the runner lists all blobs
 under `raw/` and `recovery/` and removes artifacts whose last-modified time is
 older than approximately 90 days. Listing explicitly requests all results, so
 cleanup does not stop at Azure CLI's 5,000-result default. Cleanup never targets
-`state/`. A historical-artifact cleanup failure fails the hosted run and remains
-visible in its log, but it does not undo the canonical database already
-published. Blob soft delete remains enabled for seven days.
+`state/`. The same complete listings produce a versioned JSON log record with
+active-before-cleanup, eligible, successfully removed, failed, and calculated
+active-after-cleanup counts and logical payload bytes, along with the cutoff and
+published DuckDB size. If rich inventory cannot be interpreted, the runner logs
+telemetry as unavailable and uses the original name-and-age listing for required
+cleanup. Failure of that required listing or a deletion stops further
+destructive prefix cleanup and fails the run without undoing the canonical
+database already published. A separate read-only listing reports soft-deleted
+snapshots created by overwrites of the canonical database. Failure of that
+optional observation is logged as unavailable and does not fail the run.
+Workflow logs are the temporary historical carrier and require at least 30 days
+of repository Actions retention. Blob soft delete remains enabled for seven
+days.
 
 Fishing observation ingestion is isolated from forecast ingestion and between
 report sources. A fetch, parse, or persistence failure preserves prior valid

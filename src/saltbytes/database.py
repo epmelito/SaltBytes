@@ -44,9 +44,15 @@ _METADATA_RETENTION_DAYS = 90
 
 @dataclass(frozen=True)
 class EnvironmentalRetentionResult:
+    pipeline_run_id: str
+    observed_at: datetime
+    normalized_retention_days: int
+    metadata_retention_days: int
     protected_run_id: str | None
     normalized_rows_removed: int
+    normalized_rows_retained: int
     metadata_rows_removed: int
+    metadata_rows_retained: int
     database_size_before: int
     database_size_after: int
 
@@ -858,6 +864,16 @@ def _protected_run_counts(
     }
 
 
+def _environmental_row_count(
+    connection: duckdb.DuckDBPyConnection,
+    table_names: tuple[str, ...],
+) -> int:
+    return sum(
+        connection.execute(f"select count(*) from {table_name}").fetchone()[0]
+        for table_name in table_names
+    )
+
+
 def _validate_unchanged_observation_state(
     connection: duckdb.DuckDBPyConnection,
 ) -> None:
@@ -1018,6 +1034,17 @@ def apply_environmental_retention(
     try:
         shutil.copy2(database_path, working_database_path)
         with duckdb.connect(str(working_database_path)) as connection:
+            current_run = connection.execute(
+                """
+                select run_id
+                from pipeline_runs
+                order by started_at desc, run_id desc
+                limit 1
+                """
+            ).fetchone()
+            if current_run is None:
+                raise ValueError("retention database has no pipeline runs")
+            pipeline_run_id = current_run[0]
             protected_run = connection.execute(
                 """
                 select run_id
@@ -1081,6 +1108,14 @@ def apply_environmental_retention(
             )
 
             connection.execute("checkpoint")
+            normalized_rows_retained = _environmental_row_count(
+                connection,
+                _NORMALIZED_ENVIRONMENTAL_TABLES,
+            )
+            metadata_rows_retained = _environmental_row_count(
+                connection,
+                _ENVIRONMENTAL_METADATA_TABLES,
+            )
 
         database_size_after = working_database_path.stat().st_size
         _validate_retained_working_copy(
@@ -1097,9 +1132,15 @@ def apply_environmental_retention(
         Path(f"{working_database_path}.wal").unlink(missing_ok=True)
 
     return EnvironmentalRetentionResult(
+        pipeline_run_id=pipeline_run_id,
+        observed_at=reference_time,
+        normalized_retention_days=_NORMALIZED_RETENTION_DAYS,
+        metadata_retention_days=_METADATA_RETENTION_DAYS,
         protected_run_id=protected_run_id,
         normalized_rows_removed=normalized_rows_removed,
+        normalized_rows_retained=normalized_rows_retained,
         metadata_rows_removed=metadata_rows_removed,
+        metadata_rows_retained=metadata_rows_retained,
         database_size_before=database_size_before,
         database_size_after=database_size_after,
     )
